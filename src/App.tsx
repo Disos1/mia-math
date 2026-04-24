@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { loadProfile, createProfile, updateProfile, clearProfile, saveProfile } from './lib/profile';
+import { loadProfile, createProfile, updateProfile, clearProfile, saveProfile, isRediagnosticDue } from './lib/profile';
 import { loadMasteryMap, saveMasteryMap } from './lib/sessionStore';
 import { AVATAR_BY_ID } from './constants/avatars';
 import { ENTRY_ITEMS } from './constants/diagnosticItems';
@@ -66,6 +66,10 @@ export default function App() {
   // Session state — mode chosen in ModePicker, passed to Session
   const [sessionMode, setSessionMode] = useState<SessionMode>('time');
 
+  // Re-diagnostic flag — true when the current diagnostic run is a re-check
+  // (not first-time onboarding). Affects intro/results copy + resets counter.
+  const [isRediag, setIsRediag] = useState(false);
+
   // Auth user ID ref (avoids stale closure inside onAuthStateChange)
   const authUserIdRef = useRef<string | null>(null);
 
@@ -130,6 +134,18 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, [handleAuthSession]);
+
+  // ── Re-diagnostic gate ──────────────────────────────────────────────────────
+  // Whenever the app lands on modePicker, check whether a re-diagnostic is due.
+  // If so, silently redirect to diagIntro with the rediag flag set.
+  // The profile state is the dependency — this covers auth-hydration, session
+  // completion, and initial load equally.
+  useEffect(() => {
+    if (screen === 'modePicker' && profile && isRediagnosticDue(profile)) {
+      setIsRediag(true);
+      setScreen('diagIntro');
+    }
+  }, [screen, profile]);
 
   // ── Navigation helpers ──────────────────────────────────────────────────────
 
@@ -240,9 +256,15 @@ export default function App() {
 
   const handleDiagComplete = () => {
     if (profile) {
-      const updated = updateProfile({ onboardingComplete: true });
+      const updates: Partial<typeof profile> = { onboardingComplete: true };
+      if (isRediag) {
+        // Reset the session counter so the trigger doesn't fire again immediately
+        updates.sessionsCompleted = 0;
+      }
+      const updated = updateProfile(updates);
       setProfile(updated);
     }
+    setIsRediag(false);
     setScreen('modePicker');
   };
 
@@ -290,6 +312,7 @@ export default function App() {
         return (
           <DiagnosticIntro
             avatar={avatar}
+            isRediag={isRediag}
             onStart={handleDiagStart}
             onParent={openParent}
           />
@@ -317,6 +340,7 @@ export default function App() {
         return (
           <DiagnosticResults
             avatar={avatar}
+            isRediag={isRediag}
             gaps={diagGaps}
             strengths={diagStrengths}
             onNext={handleDiagComplete}

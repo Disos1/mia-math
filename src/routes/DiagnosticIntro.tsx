@@ -6,25 +6,29 @@ import { BigButton } from '../components/primitives/BigButton';
 import { ParentGate } from '../components/layout/ParentGate';
 
 interface Props {
-  avatar: Avatar;
-  onStart: () => void;
-  onParent: () => void;
+  avatar:    Avatar;
+  isRediag?: boolean;   // true → re-diagnostic (returning user), false → onboarding
+  onStart:   () => void;
+  onParent:  () => void;
 }
 
-export function DiagnosticIntro({ avatar, onStart, onParent }: Props) {
-  const g = { gender: 'f' as const };
+export function DiagnosticIntro({ avatar, isRediag = false, onStart, onParent }: Props) {
+  const g      = { gender: 'f' as const };
+  const prefix = isRediag ? 'rediag_intro' : 'diag_intro';
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in">
       <div className="mb-8">
         <AvatarBadge avatar={avatar} size="lg" />
       </div>
-      <h2 className="text-3xl font-bold mb-6">{t('diag_intro.title', g)}</h2>
+      <h2 className="text-3xl font-bold mb-6">
+        {t(`${prefix}.title` as Parameters<typeof t>[0], g)}
+      </h2>
       <SpeechBubble avatar={avatar}>
-        {t('diag_intro.speech', g)}
+        {t(`${prefix}.speech` as Parameters<typeof t>[0], g)}
       </SpeechBubble>
       <div className="mt-10">
         <BigButton onClick={onStart} color="#FF9B7A">
-          {t('diag_intro.cta', g)}
+          {t(`${prefix}.cta` as Parameters<typeof t>[0], g)}
         </BigButton>
       </div>
       <ParentGate onOpen={onParent} />

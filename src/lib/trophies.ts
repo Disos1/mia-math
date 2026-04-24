@@ -35,10 +35,12 @@ export interface SessionStar {
 }
 
 export interface Trophy {
-  id:       string;
-  labelKey: string;   // i18n key — resolve via t(labelKey as LocaleKey, {gender})
-  emoji:    string;
-  earned:   boolean;
+  id:        string;
+  labelKey:  string;   // i18n key — resolve via t(labelKey as LocaleKey, {gender})
+  emoji:     string;
+  earned:    boolean;
+  progress:  number;   // current value toward target
+  target:    number;   // threshold to earn
 }
 
 export interface TrophyState {
@@ -47,6 +49,7 @@ export interface TrophyState {
   trophies:      Trophy[];
   earnedCount:   number;
   totalTrophies: number;
+  currentStreak: number;   // consecutive days ending today (or yesterday)
 }
 
 // ─── Main entry ──────────────────────────────────────────────────────────────
@@ -78,54 +81,72 @@ export function computeTrophyState(records: SessionRecord[]): TrophyState {
 
   const maxStreak = computeMaxDayStreak(completed);
 
+  const currentStreak = computeCurrentStreak(completed);
+
   const trophies: Trophy[] = [
     {
       id: 'first_session',
       labelKey: 'trophy.first_session',
       emoji: '🌱',
       earned: sessionCount >= 1,
+      progress: Math.min(sessionCount, 1),
+      target: 1,
     },
     {
       id: 'three_sessions',
       labelKey: 'trophy.three_sessions',
       emoji: '🔥',
       earned: sessionCount >= 3,
+      progress: Math.min(sessionCount, 3),
+      target: 3,
     },
     {
       id: 'five_sessions',
       labelKey: 'trophy.five_sessions',
       emoji: '🌟',
       earned: sessionCount >= 5,
+      progress: Math.min(sessionCount, 5),
+      target: 5,
     },
     {
       id: 'ten_sessions',
       labelKey: 'trophy.ten_sessions',
       emoji: '🏆',
       earned: sessionCount >= 10,
+      progress: Math.min(sessionCount, 10),
+      target: 10,
     },
     {
       id: 'perfect_session',
       labelKey: 'trophy.perfect_session',
       emoji: '🎯',
       earned: perfectCount >= 1,
+      progress: Math.min(perfectCount, 1),
+      target: 1,
     },
     {
       id: 'five_high_acc',
       labelKey: 'trophy.five_high_acc',
       emoji: '⚡',
       earned: highAccCount >= 5,
+      progress: Math.min(highAccCount, 5),
+      target: 5,
     },
     {
       id: 'three_day_streak',
       labelKey: 'trophy.three_day_streak',
       emoji: '📅',
       earned: maxStreak >= 3,
+      progress: Math.min(maxStreak, 3),
+      target: 3,
     },
     {
       id: 'twenty_stars',
       labelKey: 'trophy.twenty_stars',
       emoji: '✨',
       earned: totalStars >= 20,
+      progress: Math.min(totalStars, 20),
+      target: 20,
     },
   ];
 
@@ -137,6 +158,7 @@ export function computeTrophyState(records: SessionRecord[]): TrophyState {
     trophies,
     earnedCount,
     totalTrophies: trophies.length,
+    currentStreak,
   };
 }
 
@@ -170,6 +192,37 @@ function computeMaxDayStreak(records: SessionRecord[]): number {
     prevTime = t;
   }
   return max;
+}
+
+/**
+ * Days in the streak that ends today (or yesterday, to survive past-midnight
+ * practice). Returns 0 if the most-recent practice was 2+ days ago.
+ */
+function computeCurrentStreak(records: SessionRecord[]): number {
+  const days = new Set(
+    records.filter(r => r.completedAt).map(r => toLocalDate(r.completedAt!)),
+  );
+
+  const today = toLocalDate(new Date().toISOString());
+  const yesterday = toLocalDate(
+    new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  );
+
+  // Must have practiced today or yesterday to have an active streak
+  if (!days.has(today) && !days.has(yesterday)) return 0;
+
+  let streak = 0;
+  let cursor = new Date();
+  while (true) {
+    const dayStr = toLocalDate(cursor.toISOString());
+    if (days.has(dayStr)) {
+      streak++;
+      cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+    } else {
+      break;
+    }
+  }
+  return streak;
 }
 
 function toLocalDate(iso: string): string {

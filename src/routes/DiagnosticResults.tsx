@@ -6,17 +6,22 @@ import { ParentGate } from '../components/layout/ParentGate';
 import type { LocaleKey } from '../i18n/t';
 
 interface Props {
-  avatar: Avatar;
-  gaps: string[];
+  avatar:    Avatar;
+  gaps:      string[];
   strengths: string[];
-  onNext: () => void;
-  onParent: () => void;
+  isRediag?: boolean;
+  onNext:    () => void;
+  onParent:  () => void;
 }
 
-export function DiagnosticResults({ avatar, gaps, strengths, onNext, onParent }: Props) {
+export function DiagnosticResults({ avatar, gaps, strengths, isRediag = false, onNext, onParent }: Props) {
   const g = { gender: 'f' as const };
 
-  const allClear = gaps.length === 0;
+  const allClear      = gaps.length === 0;
+  const titleKey      = isRediag ? 'rediag_results.title'    : 'diag_results.title';
+  const subtitleKey   = isRediag ? 'rediag_results.subtitle' : 'diag_results.subtitle';
+  const strengthsKey  = isRediag ? 'rediag_results.maintained' : 'diag_results.strengths';
+  const workOnKey     = isRediag ? 'rediag_results.work_on'  : 'diag_results.work_on';
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in">
@@ -24,17 +29,17 @@ export function DiagnosticResults({ avatar, gaps, strengths, onNext, onParent }:
 
         <div className="flex items-center gap-3 mb-5">
           <AvatarBadge avatar={avatar} size="md" />
-          <h2 className="text-3xl font-bold">{t('diag_results.title', g)}</h2>
+          <h2 className="text-3xl font-bold">{t(titleKey as LocaleKey, g)}</h2>
         </div>
 
         <p className="text-lg text-gray-700 mb-5">
-          {allClear ? t('diag_results.all_clear', g) : t('diag_results.subtitle', g)}
+          {allClear ? t('diag_results.all_clear', g) : t(subtitleKey as LocaleKey, g)}
         </p>
 
         {!allClear && strengths.length > 0 && (
           <div className="mb-4">
             <div className="text-sm text-gray-500 mb-2 font-medium">
-              {t('diag_results.strengths', g)}
+              {t(strengthsKey as LocaleKey, g)}
             </div>
             {strengths.map(skillCode => (
               <div key={skillCode} className="flex items-center gap-2 mb-1.5">
@@ -50,7 +55,7 @@ export function DiagnosticResults({ avatar, gaps, strengths, onNext, onParent }:
         {gaps.length > 0 && (
           <div className="mb-6">
             <div className="text-sm text-gray-500 mb-2 font-medium">
-              {t('diag_results.work_on', g)}
+              {t(workOnKey as LocaleKey, g)}
             </div>
             {gaps.map(skillCode => (
               <div key={skillCode} className="flex items-center gap-2 mb-1.5">
