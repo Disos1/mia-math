@@ -1,14 +1,14 @@
 import type { Profile, AvatarId } from '../types';
+import { syncProfile } from './sync';
 
 const STORAGE_KEY = 'mia_profile';
 
 /**
- * Profile store — localStorage-backed for offline support, Supabase-synced when online.
+ * Profile store — localStorage-backed for offline support, Supabase write-through.
  *
- * Phase 0: localStorage only. Supabase sync added in Phase 1.
- *
- * All state is profile-keyed from day one. Even though v1 has only one profile
- * (Mia's), the data model supports multi-profile for future use (Leo, Alice).
+ * Every write hits localStorage first (fast, works offline), then fires a
+ * fire-and-forget push to Supabase via syncProfile(). syncProfile() is a no-op
+ * until initSync() has been called with a valid auth user ID.
  */
 
 export function loadProfile(): Profile | null {
@@ -22,6 +22,7 @@ export function loadProfile(): Profile | null {
 
 export function saveProfile(profile: Profile): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  syncProfile(profile); // fire-and-forget; no-op if not authed
 }
 
 export function createProfile(avatarId: AvatarId): Profile {

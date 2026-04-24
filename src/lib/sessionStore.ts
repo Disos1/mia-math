@@ -1,10 +1,12 @@
 /**
- * Session persistence — Sonnet-flavored plumbing for Opus-generated state.
+ * Session persistence — localStorage primary, Supabase write-through.
  *
  * Stores MasteryMap + per-skill attempt ledger + the last N session records
  * in localStorage. Profile-keyed so multi-profile support is additive.
  *
- * Supabase sync lives here later (Phase 7); for now everything is local.
+ * MasteryMap changes are pushed to Supabase after every write (fire-and-forget)
+ * so progress survives a device swap. The attempt ledger and session/attempt
+ * records stay local-only for now (analytics, not critical for continuity).
  */
 
 import type {
@@ -13,6 +15,7 @@ import type {
   PracticeAttempt,
 } from '../types';
 import type { AttemptLedger } from './masteryTracker';
+import { syncMasteryMap } from './sync';
 
 const KEY_MASTERY  = (profileId: string) => `mia_mastery::${profileId}`;
 const KEY_LEDGER   = (profileId: string) => `mia_ledger::${profileId}`;
@@ -47,6 +50,7 @@ export function loadMasteryMap(profileId: string): MasteryMap {
 
 export function saveMasteryMap(profileId: string, map: MasteryMap): void {
   write(KEY_MASTERY(profileId), map);
+  syncMasteryMap(map); // fire-and-forget; no-op if not authed
 }
 
 // ─── Attempt ledger (rolling-window per skill) ──────────────────────────────

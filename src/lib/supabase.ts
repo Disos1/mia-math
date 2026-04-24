@@ -1,12 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL  as string;
-const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const url  = (import.meta.env.VITE_SUPABASE_URL  as string | undefined) ?? '';
+const anon = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
 
-if (!supabaseUrl || !supabaseAnon) {
-  throw new Error(
-    'Missing Supabase env vars. Copy .env.example → .env.local and fill in values.'
-  );
-}
+/**
+ * True when real Supabase credentials are present in .env.local.
+ * When false, all sync functions are no-ops and the auth gate is skipped —
+ * the app runs in pure localStorage mode (dev / offline).
+ */
+export const SUPABASE_CONFIGURED = Boolean(url && !url.includes('your-project'));
 
-export const supabase = createClient(supabaseUrl, supabaseAnon);
+/**
+ * Supabase client. Always created (avoids null-checking everywhere) but only
+ * safe to call when SUPABASE_CONFIGURED is true.
+ */
+export const supabase = createClient(
+  url  || 'https://placeholder.supabase.co',
+  anon || 'placeholder-anon-key',
+);
