@@ -291,6 +291,76 @@ const REGROUP_ZERO: PracticeItem[] = [
     cpaLayer:      'abstract',
     difficulty:    3,
   },
+
+  // ── Pictorial variants — Phase 3 ────────────────────────────────────────────
+  // Base-10 blocks show the minuend; the regroup label reminds her of the trade.
+  // Smaller numbers keep the block picture tractable.
+
+  {
+    itemId:        'P_REGROUP_300_127_PIC',
+    skillCode:     'ARITH_SUB_REGROUP_ZERO',
+    skillHebrewKey:'skill.ARITH_SUB_REGROUP_ZERO',
+    question:      'כמה זה 300 − 127?',
+    options:       [173, 227, 183, 163],
+    correct:       173,
+    signature:     227,
+    signatureCode: 'ERR_REGROUP_ZERO',
+    visual:        { type: 'base10_blocks', hundreds: 3, tens: 0, ones: 0, regroupLabel: '1 מאה = 10 עשרות' },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_REGROUP_400_184_PIC',
+    skillCode:     'ARITH_SUB_REGROUP_ZERO',
+    skillHebrewKey:'skill.ARITH_SUB_REGROUP_ZERO',
+    question:      'כמה זה 400 − 184?',
+    options:       [216, 384, 226, 306],
+    correct:       216,
+    signature:     384,
+    signatureCode: 'ERR_REGROUP_ZERO',
+    visual:        { type: 'base10_blocks', hundreds: 4, tens: 0, ones: 0, regroupLabel: '1 מאה = 10 עשרות' },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_REGROUP_500_263_PIC',
+    skillCode:     'ARITH_SUB_REGROUP_ZERO',
+    skillHebrewKey:'skill.ARITH_SUB_REGROUP_ZERO',
+    question:      'כמה זה 500 − 263?',
+    options:       [237, 363, 247, 353],
+    correct:       237,
+    signature:     363,
+    signatureCode: 'ERR_REGROUP_ZERO',
+    visual:        { type: 'base10_blocks', hundreds: 5, tens: 0, ones: 0, regroupLabel: '1 מאה = 10 עשרות' },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_REGROUP_200_78_PIC',
+    skillCode:     'ARITH_SUB_REGROUP_ZERO',
+    skillHebrewKey:'skill.ARITH_SUB_REGROUP_ZERO',
+    question:      'כמה זה 200 − 78?',
+    options:       [122, 278, 132, 218],
+    correct:       122,
+    signature:     278,
+    signatureCode: 'ERR_REGROUP_ZERO',
+    visual:        { type: 'base10_blocks', hundreds: 2, tens: 0, ones: 0, regroupLabel: '1 מאה = 10 עשרות' },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_REGROUP_600_125_PIC',
+    skillCode:     'ARITH_SUB_REGROUP_ZERO',
+    skillHebrewKey:'skill.ARITH_SUB_REGROUP_ZERO',
+    question:      'כמה זה 600 − 125?',
+    options:       [475, 525, 485, 385],
+    correct:       475,
+    signature:     525,
+    signatureCode: 'ERR_REGROUP_ZERO',
+    visual:        { type: 'base10_blocks', hundreds: 6, tens: 0, ones: 0, regroupLabel: '1 מאה = 10 עשרות' },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
 ];
 
 // ─── ARITH_MULT_6_9 (multiplication facts 6×–9×) ──────────────────────────────
@@ -559,6 +629,76 @@ const MULT_6_9: PracticeItem[] = [
     visual:        null,
     cpaLayer:      'abstract',
     difficulty:    4,
+  },
+
+  // ── Pictorial variants — Phase 3 ────────────────────────────────────────────
+  // Dot arrays make rows-of-groups countable so "6 × 7" becomes a literal picture
+  // of six rows of seven.
+
+  {
+    itemId:        'P_MULT_6X7_PIC',
+    skillCode:     'ARITH_MULT_6_9',
+    skillHebrewKey:'skill.ARITH_MULT_6_9',
+    question:      'כמה זה 6 × 7?',
+    options:       [42, 36, 48, 49],
+    correct:       42,
+    signature:     null,
+    signatureCode: 'ERR_MULT_FACT',
+    visual:        { type: 'dot_array', rows: 6, cols: 7 },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_MULT_8X6_PIC',
+    skillCode:     'ARITH_MULT_6_9',
+    skillHebrewKey:'skill.ARITH_MULT_6_9',
+    question:      'כמה זה 8 × 6?',
+    options:       [48, 42, 54, 56],
+    correct:       48,
+    signature:     null,
+    signatureCode: 'ERR_MULT_FACT',
+    visual:        { type: 'dot_array', rows: 8, cols: 6 },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_MULT_7X8_PIC',
+    skillCode:     'ARITH_MULT_6_9',
+    skillHebrewKey:'skill.ARITH_MULT_6_9',
+    question:      'כמה זה 7 × 8?',
+    options:       [56, 48, 49, 63],
+    correct:       56,
+    signature:     null,
+    signatureCode: 'ERR_MULT_FACT',
+    visual:        { type: 'dot_array', rows: 7, cols: 8 },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_MULT_9X7_PIC',
+    skillCode:     'ARITH_MULT_6_9',
+    skillHebrewKey:'skill.ARITH_MULT_6_9',
+    question:      'כמה זה 9 × 7?',
+    options:       [63, 54, 72, 56],
+    correct:       63,
+    signature:     null,
+    signatureCode: 'ERR_MULT_FACT',
+    visual:        { type: 'dot_array', rows: 9, cols: 7 },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_MULT_6X9_PIC',
+    skillCode:     'ARITH_MULT_6_9',
+    skillHebrewKey:'skill.ARITH_MULT_6_9',
+    question:      'כמה זה 6 × 9?',
+    options:       [54, 48, 63, 45],
+    correct:       54,
+    signature:     null,
+    signatureCode: 'ERR_MULT_FACT',
+    visual:        { type: 'dot_array', rows: 6, cols: 9 },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
   },
 ];
 
@@ -1096,6 +1236,76 @@ const FRAC_OF_QTY: PracticeItem[] = [
     cpaLayer:      'abstract',
     difficulty:    2,
   },
+
+  // ── Pictorial variants — Phase 3 ────────────────────────────────────────────
+  // Dot array with one row highlighted — "¼ of 20" reads as 4 rows of 5 dots
+  // with one full row lit up. The row's length IS the answer.
+
+  {
+    itemId:        'P_FRAC_QTY_HALF_OF_10_PIC',
+    skillCode:     'FRAC_OF_QUANTITY',
+    skillHebrewKey:'skill.FRAC_OF_QUANTITY',
+    question:      'כמה זה חצי מ-10?',
+    options:       [5, 20, 2, 12],
+    correct:       5,
+    signature:     20,
+    signatureCode: 'ERR_FRAC_QUANTITY_BIAS',
+    visual:        { type: 'dot_array', rows: 2, cols: 5, highlighted: 5 },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_FRAC_QTY_THIRD_OF_9_PIC',
+    skillCode:     'FRAC_OF_QUANTITY',
+    skillHebrewKey:'skill.FRAC_OF_QUANTITY',
+    question:      'כמה זה שליש מ-9?',
+    options:       [3, 27, 6, 12],
+    correct:       3,
+    signature:     27,
+    signatureCode: 'ERR_FRAC_QUANTITY_BIAS',
+    visual:        { type: 'dot_array', rows: 3, cols: 3, highlighted: 3 },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_FRAC_QTY_QUARTER_OF_12_PIC',
+    skillCode:     'FRAC_OF_QUANTITY',
+    skillHebrewKey:'skill.FRAC_OF_QUANTITY',
+    question:      'כמה זה רבע מ-12?',
+    options:       [3, 48, 6, 8],
+    correct:       3,
+    signature:     48,
+    signatureCode: 'ERR_FRAC_QUANTITY_BIAS',
+    visual:        { type: 'dot_array', rows: 4, cols: 3, highlighted: 3 },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_FRAC_QTY_HALF_OF_8_PIC',
+    skillCode:     'FRAC_OF_QUANTITY',
+    skillHebrewKey:'skill.FRAC_OF_QUANTITY',
+    question:      'כמה זה חצי מ-8?',
+    options:       [4, 16, 2, 10],
+    correct:       4,
+    signature:     16,
+    signatureCode: 'ERR_FRAC_QUANTITY_BIAS',
+    visual:        { type: 'dot_array', rows: 2, cols: 4, highlighted: 4 },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_FRAC_QTY_QUARTER_OF_20_PIC',
+    skillCode:     'FRAC_OF_QUANTITY',
+    skillHebrewKey:'skill.FRAC_OF_QUANTITY',
+    question:      'כמה זה רבע מ-20?',
+    options:       [5, 80, 4, 10],
+    correct:       5,
+    signature:     80,
+    signatureCode: 'ERR_FRAC_QUANTITY_BIAS',
+    visual:        { type: 'dot_array', rows: 4, cols: 5, highlighted: 5 },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
 ];
 
 // ─── ARITH_WORD_2STEP (2-step word problems) ──────────────────────────────────
@@ -1363,6 +1573,75 @@ const WORD_2STEP: PracticeItem[] = [
     visual:        null,
     cpaLayer:      'abstract',
     difficulty:    2,
+  },
+
+  // ── Pictorial variants — Phase 3 ────────────────────────────────────────────
+  // Bar models make the part-whole structure visible. The highlighted segment
+  // marks the unknown; other segments show known quantities at matching widths.
+
+  {
+    itemId:        'P_WORD_ELLA_STICKERS_PIC',
+    skillCode:     'ARITH_WORD_2STEP',
+    skillHebrewKey:'skill.ARITH_WORD_2STEP',
+    question:      'לאלה יש 14 מדבקות. לדביר יש 8 מדבקות יותר מאלה. כמה מדבקות יש להם ביחד?',
+    options:       [36, 22, 30, 28],
+    correct:       36,
+    signature:     22,
+    signatureCode: 'ERR_NUMBER_GRAB',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'אלה',  parts: [{ size: 14, label: '14' }] },
+      { label: 'דביר', parts: [{ size: 14, label: '14' }, { size: 8, label: '+8', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_WORD_COOKIES_PLATE_PIC',
+    skillCode:     'ARITH_WORD_2STEP',
+    skillHebrewKey:'skill.ARITH_WORD_2STEP',
+    question:      'היו בצלחת 30 עוגיות. רן אכל 7 ומור אכלה 5. כמה עוגיות נשארו?',
+    options:       [18, 42, 23, 12],
+    correct:       18,
+    signature:     42,
+    signatureCode: 'ERR_NUMBER_GRAB',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'בהתחלה', parts: [{ size: 30, label: '30' }] },
+      { label: 'סוף',    parts: [{ size: 18, label: '?', highlight: true }, { size: 7, label: 'רן' }, { size: 5, label: 'מור' }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_WORD_DINA_SHEKEL_PIC',
+    skillCode:     'ARITH_WORD_2STEP',
+    skillHebrewKey:'skill.ARITH_WORD_2STEP',
+    question:      'לדינה 20 ש״ח. קנתה סוכריה ב-6 ש״ח ושוקולד ב-8 ש״ח. כמה נשאר לה?',
+    options:       [6, 34, 14, 22],
+    correct:       6,
+    signature:     34,
+    signatureCode: 'ERR_NUMBER_GRAB',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'היה',  parts: [{ size: 20, label: '20' }] },
+      { label: 'נשאר', parts: [{ size: 6, label: '?', highlight: true }, { size: 6, label: '−6' }, { size: 8, label: '−8' }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_WORD_GANYELADIM_PIC',
+    skillCode:     'ARITH_WORD_2STEP',
+    skillHebrewKey:'skill.ARITH_WORD_2STEP',
+    question:      'בגן יש 24 ילדים: 9 בנות, והשאר בנים. כמה יותר בנים מאשר בנות?',
+    options:       [6, 33, 15, 18],
+    correct:       6,
+    signature:     33,
+    signatureCode: 'ERR_NUMBER_GRAB',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'ילדים', parts: [{ size: 15, label: '15 בנים' }, { size: 9, label: '9 בנות' }] },
+      { label: 'הפרש', parts: [{ size: 9, label: '9' }, { size: 6, label: '?', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    3,
   },
 ];
 
@@ -1633,6 +1912,59 @@ const WORD_3STEP: PracticeItem[] = [
     cpaLayer:      'abstract',
     difficulty:    4,
   },
+
+  // ── Pictorial variants — Phase 3 ────────────────────────────────────────────
+  // 3-step stories compress into a two-row bar model: group visual on top,
+  // net result with the unknown highlighted below.
+
+  {
+    itemId:        'P_WORD3_KIDS_CARDS_PIC',
+    skillCode:     'ARITH_WORD_3STEP',
+    skillHebrewKey:'skill.ARITH_WORD_3STEP',
+    question:      'ל-3 בנים יש 5 קלפים כל אחד. ל-2 בנות יש 7 קלפים כל אחת. כמה קלפים בסך הכול?',
+    options:       [29, 17, 35, 21],
+    correct:       29,
+    signature:     17,
+    signatureCode: 'ERR_NUMBER_GRAB',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'בנים',  parts: [{ size: 5, label: '5' }, { size: 5, label: '5' }, { size: 5, label: '5' }] },
+      { label: 'בנות',  parts: [{ size: 7, label: '7' }, { size: 7, label: '7' }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    3,
+  },
+  {
+    itemId:        'P_WORD3_BALOONS_PIC',
+    skillCode:     'ARITH_WORD_3STEP',
+    skillHebrewKey:'skill.ARITH_WORD_3STEP',
+    question:      'לאורה 40 בלונים. נתנה 15 למסיבה, 8 לאחיה, ו-7 התפוצצו. כמה נשארו?',
+    options:       [10, 70, 17, 23],
+    correct:       10,
+    signature:     70,
+    signatureCode: 'ERR_NUMBER_GRAB',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'התחלה', parts: [{ size: 40, label: '40' }] },
+      { label: 'סוף',   parts: [{ size: 10, label: '?', highlight: true }, { size: 15, label: 'מסיבה' }, { size: 8, label: 'אח' }, { size: 7, label: 'פקעו' }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    3,
+  },
+  {
+    itemId:        'P_WORD3_CHAIRS_PIC',
+    skillCode:     'ARITH_WORD_3STEP',
+    skillHebrewKey:'skill.ARITH_WORD_3STEP',
+    question:      'ל-4 שולחנות יש 6 כיסאות לכל אחד. 3 כיסאות נשברו. כמה כיסאות תקינים?',
+    options:       [21, 10, 24, 27],
+    correct:       21,
+    signature:     10,
+    signatureCode: 'ERR_NUMBER_GRAB',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'כיסאות', parts: [{ size: 6, label: '6' }, { size: 6, label: '6' }, { size: 6, label: '6' }, { size: 6, label: '6' }] },
+      { label: 'תקינים', parts: [{ size: 21, label: '?', highlight: true }, { size: 3, label: 'שברו' }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    3,
+  },
 ];
 
 // ─── MEAS_UNIT_CONVERT_CM (m ↔ cm) ────────────────────────────────────────────
@@ -1900,6 +2232,72 @@ const UNIT_CONVERT_CM: PracticeItem[] = [
     cpaLayer:      'abstract',
     difficulty:    2,
   },
+
+  // ── Pictorial variants — Phase 3 ────────────────────────────────────────────
+  // Each meter shows as a 100-unit bar; the cm remainder is a proportionally
+  // narrow highlighted segment — the visual equates "1 מ׳ = 100 ס״מ" without
+  // a sentence.
+
+  {
+    itemId:        'P_CM_2M30CM_PIC',
+    skillCode:     'MEAS_UNIT_CONVERT_CM',
+    skillHebrewKey:'skill.MEAS_UNIT_CONVERT_CM',
+    question:      'כמה סנטימטרים יש ב-2 מטרים ו-30 סנטימטרים?',
+    options:       [230, 2030, 203, 220],
+    correct:       230,
+    signature:     2030,
+    signatureCode: 'ERR_UNIT_MISMATCH',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'אורך', parts: [{ size: 100, label: '1 מ׳' }, { size: 100, label: '1 מ׳' }, { size: 30, label: '30 ס״מ', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_CM_3M50CM_PIC',
+    skillCode:     'MEAS_UNIT_CONVERT_CM',
+    skillHebrewKey:'skill.MEAS_UNIT_CONVERT_CM',
+    question:      'כמה סנטימטרים יש ב-3 מטרים ו-50 סנטימטרים?',
+    options:       [350, 3050, 305, 320],
+    correct:       350,
+    signature:     3050,
+    signatureCode: 'ERR_UNIT_MISMATCH',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'אורך', parts: [{ size: 100, label: '1 מ׳' }, { size: 100, label: '1 מ׳' }, { size: 100, label: '1 מ׳' }, { size: 50, label: '50 ס״מ', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_CM_1M8CM_PIC',
+    skillCode:     'MEAS_UNIT_CONVERT_CM',
+    skillHebrewKey:'skill.MEAS_UNIT_CONVERT_CM',
+    question:      'כמה סנטימטרים יש במטר אחד ו-8 סנטימטרים?',
+    options:       [108, 18, 180, 118],
+    correct:       108,
+    signature:     18,
+    signatureCode: 'ERR_UNIT_MISMATCH',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'אורך', parts: [{ size: 100, label: '1 מ׳' }, { size: 8, label: '8 ס״מ', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    1,
+  },
+  {
+    itemId:        'P_CM_2M75CM_PIC',
+    skillCode:     'MEAS_UNIT_CONVERT_CM',
+    skillHebrewKey:'skill.MEAS_UNIT_CONVERT_CM',
+    question:      'כמה סנטימטרים יש ב-2 מטרים ו-75 סנטימטרים?',
+    options:       [275, 2075, 225, 207],
+    correct:       275,
+    signature:     2075,
+    signatureCode: 'ERR_UNIT_MISMATCH',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'אורך', parts: [{ size: 100, label: '1 מ׳' }, { size: 100, label: '1 מ׳' }, { size: 75, label: '75 ס״מ', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
 ];
 
 // ─── MEAS_TIME_CROSS_HOUR (time arithmetic crossing the hour) ────────────────
@@ -1916,7 +2314,7 @@ const TIME_CROSS: PracticeItem[] = [
     correct:       '3:10',
     signature:     '2:70',
     signatureCode: 'ERR_UNIT_MISMATCH',
-    visual:        { type: 'analog_clock', time: '2:40' },
+    visual:        { type: 'analog_clock', time: '2:40', elapsedMin: 30 },
     cpaLayer:      'pictorial',
     difficulty:    1,
   },
@@ -1929,7 +2327,7 @@ const TIME_CROSS: PracticeItem[] = [
     correct:       '5:10',
     signature:     '4:70',
     signatureCode: 'ERR_UNIT_MISMATCH',
-    visual:        { type: 'analog_clock', time: '4:50' },
+    visual:        { type: 'analog_clock', time: '4:50', elapsedMin: 20 },
     cpaLayer:      'pictorial',
     difficulty:    1,
   },
@@ -1968,7 +2366,7 @@ const TIME_CROSS: PracticeItem[] = [
     correct:       '6:10',
     signature:     '5:70',
     signatureCode: 'ERR_UNIT_MISMATCH',
-    visual:        { type: 'analog_clock', time: '5:45' },
+    visual:        { type: 'analog_clock', time: '5:45', elapsedMin: 25 },
     cpaLayer:      'pictorial',
     difficulty:    1,
   },
@@ -1981,7 +2379,7 @@ const TIME_CROSS: PracticeItem[] = [
     correct:       '8:20',
     signature:     '7:80',
     signatureCode: 'ERR_UNIT_MISMATCH',
-    visual:        { type: 'analog_clock', time: '7:50' },
+    visual:        { type: 'analog_clock', time: '7:50', elapsedMin: 30 },
     cpaLayer:      'pictorial',
     difficulty:    1,
   },
@@ -2433,6 +2831,56 @@ const UNIT_CONVERT_M: PracticeItem[] = [
     visual:        null,
     cpaLayer:      'abstract',
     difficulty:    4,
+  },
+
+  // ── Pictorial variants — Phase 3 ────────────────────────────────────────────
+  // Same bar-model trick as the cm variant, scaled up: each km is a 1000-unit
+  // bar, metres are a highlighted remainder.
+
+  {
+    itemId:        'P_KM_2KM300M_PIC',
+    skillCode:     'MEAS_UNIT_CONVERT_M',
+    skillHebrewKey:'skill.MEAS_UNIT_CONVERT_M',
+    question:      'כמה מטרים יש ב-2 קילומטרים ו-300 מטרים?',
+    options:       [2300, 2030, 230, 2003],
+    correct:       2300,
+    signature:     2030,
+    signatureCode: 'ERR_UNIT_MISMATCH',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'מרחק', parts: [{ size: 1000, label: '1 ק״מ' }, { size: 1000, label: '1 ק״מ' }, { size: 300, label: '300 מ׳', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_KM_1KM450M_PIC',
+    skillCode:     'MEAS_UNIT_CONVERT_M',
+    skillHebrewKey:'skill.MEAS_UNIT_CONVERT_M',
+    question:      'כמה מטרים יש בקילומטר אחד ו-450 מטרים?',
+    options:       [1450, 1045, 14500, 145],
+    correct:       1450,
+    signature:     1045,
+    signatureCode: 'ERR_UNIT_MISMATCH',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'מרחק', parts: [{ size: 1000, label: '1 ק״מ' }, { size: 450, label: '450 מ׳', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    2,
+  },
+  {
+    itemId:        'P_KM_3KM50M_PIC',
+    skillCode:     'MEAS_UNIT_CONVERT_M',
+    skillHebrewKey:'skill.MEAS_UNIT_CONVERT_M',
+    question:      'כמה מטרים יש ב-3 קילומטרים ו-50 מטרים?',
+    options:       [3050, 305, 3500, 3005],
+    correct:       3050,
+    signature:     305,
+    signatureCode: 'ERR_UNIT_MISMATCH',
+    visual:        { type: 'bar_model', rows: [
+      { label: 'מרחק', parts: [{ size: 1000, label: '1 ק״מ' }, { size: 1000, label: '1 ק״מ' }, { size: 1000, label: '1 ק״מ' }, { size: 50, label: '50 מ׳', highlight: true }] },
+    ] },
+    cpaLayer:      'pictorial',
+    difficulty:    3,
   },
 ];
 

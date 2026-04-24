@@ -70,10 +70,36 @@ export type DiagnosticPhase   = 'entry' | 'verification' | 'extension';
 export type DiagnosticSessionType = 'onboarding' | 'rediagnostic';
 export type CPALayer = 'concrete' | 'pictorial' | 'abstract';
 
-export type DiagnosticVisual =
+/**
+ * Visual scaffold types for practice + diagnostic items.
+ *
+ * Phase 2 shipped with `fraction_circles`, `analog_clock`, and `base10_blocks`.
+ * Phase 3 adds pictorial layer coverage across all nine skills by introducing
+ * `fraction_bar`, `dot_array`, `bar_model`, and `number_line`, and extends the
+ * existing types with optional annotations (regroup label, elapsed minutes).
+ *
+ * Renderers live in `src/components/visuals/`. A single `<VisualRenderer />`
+ * dispatches on `type`, so adding a variant is a two-step job: extend this
+ * union and add a case to the dispatcher.
+ */
+export type ItemVisual =
+  /** Two side-by-side fraction circles for comparison (½ vs ⅓). */
   | { type: 'fraction_circles'; partsA: number; labelA: string; partsB: number; labelB: string }
-  | { type: 'analog_clock';     time: string }
-  | { type: 'base10_blocks';    hundreds: number; tens: number; ones: number };
+  /** One circle split into N parts with K highlighted — used for "¼ of 20" type questions. */
+  | { type: 'fraction_bar';     parts: number; highlighted: number; total?: number }
+  /** Analog clock; optional arc shows elapsed minutes sweeping forward from `time`. */
+  | { type: 'analog_clock';     time: string; elapsedMin?: number }
+  /** Base-10 blocks: columns of hundred-squares, ten-rods, unit-cubes. `regroupLabel` shows a hint above the grid. */
+  | { type: 'base10_blocks';    hundreds: number; tens: number; ones: number; regroupLabel?: string }
+  /** Grid of dots (rows × cols). Optional `highlighted` count marks the first K dots for fraction-of-quantity. */
+  | { type: 'dot_array';        rows: number; cols: number; highlighted?: number }
+  /** Bar model — each row is a stacked horizontal bar; parts carry values or "?". */
+  | { type: 'bar_model';        rows: Array<{ label?: string; parts: Array<{ size: number; label?: string; highlight?: boolean }> }> }
+  /** Number line with optional jump arrow (for time / conversion / word problems). */
+  | { type: 'number_line';      min: number; max: number; step: number; from?: number; to?: number; arrowLabel?: string };
+
+/** @deprecated Kept for backward compatibility. Use `ItemVisual` instead. */
+export type DiagnosticVisual = ItemVisual;
 
 export interface DiagnosticItem {
   itemId:        string;
@@ -84,7 +110,7 @@ export interface DiagnosticItem {
   correct:       string | number;
   signature:     string | number | null;
   signatureCode: ErrorSignatureCode | null;
-  visual:        DiagnosticVisual | null;
+  visual:        ItemVisual | null;
   phase:         DiagnosticPhase;
   cpaLayer:      CPALayer;
 }
@@ -186,7 +212,7 @@ export interface PracticeItem {
   /** Same meaning as DiagnosticItem.signature — the wrong answer that indicates the target misconception */
   signature:      string | number | null;
   signatureCode:  ErrorSignatureCode | null;
-  visual:         DiagnosticVisual | null;
+  visual:         ItemVisual | null;
   cpaLayer:       CPALayer;
   /** 1 (easiest) to 5 (hardest) within the skill. Used by the composer for adaptive sequencing. */
   difficulty:     number;

@@ -22,6 +22,7 @@ import type {
   PracticeAttempt,
   MasteryMap,
   CPAState,
+  CPALayer,
   PracticeItem,
 } from '../types';
 import type { AttemptLedger } from '../lib/masteryTracker';
@@ -29,8 +30,9 @@ import type { AttemptLedger } from '../lib/masteryTracker';
 import { t } from '../i18n/t';
 import type { LocaleKey } from '../i18n/t';
 import { MathText } from '../components/primitives/MathText';
+import { VisualRenderer } from '../components/visuals/VisualRenderer';
 
-import { composeSession, extendOpenPlan } from '../lib/sessionComposer';
+import { composeSession, extendOpenPlan, pickVariantAtLayer } from '../lib/sessionComposer';
 import {
   applyAttemptToMastery,
   seedMasteryFromDiagnostic,
@@ -135,6 +137,22 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   const masteryRef    = useRef<MasteryMap>(initialMastery);
   const ledgerRef     = useRef<AttemptLedger>(loadLedger(profile.profileId));
 
+  // CPA state ref — consulted from advance() when scheduling the next item.
+  // A parallel `cpaBySkill` React state exists in case future UI wants to
+  // surface current layer per skill; the ref is the source of truth for the
+  // layer-swap logic running inside setTimeout callbacks.
+  const cpaBySkillRef = useRef<Record<string, CPAState>>({});
+
+  // Every itemId currently scheduled in the plan (or already seen) — used by
+  // pickVariantAtLayer to avoid proposing a swap candidate the learner already
+  // answered or has queued ahead. Seeded from plan.plannedItems on mount.
+  const usedIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const s = new Set<string>();
+    for (const p of plan.plannedItems) s.add(p.item.itemId);
+    usedIdsRef.current = s;
+  }, [plan]);
+
   // `setAttempts` keeps React informed of attempt-count changes for potential
   // future UI; the authoritative list lives on attemptsRef.
   const [, setAttempts] = useState<PracticeAttempt[]>([]);
@@ -142,6 +160,13 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   const [cpaBySkill, setCpaBySkill] = useState<Record<string, CPAState>>({});
   const [skillsSeenThisSession]  = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<SessionFeedback>(null);
+
+  // When the layer-swap logic replaces the upcoming item, we stash the
+  // transition here so PracticeItemView can render the matching banner
+  // ("let's try with a picture" / "back to numbers") above the question.
+  // Cleared when the learner taps an option.
+  const [layerTransition, setLayerTransition] =
+    useState<{ from: CPALayer; to: CPALayer } | null>(null);
 
   // retryCount drives the PracticeItemView key — incrementing it remounts the
   // item with fresh selected/locked state so Mia can retry the same question.
@@ -166,16 +191,25 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     const signatureHit =
       !correct && it.signatureCode && answer === it.signature ? it.signatureCode : null;
 
-    // CPA state transition (tracked for mastery; not surfaced visually in Phase 2
-    // since the plan is pre-composed and items don't swap by layer mid-session).
-    const priorCpa = cpaBySkill[it.skillCode]
-      ?? initCPAState(it.skillCode, it.cpaLayer);
-    const nextCpa  = correct ? onCorrect(priorCpa) : onWrong(priorCpa);
-    setCpaBySkill(prev => ({ ...prev, [it.skillCode]: nextCpa }));
-
     const firstAttempt = attemptsRef.current.every(
       a => !(a.itemId === it.itemId && a.sessionId === plan.sessionId)
     );
+
+    // CPA layer transitions only fire on first-attempt answers. A correct retry
+    // shouldn't climb the layer back up (that would mask the help she needed),
+    // and a wrong retry shouldn't double-drop (she's already been dropped once
+    // on the first miss). The retry UX handles re-exposure at the same layer;
+    // the layer swap for the *next* item lives in advance().
+    const priorCpa = cpaBySkillRef.current[it.skillCode]
+      ?? cpaBySkill[it.skillCode]
+      ?? initCPAState(it.skillCode, it.cpaLayer);
+    const nextCpa  = firstAttempt
+      ? (correct ? onCorrect(priorCpa) : onWrong(priorCpa))
+      : priorCpa;
+    if (firstAttempt) {
+      cpaBySkillRef.current = { ...cpaBySkillRef.current, [it.skillCode]: nextCpa };
+      setCpaBySkill(prev => ({ ...prev, [it.skillCode]: nextCpa }));
+    }
 
     const attempt: PracticeAttempt = {
       id:             crypto.randomUUID(),
@@ -262,7 +296,12 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
         masteryMap,
       });
       if (more.length === 0) { finish(); return; }
-      setItems(prev => [...prev, ...more.map((p, i) => ({ ...p, position: prev.length + i }))]);
+      const extras = more.map((p, i) => ({ ...p, position: items.length + i }));
+      // Track the newly queued items so variant-picking won't propose them
+      for (const e of extras) usedIdsRef.current.add(e.item.itemId);
+      const nextItems = [...items, ...extras];
+      setItems(nextItems);
+      maybeSwapLayer(nextItems, nextIndex);
       setIndex(nextIndex);
       return;
     }
@@ -272,7 +311,49 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       return;
     }
 
+    maybeSwapLayer(items, nextIndex);
     setIndex(nextIndex);
+  };
+
+  /**
+   * If the upcoming item's CPA layer no longer matches the learner's current
+   * layer for that skill (because a wrong/correct on the previous item moved
+   * her), swap it for a fresh variant at the right layer and stage the
+   * transition banner. No-op when:
+   *   - there's no recorded CPA state for the upcoming skill yet
+   *   - the layers already agree
+   *   - no fresh variant exists at the desired layer (we keep the original)
+   */
+  const maybeSwapLayer = (currentItems: SessionPlanItem[], nextIndex: number) => {
+    const upcoming = currentItems[nextIndex];
+    if (!upcoming) { setLayerTransition(null); return; }
+
+    const cpa = cpaBySkillRef.current[upcoming.item.skillCode];
+    if (!cpa || cpa.currentLayer === upcoming.item.cpaLayer) {
+      setLayerTransition(null);
+      return;
+    }
+
+    const replacement = pickVariantAtLayer(
+      upcoming.item.skillCode,
+      cpa.currentLayer,
+      usedIdsRef.current,
+    );
+
+    if (!replacement) {
+      // No fresh variant — quietly keep the original item, no banner.
+      setLayerTransition(null);
+      return;
+    }
+
+    usedIdsRef.current.add(replacement.itemId);
+    setItems(prev => prev.map((it, i) =>
+      i === nextIndex ? { ...it, item: replacement } : it,
+    ));
+    setLayerTransition({
+      from: upcoming.item.cpaLayer,
+      to:   cpa.currentLayer,
+    });
   };
 
   const finish = () => {
@@ -342,27 +423,46 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       mode={mode}
       feedback={feedback}
       isRetry={isRetry}
+      layerTransition={layerTransition}
       onAnswer={handleAnswer}
       onOpenExit={mode === 'open' ? earlyExit : undefined}
     />
   );
 }
 
+// ─── Layer-transition message mapping ─────────────────────────────────────────
+//
+// Maps a {from, to} CPA layer pair to the i18n key of the banner to show.
+// Drops to pictorial / concrete use their specific message; any climb uses
+// the shared "great — back to numbers" copy.
+
+const LAYER_ORDER: CPALayer[] = ['concrete', 'pictorial', 'abstract'];
+
+function transitionMessageKey(from: CPALayer, to: CPALayer): LocaleKey | null {
+  const dropped = LAYER_ORDER.indexOf(to) < LAYER_ORDER.indexOf(from);
+  const climbed = LAYER_ORDER.indexOf(to) > LAYER_ORDER.indexOf(from);
+  if (dropped && to === 'pictorial') return 'cpa.drop_pictorial';
+  if (dropped && to === 'concrete')  return 'cpa.drop_concrete';
+  if (climbed)                        return 'cpa.climb_back';
+  return null;
+}
+
 // ─── Item view ────────────────────────────────────────────────────────────────
 
 interface ItemViewProps {
-  planItem:    SessionPlanItem;
-  index:       number;
-  total:       number;
-  mode:        SessionMode;
-  feedback:    SessionFeedback;
-  isRetry:     boolean;
-  onAnswer:    (answer: string | number, timeMs: number) => void;
-  onOpenExit?: () => void;
+  planItem:         SessionPlanItem;
+  index:            number;
+  total:            number;
+  mode:             SessionMode;
+  feedback:         SessionFeedback;
+  isRetry:          boolean;
+  layerTransition?: { from: CPALayer; to: CPALayer } | null;
+  onAnswer:         (answer: string | number, timeMs: number) => void;
+  onOpenExit?:      () => void;
 }
 
 function PracticeItemView({
-  planItem, index, total, mode, feedback, isRetry, onAnswer, onOpenExit,
+  planItem, index, total, mode, feedback, isRetry, layerTransition, onAnswer, onOpenExit,
 }: ItemViewProps) {
   const { item, sessionPhase } = planItem;
 
@@ -444,19 +544,28 @@ function PracticeItemView({
           </div>
         )}
 
+        {/* CPA layer-transition banner — "let's try with a picture" etc.
+            Visible until the next advance() recomputes the banner state. */}
+        {layerTransition && (() => {
+          const key = transitionMessageKey(layerTransition.from, layerTransition.to);
+          if (!key) return null;
+          return (
+            <div className="bg-[#FFF3D6] border border-[#FFD78A] rounded-2xl px-4 py-3 text-center text-sm font-semibold text-[#2D3047] fade-in">
+              {t(key, { gender: 'f' })}
+            </div>
+          );
+        })()}
+
         {/* Item card */}
         <div className="bg-white card-shadow rounded-3xl p-6 mt-4">
           <div className="text-2xl leading-relaxed font-medium mb-5">
             <MathText>{item.question}</MathText>
           </div>
 
-          {/* Fraction-circle visual — always shown for pictorial-layer items */}
-          {item.visual?.type === 'fraction_circles' && (
-            <div className="flex items-center justify-around my-4">
-              <FractionCircle parts={item.visual.partsA} label={item.visual.labelA} />
-              <FractionCircle parts={item.visual.partsB} label={item.visual.labelB} />
-            </div>
-          )}
+          {/* Visual scaffold — renders whenever the item carries visual data,
+              which in practice means cpaLayer is 'pictorial' or 'concrete'.
+              Abstract items carry visual: null so the renderer is a no-op. */}
+          <VisualRenderer visual={item.visual} />
 
           {/* Skill hint — shown on retry (after first wrong answer) */}
           {isRetry && <SkillHint item={item} />}
@@ -757,34 +866,6 @@ function AccuracyRing({ pct, correct, total }: { pct: number; correct: number; t
         <span className="text-3xl font-black" style={{ color: '#2D3047' }}>{pct}%</span>
         <span className="text-sm text-gray-500 mt-0.5">{correct}/{total}</span>
       </div>
-    </div>
-  );
-}
-
-// ─── Inline fraction-circle visual (mirrors DiagnosticItem) ──────────────────
-
-function FractionCircle({ parts, label }: { parts: number; label: string }) {
-  const r = 50, cx = 60, cy = 60;
-  const slices = Array.from({ length: parts }, (_, i) => {
-    const a0 = (i * 2 * Math.PI) / parts - Math.PI / 2;
-    const a1 = ((i + 1) * 2 * Math.PI) / parts - Math.PI / 2;
-    const x1 = cx + r * Math.cos(a0), y1 = cy + r * Math.sin(a0);
-    const x2 = cx + r * Math.cos(a1), y2 = cy + r * Math.sin(a1);
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    return (
-      <path
-        key={i}
-        d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z`}
-        fill={i === 0 ? '#FF9B7A' : '#FFE8DD'}
-        stroke="#2D3047"
-        strokeWidth="2"
-      />
-    );
-  });
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <svg width="120" height="120" viewBox="0 0 120 120">{slices}</svg>
-      <div className="text-2xl font-bold">{label}</div>
     </div>
   );
 }

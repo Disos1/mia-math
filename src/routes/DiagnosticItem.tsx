@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { t } from '../i18n/t';
 import { MathText } from '../components/primitives/MathText';
 import { AvatarBadge } from '../components/primitives/AvatarBadge';
+import { VisualRenderer } from '../components/visuals/VisualRenderer';
 import type { Avatar, DiagnosticItem as DiagnosticItemType } from '../types';
 
 interface Props {
@@ -77,19 +78,10 @@ export function DiagnosticItem({ avatar, item, index, total, onAnswer }: Props) 
             <MathText>{item.question}</MathText>
           </div>
 
-          {/* Fraction circle visual (Phase 1: static SVG placeholder) */}
-          {item.visual?.type === 'fraction_circles' && (
-            <div className="flex items-center justify-around my-4">
-              <FractionCircle
-                parts={item.visual.partsA}
-                label={item.visual.labelA}
-              />
-              <FractionCircle
-                parts={item.visual.partsB}
-                label={item.visual.labelB}
-              />
-            </div>
-          )}
+          {/* Visual scaffold — fraction circles, analog clock, base-10 blocks,
+              etc. Renders only for items that carry visual data; abstract
+              items have visual: null and this is a no-op. */}
+          <VisualRenderer visual={item.visual} />
 
           {/* Options grid — 2×2 */}
           <div className="grid grid-cols-2 gap-3">
@@ -112,30 +104,3 @@ export function DiagnosticItem({ avatar, item, index, total, onAnswer }: Props) 
   );
 }
 
-// ─── Inline fraction-circle visual ────────────────────────────────────────────
-
-function FractionCircle({ parts, label }: { parts: number; label: string }) {
-  const r = 50, cx = 60, cy = 60;
-  const slices = Array.from({ length: parts }, (_, i) => {
-    const a0 = (i * 2 * Math.PI) / parts - Math.PI / 2;
-    const a1 = ((i + 1) * 2 * Math.PI) / parts - Math.PI / 2;
-    const x1 = cx + r * Math.cos(a0), y1 = cy + r * Math.sin(a0);
-    const x2 = cx + r * Math.cos(a1), y2 = cy + r * Math.sin(a1);
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    return (
-      <path
-        key={i}
-        d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z`}
-        fill={i === 0 ? '#FF9B7A' : '#FFE8DD'}
-        stroke="#2D3047"
-        strokeWidth="2"
-      />
-    );
-  });
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <svg width="120" height="120" viewBox="0 0 120 120">{slices}</svg>
-      <div className="text-2xl font-bold">{label}</div>
-    </div>
-  );
-}

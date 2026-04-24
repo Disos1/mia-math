@@ -30,6 +30,7 @@ import type {
   SessionPlanItem,
   SessionPhase,
   CPALayer,
+  PracticeItem,
 } from '../types';
 import { PRACTICE_ITEMS_BY_SKILL } from '../constants/practiceItems';
 import { masteredSkills, skillsInProgress } from './masteryTracker';
@@ -375,6 +376,29 @@ function shuffle<T>(arr: T[], rng: () => number): T[] {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+// ─── Runtime layer swap — Phase 3 ────────────────────────────────────────────
+//
+// Called by the session runner when the CPA state transitions mid-session and
+// we want the next scheduled item to match the new layer. Returns the first
+// fresh variant of `skillCode` at `desiredLayer`, or null if none exists.
+//
+// The caller is responsible for (a) adding the returned itemId to its usedIds
+// set and (b) replacing the scheduled plan item in place. Callers must NOT
+// mutate the returned PracticeItem.
+export function pickVariantAtLayer(
+  skillCode:    string,
+  desiredLayer: CPALayer,
+  usedIds:      Set<string>,
+  rng: () => number = Math.random,
+): PracticeItem | null {
+  const pool = PRACTICE_ITEMS_BY_SKILL[skillCode] ?? [];
+  const candidates = pool.filter(
+    it => it.cpaLayer === desiredLayer && !usedIds.has(it.itemId),
+  );
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(rng() * candidates.length)];
 }
 
 // ─── Open-mode extension ─────────────────────────────────────────────────────
