@@ -27,7 +27,11 @@ export function SignIn() {
 
     const { error: err } = await supabase.auth.signInWithOtp({
       email:   email.trim(),
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        // Redirect back to this app (works for both localhost and GitHub Pages)
+        emailRedirectTo: window.location.origin + import.meta.env.BASE_URL,
+      },
     });
 
     setLoading(false);
