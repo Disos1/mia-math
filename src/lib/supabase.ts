@@ -17,4 +17,12 @@ export const SUPABASE_CONFIGURED = Boolean(url && !url.includes('your-project'))
 export const supabase = createClient(
   url  || 'https://placeholder.supabase.co',
   anon || 'placeholder-anon-key',
+  {
+    auth: {
+      // Implicit flow: tokens arrive in the URL hash fragment instead of
+      // requiring a PKCE code exchange. This means the magic link works even
+      // if it opens in a different browser context (e.g. email app's browser).
+      flowType: 'implicit',
+    },
+  },
 );
