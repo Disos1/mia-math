@@ -153,6 +153,29 @@ export async function pullMasteryMap(profileId: string): Promise<MasteryMap | nu
   return map;
 }
 
+// ─── Hard delete (parent reset) ──────────────────────────────────────────────
+
+/**
+ * Delete all remote data for an auth user + profile.
+ * Called by the parent-dashboard reset before sign-out so that the next
+ * sign-in starts completely fresh (pullProfile returns null → welcome screen).
+ */
+export async function deleteRemoteProfile(
+  authUserId: string,
+  profileId:  string,
+): Promise<void> {
+  if (!SUPABASE_CONFIGURED) return;
+  try {
+    await Promise.all([
+      supabase.from('profiles')       .delete().eq('auth_user_id', authUserId),
+      supabase.from('mastery_records').delete().eq('profile_id',   profileId),
+    ]);
+    console.info('[sync] remote profile deleted');
+  } catch (err) {
+    console.warn('[sync] deleteRemoteProfile failed:', err);
+  }
+}
+
 // ─── One-time migration ───────────────────────────────────────────────────────
 
 /**

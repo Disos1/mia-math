@@ -1,12 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { loadProfile, createProfile, updateProfile, clearProfile, saveProfile, isRediagnosticDue } from './lib/profile';
-import { loadMasteryMap, saveMasteryMap } from './lib/sessionStore';
+import { loadMasteryMap, saveMasteryMap, clearAllSessionData } from './lib/sessionStore';
 import { AVATAR_BY_ID } from './constants/avatars';
 import { ENTRY_ITEMS } from './constants/diagnosticItems';
 import { computePhase1Signals, selectVerificationItems, classifyResults } from './lib/diagnosticEngine';
 import { buildGapProfile } from './lib/gapProfile';
 import { supabase, SUPABASE_CONFIGURED } from './lib/supabase';
-import { initSync, clearSync, pullProfile, pullMasteryMap, migrateLocalToRemote } from './lib/sync';
+import { initSync, clearSync, pullProfile, pullMasteryMap, migrateLocalToRemote, deleteRemoteProfile } from './lib/sync';
 import type { Profile, Avatar, DiagnosticAttempt, SessionMode, DiagnosticItem as DiagnosticItemType } from './types';
 
 import { SignIn }             from './routes/SignIn';
@@ -236,7 +236,19 @@ export default function App() {
     setDiagIndex(i => i + 1);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    // 1. Delete from Supabase first — must happen before clearSync() nulls the
+    //    auth user ID, and before sign-out revokes the session token.
+    if (SUPABASE_CONFIGURED && authUserIdRef.current && profile) {
+      await deleteRemoteProfile(authUserIdRef.current, profile.profileId);
+    }
+
+    // 2. Wipe all localStorage for this profile (mastery, ledger, sessions, attempts)
+    if (profile) {
+      clearAllSessionData(profile.profileId);
+    }
+
+    // 3. Clear app state
     clearProfile();
     setProfile(null);
     setDiagIndex(0);
@@ -244,8 +256,10 @@ export default function App() {
     setPhase2Items(null);
     setDiagGaps([]);
     setDiagStrengths([]);
+    setIsRediag(false);
     authUserIdRef.current = null;
     clearSync();
+
     if (SUPABASE_CONFIGURED) {
       supabase.auth.signOut();
       setScreen('signIn');
