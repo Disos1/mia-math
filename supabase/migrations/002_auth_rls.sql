@@ -19,6 +19,17 @@ alter table profiles
 create unique index if not exists profiles_auth_user_id_idx
   on profiles (auth_user_id);
 
+-- ─── Clean up orphaned rows before enabling RLS ──────────────────────────────
+-- Profiles pushed before this migration have auth_user_id = NULL.
+-- After RLS is enabled with the auth_user_id policy, those rows are permanently
+-- invisible to every user (NULL ≠ any uid). Delete them now so the app can
+-- re-migrate cleanly from localStorage on the user's next sign-in.
+
+delete from mastery_records
+  where profile_id in (select profile_id from profiles where auth_user_id is null);
+
+delete from profiles where auth_user_id is null;
+
 -- ─── Enable RLS on every table ────────────────────────────────────────────────
 
 alter table profiles           enable row level security;
