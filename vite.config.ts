@@ -4,6 +4,5 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base:    '/mia-math/',   // GitHub Pages serves from /mia-math/ subdirectory
-  server:  { host: '127.0.0.1' },
+  server: { host: '127.0.0.1' },
 })
