@@ -15,7 +15,7 @@ import type {
   PracticeAttempt,
 } from '../types';
 import type { AttemptLedger } from './masteryTracker';
-import { syncMasteryMap } from './sync';
+import { syncMasteryMap, syncSessionRecord } from './sync';
 
 const KEY_MASTERY  = (profileId: string) => `mia_mastery::${profileId}`;
 const KEY_LEDGER   = (profileId: string) => `mia_ledger::${profileId}`;
@@ -73,6 +73,12 @@ export function appendSessionRecord(profileId: string, record: SessionRecord): v
   const cur  = loadSessionRecords(profileId);
   const next = [...cur, record].slice(-MAX_SESSIONS);
   write(KEY_SESSIONS(profileId), next);
+  syncSessionRecord(record); // fire-and-forget; no-op if not authed
+}
+
+/** Overwrite local session records with data pulled from Supabase (hydration only). */
+export function hydrateSessionRecords(profileId: string, records: SessionRecord[]): void {
+  write(KEY_SESSIONS(profileId), records.slice(-MAX_SESSIONS));
 }
 
 // ─── Attempts (for later analytics / parent report) ─────────────────────────

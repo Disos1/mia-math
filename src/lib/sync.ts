@@ -7,19 +7,17 @@
  *   • On first load after auth, the app pulls from Supabase to hydrate
  *     localStorage (so a new device gets Mia's full state).
  *
- * Only critical state is synced:
+ * Critical state synced:
  *   - profiles        (identity, gap profile, onboarding flag)
  *   - mastery_records (skill status, accuracy, retention probe flags)
- *
- * Session analytics (practice attempts, session records) stay local-only for
- * now — they don't affect device-swap continuity and can be added later.
+ *   - session_records (per-session summary — for cross-device parent dashboard)
  *
  * Auth user ID is set once on sign-in via initSync(). All push functions
  * are no-ops until that happens.
  */
 
 import { supabase, SUPABASE_CONFIGURED } from './supabase';
-import type { Profile, MasteryMap } from '../types';
+import type { Profile, MasteryMap, SessionRecord } from '../types';
 
 // ─── Module-level auth state ──────────────────────────────────────────────────
 
@@ -153,6 +151,58 @@ export async function pullMasteryMap(profileId: string): Promise<MasteryMap | nu
   return map;
 }
 
+// ─── Session records ──────────────────────────────────────────────────────────
+
+async function _pushSessionRecord(record: SessionRecord): Promise<void> {
+  const { error } = await supabase
+    .from('session_records')
+    .upsert(
+      {
+        session_id:         record.sessionId,
+        profile_id:         record.profileId,
+        mode:               record.mode,
+        started_at:         record.startedAt,
+        completed_at:       record.completedAt,
+        items_attempted:    record.itemsAttempted,
+        items_correct:      record.itemsCorrect,
+        primary_skill_code: record.primarySkillCode,
+      },
+      { onConflict: 'session_id' },
+    );
+  if (error) throw error;
+}
+
+/** Fire-and-forget session record push. No-op if not authed. */
+export function syncSessionRecord(record: SessionRecord): void {
+  if (!SUPABASE_CONFIGURED || !_authUserId) return;
+  fire('pushSessionRecord', _pushSessionRecord(record));
+}
+
+/** Await-able pull — used at sign-in time on a fresh device. */
+export async function pullSessionRecords(profileId: string): Promise<SessionRecord[] | null> {
+  if (!SUPABASE_CONFIGURED) return null;
+  const { data, error } = await supabase
+    .from('session_records')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('started_at', { ascending: false })
+    .limit(30);
+
+  if (error) { console.warn('[sync] pullSessionRecords error:', error.message); return null; }
+  if (!data || data.length === 0) return null;
+
+  return data.map(r => ({
+    sessionId:        r.session_id,
+    profileId:        r.profile_id,
+    mode:             r.mode,
+    startedAt:        r.started_at,
+    completedAt:      r.completed_at,
+    itemsAttempted:   r.items_attempted,
+    itemsCorrect:     r.items_correct,
+    primarySkillCode: r.primary_skill_code,
+  }));
+}
+
 // ─── Hard delete (parent reset) ──────────────────────────────────────────────
 
 /**
@@ -169,6 +219,7 @@ export async function deleteRemoteProfile(
     await Promise.all([
       supabase.from('profiles')       .delete().eq('auth_user_id', authUserId),
       supabase.from('mastery_records').delete().eq('profile_id',   profileId),
+      supabase.from('session_records').delete().eq('profile_id',   profileId),
     ]);
     console.info('[sync] remote profile deleted');
   } catch (err) {
@@ -194,5 +245,20 @@ export async function migrateLocalToRemote(
     console.info('[sync] migration complete — local data pushed to Supabase');
   } catch (err) {
     console.warn('[sync] migration failed:', err);
+  }
+}
+
+/**
+ * Push an array of session records to Supabase.
+ * Called once during migration when a device has local sessions
+ * that have never been synced.
+ */
+export async function migrateSessionRecords(records: SessionRecord[]): Promise<void> {
+  if (!SUPABASE_CONFIGURED || records.length === 0) return;
+  try {
+    for (const r of records) await _pushSessionRecord(r);
+    console.info(`[sync] migrated ${records.length} session records`);
+  } catch (err) {
+    console.warn('[sync] migrateSessionRecords failed:', err);
   }
 }

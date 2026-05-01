@@ -1,0 +1,20 @@
+name: Daily Summary Email
+
+on:
+  schedule:
+    # 17:00 UTC = 20:00 Israel Standard Time (UTC+3)
+    # Change to "0 16 * * *" during daylight saving (Israel switches in March/October)
+    - cron: '0 17 * * *'
+  workflow_dispatch:   # allow manual trigger from GitHub Actions tab for testing
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call daily-summary Edge Function
+        run: |
+          curl --fail -X POST \
+            "${{ secrets.VITE_SUPABASE_URL }}/functions/v1/daily-summary" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            --silent --show-error

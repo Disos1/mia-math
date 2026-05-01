@@ -1,4 +1,4 @@
-import type { Profile, AvatarId } from '../types';
+import type { Profile, AvatarId, Gender } from '../types';
 import { syncProfile } from './sync';
 
 const STORAGE_KEY = 'mia_profile';
@@ -25,12 +25,12 @@ export function saveProfile(profile: Profile): void {
   syncProfile(profile); // fire-and-forget; no-op if not authed
 }
 
-export function createProfile(avatarId: AvatarId): Profile {
+export function createProfile(avatarId: AvatarId, displayName: string, gender: Gender): Profile {
   const profile: Profile = {
     profileId:             crypto.randomUUID(),
     avatarId,
-    gender:                'f',
-    displayName:           'מיה',
+    gender,
+    displayName,
     onboardingComplete:    false,
     diagnosticCompletedAt: null,
     diagnosticVersion:     null,

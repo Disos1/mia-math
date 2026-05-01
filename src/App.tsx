@@ -1,17 +1,18 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { loadProfile, createProfile, updateProfile, clearProfile, saveProfile, isRediagnosticDue } from './lib/profile';
-import { loadMasteryMap, saveMasteryMap, clearAllSessionData } from './lib/sessionStore';
+import { loadMasteryMap, saveMasteryMap, clearAllSessionData, loadSessionRecords, hydrateSessionRecords } from './lib/sessionStore';
 import { AVATAR_BY_ID } from './constants/avatars';
 import { ENTRY_ITEMS } from './constants/diagnosticItems';
 import { computePhase1Signals, selectVerificationItems, classifyResults } from './lib/diagnosticEngine';
 import { buildGapProfile } from './lib/gapProfile';
 import { supabase, SUPABASE_CONFIGURED } from './lib/supabase';
-import { initSync, clearSync, pullProfile, pullMasteryMap, migrateLocalToRemote, deleteRemoteProfile } from './lib/sync';
+import { initSync, clearSync, pullProfile, pullMasteryMap, pullSessionRecords, migrateLocalToRemote, migrateSessionRecords, deleteRemoteProfile } from './lib/sync';
 import type { Profile, Avatar, DiagnosticAttempt, SessionMode, DiagnosticItem as DiagnosticItemType } from './types';
 
 import { SignIn }             from './routes/SignIn';
 import { Welcome }            from './routes/Welcome';
 import { AvatarPicker }       from './routes/AvatarPicker';
+import { ChildSetup }         from './routes/ChildSetup';
 import { DiagnosticIntro }    from './routes/DiagnosticIntro';
 import { DiagnosticItem }     from './routes/DiagnosticItem';
 import { DiagnosticResults }  from './routes/DiagnosticResults';
@@ -26,6 +27,7 @@ type Screen =
   | 'signIn'       // parent enters email for magic link
   | 'welcome'
   | 'avatarPicker'
+  | 'childSetup'   // name + gender entry (between avatar pick and diagnostic)
   | 'diagIntro'
   | 'diagItem'
   | 'diagResults'
@@ -87,15 +89,24 @@ export default function App() {
       // Remote profile exists — hydrate localStorage and navigate
       saveProfile(remote);
       setProfile(remote);
-      const remoteMastery = await pullMasteryMap(remote.profileId);
+      const [remoteMastery, remoteSessions] = await Promise.all([
+        pullMasteryMap(remote.profileId),
+        pullSessionRecords(remote.profileId),
+      ]);
       if (remoteMastery) saveMasteryMap(remote.profileId, remoteMastery);
+      // Hydrate session records only if local is empty (tablet has the source of truth)
+      if (remoteSessions && loadSessionRecords(remote.profileId).length === 0) {
+        hydrateSessionRecords(remote.profileId, remoteSessions);
+      }
       setScreen(remote.onboardingComplete ? 'modePicker' : 'diagIntro');
     } else {
       // No remote profile — check for a local profile to migrate
       const local = loadProfile();
       if (local) {
-        const localMastery = loadMasteryMap(local.profileId);
+        const localMastery  = loadMasteryMap(local.profileId);
+        const localSessions = loadSessionRecords(local.profileId);
         await migrateLocalToRemote(local, localMastery, userId);
+        await migrateSessionRecords(localSessions);
         setProfile(local);
         setScreen(local.onboardingComplete ? 'modePicker' : 'diagIntro');
       } else {
@@ -156,8 +167,17 @@ export default function App() {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
+  // Temporarily store the chosen avatar ID while the child enters their name/gender
+  const pendingAvatarId = useRef<string | null>(null);
+
   const handleAvatarPick = (avatar: Avatar) => {
-    const p = createProfile(avatar.id);
+    pendingAvatarId.current = avatar.id;
+    setScreen('childSetup');
+  };
+
+  const handleChildSetup = (name: string, gender: 'f' | 'm') => {
+    const avatarId = pendingAvatarId.current ?? 'fox';
+    const p = createProfile(avatarId as Avatar['id'], name, gender);
     setProfile(p);
     setScreen('diagIntro');
   };
@@ -317,6 +337,14 @@ export default function App() {
         return (
           <AvatarPicker
             onPick={handleAvatarPick}
+            onParent={openParent}
+          />
+        );
+
+      case 'childSetup':
+        return (
+          <ChildSetup
+            onDone={handleChildSetup}
             onParent={openParent}
           />
         );
