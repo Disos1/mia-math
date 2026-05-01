@@ -94,9 +94,13 @@ export default function App() {
         pullSessionRecords(remote.profileId),
       ]);
       if (remoteMastery) saveMasteryMap(remote.profileId, remoteMastery);
-      // Hydrate session records only if local is empty (tablet has the source of truth)
-      if (remoteSessions && loadSessionRecords(remote.profileId).length === 0) {
+      const localSessions = loadSessionRecords(remote.profileId);
+      if (remoteSessions && remoteSessions.length > 0 && localSessions.length === 0) {
+        // New device (e.g. Mac): no local data — hydrate from Supabase
         hydrateSessionRecords(remote.profileId, remoteSessions);
+      } else if ((!remoteSessions || remoteSessions.length === 0) && localSessions.length > 0) {
+        // Source device (e.g. tablet): has local sessions never synced — push them up now
+        migrateSessionRecords(localSessions);  // fire-and-forget; non-blocking
       }
       setScreen(remote.onboardingComplete ? 'modePicker' : 'diagIntro');
     } else {
