@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { loadProfile, createProfile, updateProfile, clearProfile, saveProfile, isRediagnosticDue } from './lib/profile';
+import { loadProfile, createProfile, updateProfile, clearProfile, saveProfile, isRediagnosticDue, storeLocalOwner, loadLocalOwner } from './lib/profile';
 import { loadMasteryMap, saveMasteryMap, clearAllSessionData, loadSessionRecords, hydrateSessionRecords } from './lib/sessionStore';
 import { AVATAR_BY_ID } from './constants/avatars';
 import { ENTRY_ITEMS } from './constants/diagnosticItems';
@@ -81,6 +81,7 @@ export default function App() {
     if (authUserIdRef.current === userId) return; // already handled
     authUserIdRef.current = userId;
     initSync(userId);
+    storeLocalOwner(userId); // stamp this device as belonging to this auth user
 
     // Try to pull the remote profile for this auth user
     const remote = await pullProfile(userId);
@@ -113,9 +114,11 @@ export default function App() {
       }
       setScreen(remote.onboardingComplete ? 'modePicker' : 'diagIntro');
     } else {
-      // No remote profile — check for a local profile to migrate
-      const local = loadProfile();
-      if (local) {
+      // No remote profile — only migrate local data if it belongs to THIS auth user
+      const local      = loadProfile();
+      const localOwner = loadLocalOwner();
+      if (local && localOwner === userId) {
+        // Same auth user on a device that hasn't synced yet — migrate up
         const localMastery  = loadMasteryMap(local.profileId);
         const localSessions = loadSessionRecords(local.profileId);
         await migrateLocalToRemote(local, localMastery, userId);
@@ -123,7 +126,7 @@ export default function App() {
         setProfile(local);
         setScreen(local.onboardingComplete ? 'modePicker' : 'diagIntro');
       } else {
-        // Truly new user — show onboarding
+        // Different user or first-ever sign-in — start fresh onboarding
         setScreen('welcome');
       }
     }

@@ -1,7 +1,23 @@
 import type { Profile, AvatarId, Gender } from '../types';
 import { syncProfile } from './sync';
 
-const STORAGE_KEY = 'mia_profile';
+const STORAGE_KEY   = 'mia_profile';
+const AUTH_OWNER_KEY = 'mia_auth_owner'; // which auth user ID owns the local profile
+
+/** Remember which Supabase auth user created/owns the local profile. */
+export function storeLocalOwner(authUserId: string): void {
+  localStorage.setItem(AUTH_OWNER_KEY, authUserId);
+}
+
+/** Returns the auth user ID that owns the local profile, or null if unknown. */
+export function loadLocalOwner(): string | null {
+  return localStorage.getItem(AUTH_OWNER_KEY);
+}
+
+/** Clear on reset. */
+export function clearLocalOwner(): void {
+  localStorage.removeItem(AUTH_OWNER_KEY);
+}
 
 /**
  * Profile store — localStorage-backed for offline support, Supabase write-through.
@@ -52,6 +68,7 @@ export function updateProfile(updates: Partial<Profile>): Profile {
 
 export function clearProfile(): void {
   localStorage.removeItem(STORAGE_KEY);
+  clearLocalOwner();
 }
 
 /** Re-diagnostic trigger: fires if either threshold is met (whichever comes first). */
