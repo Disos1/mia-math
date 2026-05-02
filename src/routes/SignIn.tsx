@@ -28,10 +28,7 @@ export function SignIn() {
 
     const { error: err } = await supabase.auth.signInWithOtp({
       email:   email.trim(),
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo:  window.location.origin + import.meta.env.BASE_URL,
-      },
+      options: { shouldCreateUser: true },
     });
 
     setLoading(false);
@@ -76,22 +73,15 @@ export function SignIn() {
         dir="rtl"
       >
         <div className="text-7xl mb-6">📬</div>
-        <h1 className="text-2xl font-bold text-[#2D3047] mb-2">נשלח אמייל!</h1>
+        <h1 className="text-2xl font-bold text-[#2D3047] mb-2">נשלח קוד!</h1>
         <p className="text-gray-500 text-base leading-relaxed max-w-xs mb-6">
-          שלחנו קישור וקוד כניסה ל-
+          שלחנו קוד כניסה בן 6 ספרות ל-
           <span className="font-semibold text-[#2D3047] break-all"> {email}</span>
         </p>
 
-        {/* Option A: click the link (auto, no input needed) */}
-        <div className="bg-white/70 rounded-2xl px-5 py-3 mb-6 max-w-xs text-sm text-gray-500">
-          <span className="font-semibold text-gray-700">אפשרות א׳ —</span>{' '}
-          לחצו על הקישור באמייל. האפליקציה תמשיך אוטומטית.
-        </div>
-
-        {/* Option B: enter the 6-digit code */}
         <form onSubmit={handleVerify} className="w-full max-w-xs flex flex-col gap-3">
           <p className="text-sm font-semibold text-gray-700">
-            אפשרות ב׳ — הכניסו את הקוד מהאמייל:
+            הכניסו את הקוד מהאמייל:
           </p>
           <input
             type="text"
@@ -144,7 +134,7 @@ export function SignIn() {
           <p className="text-gray-500 leading-relaxed">
             הכניסו את כתובת האמייל שלכם.
             <br />
-            נשלח קישור וקוד כניסה.
+            נשלח קוד כניסה בן 6 ספרות.
           </p>
         </div>
 
@@ -171,7 +161,7 @@ export function SignIn() {
             className="w-full bg-[#C4A7E7] text-white font-bold text-lg rounded-2xl py-4
               disabled:opacity-50 transition-opacity active:scale-95"
           >
-            {loading ? '...שולח' : 'שלחו קישור וקוד'}
+            {loading ? '...שולח' : 'שלחו קוד כניסה'}
           </button>
         </form>
 
