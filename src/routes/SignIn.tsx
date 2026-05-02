@@ -28,7 +28,10 @@ export function SignIn() {
 
     const { error: err } = await supabase.auth.signInWithOtp({
       email:   email.trim(),
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo:  window.location.origin + import.meta.env.BASE_URL,
+      },
     });
 
     setLoading(false);
