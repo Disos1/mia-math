@@ -5,21 +5,22 @@ import { supabase } from '../lib/supabase';
  * Parent-facing auth gate — shown once per device.
  *
  * Flow:
- *   1. Parent enters their email address.
- *   2. Supabase sends a magic link to that address.
- *   3. Parent clicks the link (in the same browser).
- *   4. onAuthStateChange in App.tsx fires → app proceeds automatically.
- *
- * The child never sees this screen after the first sign-in on a device
- * (Supabase persists the session in localStorage).
+ *   1. Parent enters email → Supabase sends an email with BOTH a magic link
+ *      AND a 6-digit code.
+ *   2a. Magic link: clicking it in the same browser signs in automatically.
+ *   2b. Code: typing the 6 digits here works in any tab/browser — the reliable
+ *       path for incognito windows or when the email client opens a different browser.
  */
 export function SignIn() {
   const [email,   setEmail]   = useState('');
   const [sent,    setSent]    = useState(false);
+  const [code,    setCode]    = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ── Step 1: send the OTP email ─────────────────────────────────────────────
+
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     setLoading(true);
@@ -29,19 +30,44 @@ export function SignIn() {
       email:   email.trim(),
       options: {
         shouldCreateUser: true,
-        // Redirect back to this app (works for both localhost and GitHub Pages)
-        emailRedirectTo: window.location.origin + import.meta.env.BASE_URL,
+        emailRedirectTo:  window.location.origin + import.meta.env.BASE_URL,
       },
     });
 
     setLoading(false);
     if (err) {
       setError('לא הצלחנו לשלוח אמייל. נסו שוב.');
-      console.error('[SignIn]', err.message);
+      console.error('[SignIn] send:', err.message);
     } else {
       setSent(true);
+      setCode('');
     }
   };
+
+  // ── Step 2: verify the 6-digit code ───────────────────────────────────────
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = code.replace(/\s/g, '');
+    if (token.length !== 6) return;
+    setLoading(true);
+    setError(null);
+
+    const { error: err } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token,
+      type:  'email',
+    });
+
+    setLoading(false);
+    if (err) {
+      setError('קוד שגוי או פג תוקף. נסו שוב.');
+      console.error('[SignIn] verify:', err.message);
+    }
+    // On success onAuthStateChange in App.tsx fires automatically — no navigation needed here.
+  };
+
+  // ── Waiting-for-code screen ────────────────────────────────────────────────
 
   if (sent) {
     return (
@@ -50,16 +76,51 @@ export function SignIn() {
         dir="rtl"
       >
         <div className="text-7xl mb-6">📬</div>
-        <h1 className="text-2xl font-bold text-[#2D3047] mb-3">נשלח אמייל!</h1>
-        <p className="text-gray-500 text-lg leading-relaxed max-w-xs">
-          לחצו על הקישור שנשלח ל-
+        <h1 className="text-2xl font-bold text-[#2D3047] mb-2">נשלח אמייל!</h1>
+        <p className="text-gray-500 text-base leading-relaxed max-w-xs mb-6">
+          שלחנו קישור וקוד כניסה ל-
           <span className="font-semibold text-[#2D3047] break-all"> {email}</span>
         </p>
-        <p className="text-gray-400 text-sm mt-6 max-w-xs">
-          אחרי שלחצתם על הקישור — האפליקציה תמשיך אוטומטית
-        </p>
+
+        {/* Option A: click the link (auto, no input needed) */}
+        <div className="bg-white/70 rounded-2xl px-5 py-3 mb-6 max-w-xs text-sm text-gray-500">
+          <span className="font-semibold text-gray-700">אפשרות א׳ —</span>{' '}
+          לחצו על הקישור באמייל. האפליקציה תמשיך אוטומטית.
+        </div>
+
+        {/* Option B: enter the 6-digit code */}
+        <form onSubmit={handleVerify} className="w-full max-w-xs flex flex-col gap-3">
+          <p className="text-sm font-semibold text-gray-700">
+            אפשרות ב׳ — הכניסו את הקוד מהאמייל:
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={code}
+            onChange={e => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+            placeholder="_ _ _ _ _ _"
+            className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3
+              text-2xl text-center tracking-[0.4em] font-bold outline-none
+              focus:border-[#C4A7E7] transition-colors"
+            autoFocus
+          />
+
+          {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || code.length !== 6}
+            className="w-full bg-[#C4A7E7] text-white font-bold text-lg rounded-2xl py-3
+              disabled:opacity-50 transition-opacity active:scale-95"
+          >
+            {loading ? '...מאמת' : 'כניסה ✓'}
+          </button>
+        </form>
+
         <button
-          onClick={() => setSent(false)}
+          onClick={() => { setSent(false); setError(null); }}
           className="mt-8 text-sm text-gray-400 underline"
         >
           שלחו שוב
@@ -68,6 +129,8 @@ export function SignIn() {
     );
   }
 
+  // ── Email entry screen ────────────────────────────────────────────────────
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center p-6"
@@ -75,25 +138,24 @@ export function SignIn() {
     >
       <div className="w-full max-w-sm">
 
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="text-7xl mb-4">🔐</div>
           <h1 className="text-2xl font-bold text-[#2D3047] mb-2">כניסה להורים</h1>
           <p className="text-gray-500 leading-relaxed">
             הכניסו את כתובת האמייל שלכם.
             <br />
-            נשלח לכם קישור כניסה חד-פעמי.
+            נשלח קישור וקוד כניסה.
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSend} className="flex flex-col gap-4">
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="your@email.com"
-            className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3 text-lg text-left outline-none focus:border-[#C4A7E7] transition-colors"
+            className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3
+              text-lg text-left outline-none focus:border-[#C4A7E7] transition-colors"
             dir="ltr"
             autoComplete="email"
             autoFocus
@@ -106,14 +168,15 @@ export function SignIn() {
           <button
             type="submit"
             disabled={loading || !email.trim()}
-            className="w-full bg-[#C4A7E7] text-white font-bold text-lg rounded-2xl py-4 disabled:opacity-50 transition-opacity active:scale-95"
+            className="w-full bg-[#C4A7E7] text-white font-bold text-lg rounded-2xl py-4
+              disabled:opacity-50 transition-opacity active:scale-95"
           >
-            {loading ? '...שולח' : 'שלחו קישור כניסה'}
+            {loading ? '...שולח' : 'שלחו קישור וקוד'}
           </button>
         </form>
 
         <p className="text-center text-xs text-gray-300 mt-8">
-          הקישור בטוח ותקף ל-24 שעות
+          הקוד תקף ל-60 דקות
         </p>
       </div>
     </div>
