@@ -46,7 +46,7 @@ export function SignIn() {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = code.replace(/\s/g, '');
-    if (token.length !== 6) return;
+    if (token.length < 6) return;
     setLoading(true);
     setError(null);
 
@@ -87,10 +87,10 @@ export function SignIn() {
             type="text"
             inputMode="numeric"
             value={code}
-            onChange={e => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-            placeholder="_ _ _ _ _ _"
+            onChange={e => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))}
+            placeholder="_ _ _ _ _ _ _ _"
             className="w-full border-2 border-gray-200 rounded-2xl px-4 py-3
-              text-2xl text-center tracking-[0.4em] font-bold outline-none
+              text-2xl text-center tracking-[0.3em] font-bold outline-none
               focus:border-[#C4A7E7] transition-colors"
             autoFocus
           />
@@ -101,7 +101,7 @@ export function SignIn() {
 
           <button
             type="submit"
-            disabled={loading || code.length !== 6}
+            disabled={loading || code.length < 6}
             className="w-full bg-[#C4A7E7] text-white font-bold text-lg rounded-2xl py-3
               disabled:opacity-50 transition-opacity active:scale-95"
           >
