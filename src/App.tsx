@@ -95,12 +95,21 @@ export default function App() {
       ]);
       if (remoteMastery) saveMasteryMap(remote.profileId, remoteMastery);
       const localSessions = loadSessionRecords(remote.profileId);
-      if (remoteSessions && remoteSessions.length > 0 && localSessions.length === 0) {
-        // New device (e.g. Mac): no local data — hydrate from Supabase
-        hydrateSessionRecords(remote.profileId, remoteSessions);
-      } else if ((!remoteSessions || remoteSessions.length === 0) && localSessions.length > 0) {
-        // Source device (e.g. tablet): has local sessions never synced — push them up now
-        migrateSessionRecords(localSessions);  // fire-and-forget; non-blocking
+      const remoteList    = remoteSessions ?? [];
+      if (remoteList.length > 0 && localSessions.length === 0) {
+        // New device: hydrate from Supabase
+        hydrateSessionRecords(remote.profileId, remoteList);
+      } else if (remoteList.length === 0 && localSessions.length > 0) {
+        // Source device (tablet): push local sessions that were never synced
+        migrateSessionRecords(localSessions);
+      } else if (remoteList.length > 0 && localSessions.length > 0) {
+        // Both have data: merge — push any local-only sessions up, hydrate merged list
+        const remoteIds  = new Set(remoteList.map(s => s.sessionId));
+        const localOnly  = localSessions.filter(s => !remoteIds.has(s.sessionId));
+        if (localOnly.length > 0) migrateSessionRecords(localOnly);
+        const merged = [...remoteList, ...localOnly]
+          .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+        hydrateSessionRecords(remote.profileId, merged);
       }
       setScreen(remote.onboardingComplete ? 'modePicker' : 'diagIntro');
     } else {

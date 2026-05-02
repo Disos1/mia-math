@@ -163,7 +163,7 @@ async function _pushSessionRecord(record: SessionRecord): Promise<void> {
         mode:               record.mode,
         started_at:         record.startedAt,
         completed_at:       record.completedAt,
-        items_attempted:    record.itemsAttempted,
+        items_answered:     record.itemsAttempted,   // DB column is items_answered
         items_correct:      record.itemsCorrect,
         primary_skill_code: record.primarySkillCode,
       },
@@ -197,9 +197,9 @@ export async function pullSessionRecords(profileId: string): Promise<SessionReco
     mode:             r.mode,
     startedAt:        r.started_at,
     completedAt:      r.completed_at,
-    itemsAttempted:   r.items_attempted,
-    itemsCorrect:     r.items_correct,
-    primarySkillCode: r.primary_skill_code,
+    itemsAttempted:   r.items_answered,           // DB column is items_answered
+    itemsCorrect:     r.items_correct   ?? 0,
+    primarySkillCode: r.primary_skill_code ?? '',
   }));
 }
 

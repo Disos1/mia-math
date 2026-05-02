@@ -44,25 +44,31 @@ export function Parent({ profile, onBack, onReset }: Props) {
     : null;
 
   // ── 7-day activity strip ────────────────────────────────────────────────────
-  // Build an array of the last 7 calendar days (index 0 = oldest, 6 = today).
-  // For each day mark whether a session completed on that date.
+  // Build an array of the last 7 calendar days with per-day stats.
 
   const activityDays = useMemo(() => {
     const today = new Date();
-    // Collect all unique practice dates (local YYYY-MM-DD)
-    const practicedDates = new Set(
-      sessions
-        .filter(s => s.completedAt)
-        .map(s => toLocalDate(s.completedAt!))
-    );
+
+    // Group sessions by local date
+    const byDate = new Map<string, typeof sessions>();
+    sessions
+      .filter(s => s.completedAt)
+      .forEach(s => {
+        const d = toLocalDate(s.completedAt!);
+        if (!byDate.has(d)) byDate.set(d, []);
+        byDate.get(d)!.push(s);
+      });
 
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(today);
-      d.setDate(today.getDate() - (6 - i));  // 6 days ago → today
-      const dateStr = toLocalDate(d.toISOString());
-      const dayLabel = d.toLocaleDateString('he-IL', { weekday: 'short' })
-                        .replace('׳', '');   // trim the Hebrew geresh
-      return { dateStr, dayLabel, practiced: practicedDates.has(dateStr) };
+      d.setDate(today.getDate() - (6 - i));
+      const dateStr      = toLocalDate(d.toISOString());
+      const dayLabel     = d.toLocaleDateString('he-IL', { weekday: 'short' }).replace('׳', '');
+      const daySessions  = byDate.get(dateStr) ?? [];
+      const answered     = daySessions.reduce((s, r) => s + r.itemsAttempted, 0);
+      const correct      = daySessions.reduce((s, r) => s + r.itemsCorrect,   0);
+      const accuracy     = answered > 0 ? Math.round(correct / answered * 100) : null;
+      return { dateStr, dayLabel, practiced: daySessions.length > 0, answered, accuracy };
     });
   }, [sessions]);
 
@@ -134,26 +140,46 @@ export function Parent({ profile, onBack, onReset }: Props) {
               <div className="text-sm font-medium text-gray-500 mb-3">
                 {t('parent.streak_title', g)}
               </div>
-              <div className="flex justify-between gap-1">
-                {activityDays.map(({ dateStr, dayLabel, practiced }) => (
-                  <div key={dateStr} className="flex flex-col items-center gap-1.5 flex-1">
+              <div className="flex gap-1.5">
+                {activityDays.map(({ dateStr, dayLabel, practiced, answered, accuracy }) => {
+                  const accuracyColor =
+                    accuracy === null     ? '#9CA3AF'
+                    : accuracy >= 80     ? '#16A34A'
+                    : accuracy >= 60     ? '#D97706'
+                    :                      '#DC2626';
+                  return (
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all"
-                      style={{
-                        background:  practiced ? '#C4A7E7' : '#EDE8E0',
-                        color:       practiced ? '#2D3047' : '#A0968A',
-                      }}
-                      title={practiced
-                        ? t('parent.streak_practiced', g)
-                        : t('parent.streak_no_practice', g)}
+                      key={dateStr}
+                      className="flex-1 rounded-xl py-2 px-1 flex flex-col items-center gap-1"
+                      style={{ background: practiced ? '#F3EEFF' : '#F9F8F6' }}
                     >
-                      {practiced ? '✓' : ''}
+                      <span
+                        className="text-xs font-semibold"
+                        style={{ color: practiced ? '#7C3AED' : '#9CA3AF' }}
+                      >
+                        {dayLabel}
+                      </span>
+                      {practiced ? (
+                        <>
+                          <span className="text-sm font-bold text-[#2D3047] leading-none">
+                            {answered}
+                          </span>
+                          <span
+                            className="text-xs font-medium leading-none"
+                            style={{ color: accuracyColor }}
+                          >
+                            {accuracy}%
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300 text-lg leading-none">·</span>
+                      )}
                     </div>
-                    <span className="text-xs text-gray-500 text-center leading-tight">
-                      {dayLabel}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+              <div className="flex justify-between mt-2 px-1">
+                <span className="text-xs text-gray-400">שאלות / דיוק</span>
               </div>
             </div>
 
