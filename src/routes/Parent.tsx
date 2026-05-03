@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { t } from '../i18n/t';
 import type { LocaleKey } from '../i18n/t';
+import type { Gender } from '../i18n/t';
 import type { Profile, StrandCode } from '../types';
 import { loadSessionRecords } from '../lib/sessionStore';
+import { loadMasteryMap } from '../lib/sessionStore';
 
 interface Props {
   profile: Profile | null;
@@ -10,21 +12,12 @@ interface Props {
   onReset: () => void;
 }
 
-/**
- * Parent dashboard — Phase 2 cut.
- *
- * Shows:
- *   - Total questions answered + correct + accuracy
- *   - 7-day activity strip (which days Mia practiced)
- *   - Diagnostic strand status + active error patterns
- *   - First skill focus
- */
 export function Parent({ profile, onBack, onReset }: Props) {
-  const g = { gender: 'f' as const };
+  const gender    = (profile?.gender ?? 'f') as Gender;
+  const childName = profile?.displayName ?? '';
+  const g = { gender, name: childName };
 
-  const handleReset = () => {
-    if (confirm(t('parent.reset_confirm', g))) onReset();
-  };
+  const [showResetModal, setShowResetModal] = useState(false);
 
   const diagDateHe = profile?.diagnosticCompletedAt
     ? new Date(profile.diagnosticCompletedAt).toLocaleDateString('he-IL')
@@ -34,30 +27,35 @@ export function Parent({ profile, onBack, onReset }: Props) {
 
   const sessions = useMemo(
     () => (profile ? loadSessionRecords(profile.profileId) : []),
-    [profile?.profileId, profile?.sessionsCompleted]  // re-read when count changes
+    [profile?.profileId, profile?.sessionsCompleted]
   );
 
-  const totalAnswered = sessions.reduce((s, r) => s + r.itemsAttempted, 0);
-  const totalCorrect  = sessions.reduce((s, r) => s + r.itemsCorrect,  0);
+  // Include all sessions with at least one answered question (completedAt may be null for partial)
+  const countableSessions = useMemo(
+    () => sessions.filter(s => s.itemsAttempted > 0),
+    [sessions]
+  );
+
+  const totalAnswered = countableSessions.reduce((s, r) => s + r.itemsAttempted, 0);
+  const totalCorrect  = countableSessions.reduce((s, r) => s + r.itemsCorrect,  0);
   const accuracy      = totalAnswered > 0
     ? Math.round((totalCorrect / totalAnswered) * 100)
     : null;
 
   // ── 7-day activity strip ────────────────────────────────────────────────────
-  // Build an array of the last 7 calendar days with per-day stats.
 
   const activityDays = useMemo(() => {
     const today = new Date();
 
-    // Group sessions by local date
+    // Group sessions by local date — include partial sessions (completedAt may be null)
     const byDate = new Map<string, typeof sessions>();
-    sessions
-      .filter(s => s.completedAt)
-      .forEach(s => {
-        const d = toLocalDate(s.completedAt!);
-        if (!byDate.has(d)) byDate.set(d, []);
-        byDate.get(d)!.push(s);
-      });
+    countableSessions.forEach(s => {
+      // Use completedAt if available, else startedAt as the day bucket
+      const ts = s.completedAt ?? s.startedAt;
+      const d  = toLocalDate(ts);
+      if (!byDate.has(d)) byDate.set(d, []);
+      byDate.get(d)!.push(s);
+    });
 
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(today);
@@ -67,10 +65,29 @@ export function Parent({ profile, onBack, onReset }: Props) {
       const daySessions  = byDate.get(dateStr) ?? [];
       const answered     = daySessions.reduce((s, r) => s + r.itemsAttempted, 0);
       const correct      = daySessions.reduce((s, r) => s + r.itemsCorrect,   0);
-      const accuracy     = answered > 0 ? Math.round(correct / answered * 100) : null;
-      return { dateStr, dayLabel, practiced: daySessions.length > 0, answered, accuracy };
+      const dayAccuracy  = answered > 0 ? Math.round(correct / answered * 100) : null;
+      const hasPartial   = daySessions.some(s => !s.completedAt);
+      const hasComplete  = daySessions.some(s => !!s.completedAt);
+      return { dateStr, dayLabel, practiced: daySessions.length > 0, answered, accuracy: dayAccuracy, hasPartial, hasComplete };
     });
-  }, [sessions]);
+  }, [countableSessions]);
+
+  // ── Live mastery map (active skills) ───────────────────────────────────────
+
+  const masteryMap = useMemo(
+    () => (profile ? loadMasteryMap(profile.profileId) : {}),
+    [profile?.profileId, profile?.sessionsCompleted]
+  );
+
+  const activeSkills = useMemo(
+    () => Object.entries(masteryMap)
+      .filter(([, r]) => r.status === 'בתהליך')
+      .sort(([, a], [, b]) =>
+        (b.lastPracticedAt ?? '').localeCompare(a.lastPracticedAt ?? '')
+      )
+      .slice(0, 5),
+    [masteryMap]
+  );
 
   const gap = profile?.gapProfileJson ?? null;
 
@@ -84,7 +101,10 @@ export function Parent({ profile, onBack, onReset }: Props) {
             <button onClick={onBack} className="text-2xl" aria-label="חזרה">→</button>
             <h2 className="text-2xl font-bold">{t('parent.title', g)}</h2>
           </div>
-          <button onClick={handleReset} className="text-sm text-red-500 underline">
+          <button
+            onClick={() => setShowResetModal(true)}
+            className="text-sm text-red-400 underline"
+          >
             {t('parent.reset_demo', g)}
           </button>
         </div>
@@ -141,22 +161,25 @@ export function Parent({ profile, onBack, onReset }: Props) {
                 {t('parent.streak_title', g)}
               </div>
               <div className="flex gap-1.5">
-                {activityDays.map(({ dateStr, dayLabel, practiced, answered, accuracy }) => {
+                {activityDays.map(({ dateStr, dayLabel, practiced, answered, accuracy: dayAcc, hasPartial, hasComplete }) => {
                   const accuracyColor =
-                    accuracy === null     ? '#9CA3AF'
-                    : accuracy >= 80     ? '#16A34A'
-                    : accuracy >= 60     ? '#D97706'
-                    :                      '#DC2626';
+                    dayAcc === null   ? '#9CA3AF'
+                    : dayAcc >= 80   ? '#16A34A'
+                    : dayAcc >= 60   ? '#D97706'
+                    :                  '#DC2626';
+                  const bg = !practiced ? '#F9F8F6'
+                    : hasComplete      ? '#F3EEFF'
+                    :                    '#FFF9EF'; // partial-only = warm tint
+                  const labelColor = !practiced ? '#9CA3AF'
+                    : hasComplete      ? '#7C3AED'
+                    :                    '#D97706';
                   return (
                     <div
                       key={dateStr}
                       className="flex-1 rounded-xl py-2 px-1 flex flex-col items-center gap-1"
-                      style={{ background: practiced ? '#F3EEFF' : '#F9F8F6' }}
+                      style={{ background: bg }}
                     >
-                      <span
-                        className="text-xs font-semibold"
-                        style={{ color: practiced ? '#7C3AED' : '#9CA3AF' }}
-                      >
+                      <span className="text-xs font-semibold" style={{ color: labelColor }}>
                         {dayLabel}
                       </span>
                       {practiced ? (
@@ -164,12 +187,14 @@ export function Parent({ profile, onBack, onReset }: Props) {
                           <span className="text-sm font-bold text-[#2D3047] leading-none">
                             {answered}
                           </span>
-                          <span
-                            className="text-xs font-medium leading-none"
-                            style={{ color: accuracyColor }}
-                          >
-                            {accuracy}%
+                          <span className="text-xs font-medium leading-none" style={{ color: accuracyColor }}>
+                            {dayAcc}%
                           </span>
+                          {hasPartial && !hasComplete && (
+                            <span className="text-[9px] text-amber-500 leading-none">
+                              {t('parent.session_partial', g)}
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span className="text-gray-300 text-lg leading-none">·</span>
@@ -182,6 +207,36 @@ export function Parent({ profile, onBack, onReset }: Props) {
                 <span className="text-xs text-gray-400">שאלות / דיוק</span>
               </div>
             </div>
+
+            {/* ── Active skills from live mastery ───────────────────────── */}
+            {activeSkills.length > 0 && (
+              <div className="bg-white card-shadow rounded-3xl p-5">
+                <div className="text-sm font-medium text-gray-500 mb-3">
+                  {t('parent.active_skills', g)}
+                </div>
+                {activeSkills.map(([skillCode, record]) => {
+                  const acc = record.firstAttemptAccuracy > 0
+                    ? `${Math.round(record.firstAttemptAccuracy * 100)}%`
+                    : null;
+                  return (
+                    <div
+                      key={skillCode}
+                      className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🌱</span>
+                        <span className="text-sm text-[#2D3047]">
+                          {t(`skill.${skillCode}` as LocaleKey, g)}
+                        </span>
+                      </div>
+                      {acc && (
+                        <span className="text-xs text-gray-400">{acc}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* ── Strand status ──────────────────────────────────────────── */}
             <div className="bg-white card-shadow rounded-3xl p-5">
@@ -236,13 +291,45 @@ export function Parent({ profile, onBack, onReset }: Props) {
           </div>
         )}
       </div>
+
+      {/* ── Reset confirmation modal ────────────────────────────────────────── */}
+      {showResetModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          dir="rtl"
+        >
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 text-center shadow-2xl">
+            <div className="text-5xl mb-4">⚠️</div>
+            <h3 className="text-xl font-bold text-[#2D3047] mb-3">
+              {t('parent.reset_demo', g)}
+            </h3>
+            <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+              {t('parent.reset_modal_body', g)}
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => { setShowResetModal(false); onReset(); }}
+                className="bg-red-500 text-white rounded-2xl py-3 font-bold text-base"
+              >
+                {t('parent.reset_modal_confirm', g)}
+              </button>
+              <button
+                onClick={() => setShowResetModal(false)}
+                className="bg-gray-100 text-gray-600 rounded-2xl py-3 font-bold text-base"
+              >
+                {t('parent.reset_modal_cancel', g)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-/** Convert an ISO timestamp to a local YYYY-MM-DD string */
 function toLocalDate(iso: string): string {
   const d = new Date(iso);
   const y = d.getFullYear();
@@ -265,7 +352,7 @@ function StatPill({
   return (
     <div
       className="rounded-2xl p-3 flex flex-col items-center gap-1"
-      style={{ background: `${color}33` }}   // 20% opacity tint
+      style={{ background: `${color}33` }}
     >
       <span className="text-2xl font-bold" style={{ color: '#2D3047' }}>
         {value}

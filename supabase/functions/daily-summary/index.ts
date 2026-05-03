@@ -53,11 +53,11 @@ function buildEmail(
   masteredCount:  number,
   inProgressCount: number,
 ): { subject: string; html: string } {
-  const total7d     = sessions7d.reduce((s, r) => s + r.items_attempted, 0);
-  const correct7d   = sessions7d.reduce((s, r) => s + r.items_correct,   0);
+  const total7d     = sessions7d.reduce((s, r) => s + (r.items_answered ?? 0), 0);
+  const correct7d   = sessions7d.reduce((s, r) => s + (r.items_correct  ?? 0), 0);
   const accuracy7d  = total7d > 0 ? Math.round(correct7d / total7d * 100) : 0;
   const todayCount  = sessionsToday.length;
-  const todayItems  = sessionsToday.reduce((s, r) => s + r.items_attempted, 0);
+  const todayItems  = sessionsToday.reduce((s, r) => s + (r.items_answered ?? 0), 0);
 
   const subject = todayCount > 0
     ? `✅ ${childName} תרגלה היום — סיכום יומי`
@@ -165,10 +165,10 @@ Deno.serve(async (_req) => {
 
     if (!profile) continue;
 
-    // Sessions in last 7 days
+    // Sessions in last 7 days (items_answered is the DB column name)
     const { data: sessions7d } = await db
       .from('session_records')
-      .select('items_attempted, items_correct, completed_at, primary_skill_code')
+      .select('items_answered, items_correct, completed_at, primary_skill_code')
       .eq('profile_id', profile.profile_id)
       .gte('completed_at', sevenAgo + 'T00:00:00Z');
 

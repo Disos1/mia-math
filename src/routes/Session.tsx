@@ -44,7 +44,7 @@ import {
   loadLedger,
   saveLedger,
   appendAttempts,
-  appendSessionRecord,
+  upsertSessionRecord,
 } from '../lib/sessionStore';
 import { updateProfile } from '../lib/profile';
 
@@ -178,6 +178,48 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   const wrongCountRef = useRef(0);
 
   const startedAtRef = useRef<string>(plan.startedAt);
+
+  // Save a draft record immediately so the parent dashboard can see that a
+  // session is in progress even if the app is closed before finish() runs.
+  useEffect(() => {
+    upsertSessionRecord(profile.profileId, {
+      sessionId:        plan.sessionId,
+      profileId:        profile.profileId,
+      mode:             plan.mode,
+      startedAt:        startedAtRef.current,
+      completedAt:      null,
+      itemsAttempted:   0,
+      itemsCorrect:     0,
+      primarySkillCode: plan.primarySkillCode,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // once on mount
+
+  // When the tab is hidden (app backgrounded / tab switched / browser closed),
+  // flush whatever progress exists so the parent dashboard stays current.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'hidden') return;
+      const attempts = attemptsRef.current;
+      if (attempts.length === 0) return;
+      const correct = attempts.filter(a => a.correct).length;
+      upsertSessionRecord(profile.profileId, {
+        sessionId:        plan.sessionId,
+        profileId:        profile.profileId,
+        mode:             plan.mode,
+        startedAt:        startedAtRef.current,
+        completedAt:      null,
+        itemsAttempted:   attempts.length,
+        itemsCorrect:     correct,
+        primarySkillCode: plan.primarySkillCode,
+      });
+      saveMasteryMap(profile.profileId, masteryRef.current);
+      saveLedger(profile.profileId, ledgerRef.current);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // refs are stable, no deps needed
 
   const currentItem = items[index] ?? null;
   const total       = plan.targetItems ?? items.length;
@@ -365,7 +407,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     appendAttempts(profile.profileId, allAttempts);
     saveMasteryMap(profile.profileId, masteryRef.current);
     saveLedger(profile.profileId, ledgerRef.current);
-    appendSessionRecord(profile.profileId, {
+    upsertSessionRecord(profile.profileId, {
       sessionId:        plan.sessionId,
       profileId:        profile.profileId,
       mode:             plan.mode,
@@ -394,6 +436,8 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
         plan={plan}
         itemsCorrect={attemptsRef.current.filter(a => a.correct).length}
         itemsAttempted={attemptsRef.current.length}
+        gender={profile.gender}
+        name={profile.displayName}
         onContinue={onComplete}
         onTrophyRoom={onTrophyRoom}
       />
@@ -608,6 +652,8 @@ interface EndProps {
   plan:           SessionPlan;
   itemsAttempted: number;
   itemsCorrect:   number;
+  gender:         'f' | 'm';
+  name:           string;
   onContinue:     () => void;
   onTrophyRoom:   () => void;
 }
@@ -620,8 +666,8 @@ const STAR_POSITIONS = [
   { top: '82%', left: '84%', delay: '0.25s', size: '1.5rem' },
 ];
 
-function EndSession({ plan, itemsAttempted, itemsCorrect, onContinue, onTrophyRoom }: EndProps) {
-  const g = { gender: 'f' as const };
+function EndSession({ plan, itemsAttempted, itemsCorrect, gender, name, onContinue, onTrophyRoom }: EndProps) {
+  const g = { gender, name };
   const skillLabelKey = `skill.${plan.primarySkillCode}` as LocaleKey;
   const accuracyPct   = itemsAttempted > 0
     ? Math.round((itemsCorrect / itemsAttempted) * 100)

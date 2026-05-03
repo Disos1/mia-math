@@ -76,6 +76,18 @@ export function appendSessionRecord(profileId: string, record: SessionRecord): v
   syncSessionRecord(record); // fire-and-forget; no-op if not authed
 }
 
+/** Upsert by sessionId — updates existing record or appends new one. Used for
+ *  partial-session drafts (completedAt: null) and the final finish() call. */
+export function upsertSessionRecord(profileId: string, record: SessionRecord): void {
+  const cur = loadSessionRecords(profileId);
+  const idx = cur.findIndex(r => r.sessionId === record.sessionId);
+  const next = idx >= 0
+    ? cur.map((r, i) => (i === idx ? record : r))
+    : [...cur, record].slice(-MAX_SESSIONS);
+  write(KEY_SESSIONS(profileId), next);
+  syncSessionRecord(record);
+}
+
 /** Overwrite local session records with data pulled from Supabase (hydration only). */
 export function hydrateSessionRecords(profileId: string, records: SessionRecord[]): void {
   write(KEY_SESSIONS(profileId), records.slice(-MAX_SESSIONS));
