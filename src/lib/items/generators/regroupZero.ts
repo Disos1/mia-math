@@ -27,7 +27,7 @@ function swapLast2(n: number): number {
   return n - u - t * 10 + t + u * 10;
 }
 
-function difficultyFor(a: number, b: number): number {
+function difficultyFor(a: number, _b: number): number {
   if (a <= 300) return 1;
   if (a <= 500) return 2;
   return 3;

@@ -7,7 +7,7 @@
 
 import type { PracticeItem } from '../../../types';
 import { buildItem, pickFromCombos, type GenerateOpts } from '../shared';
-import { NAMES, SUB_VERBS, ADD_VERBS, OBJECTS, NEUTRAL_SCENARIOS } from '../wordBank';
+import { NAMES, OBJECTS, NEUTRAL_SCENARIOS } from '../wordBank';
 
 const SKILL = 'ARITH_WORD_3STEP';
 
