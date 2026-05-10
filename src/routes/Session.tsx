@@ -46,6 +46,7 @@ import {
   appendAttempts,
   upsertSessionRecord,
 } from '../lib/sessionStore';
+import { loadRecentItemIds, appendRecentItemIds } from '../lib/items/recentItems';
 import { updateProfile } from '../lib/profile';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -110,6 +111,11 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     }
   }, [profile.profileId, initialMastery]);
 
+  // Recent items buffer — itemIds the learner has seen across recent sessions.
+  // The composer/generator prefer fresh combos when this is non-empty.
+  // Loaded once at mount (snapshot); appended at finish() / visibilitychange.
+  const recentIdsRef = useRef<Set<string>>(loadRecentItemIds(profile.profileId));
+
   // Compose the plan once per session
   const plan = useMemo<SessionPlan>(
     () => composeSession({
@@ -118,6 +124,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       masteryMap:        initialMastery,
       mode,
       sessionsCompleted: profile.sessionsCompleted,
+      recentIds:         recentIdsRef.current,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []   // intentionally empty: compose once, on mount
@@ -215,6 +222,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       });
       saveMasteryMap(profile.profileId, masteryRef.current);
       saveLedger(profile.profileId, ledgerRef.current);
+      appendRecentItemIds(profile.profileId, attempts.map(a => a.itemId));
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
@@ -336,6 +344,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       const more = extendOpenPlan({
         gapProfile: profile.gapProfileJson,
         masteryMap,
+        recentIds:  recentIdsRef.current,
       });
       if (more.length === 0) { finish(); return; }
       const extras = more.map((p, i) => ({ ...p, position: items.length + i }));
@@ -380,6 +389,8 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       upcoming.item.skillCode,
       cpa.currentLayer,
       usedIdsRef.current,
+      undefined,
+      recentIdsRef.current,
     );
 
     if (!replacement) {
@@ -407,6 +418,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     appendAttempts(profile.profileId, allAttempts);
     saveMasteryMap(profile.profileId, masteryRef.current);
     saveLedger(profile.profileId, ledgerRef.current);
+    appendRecentItemIds(profile.profileId, allAttempts.map(a => a.itemId));
     upsertSessionRecord(profile.profileId, {
       sessionId:        plan.sessionId,
       profileId:        profile.profileId,

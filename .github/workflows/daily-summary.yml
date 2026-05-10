@@ -13,8 +13,8 @@ jobs:
     steps:
       - name: Call daily-summary Edge Function
         run: |
-          curl --fail -X POST \
+          curl --fail-with-body -X POST \
             "${{ secrets.VITE_SUPABASE_URL }}/functions/v1/daily-summary" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
             -H "Content-Type: application/json" \
-            --silent --show-error
+            --show-error

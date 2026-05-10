@@ -32,7 +32,7 @@ import type {
   CPALayer,
   PracticeItem,
 } from '../types';
-import { PRACTICE_ITEMS_BY_SKILL } from '../constants/practiceItems';
+import { getItemPool } from './items';
 import { masteredSkills, skillsInProgress } from './masteryTracker';
 
 // ─── Targets ──────────────────────────────────────────────────────────────────
@@ -57,10 +57,16 @@ export interface ComposeArgs {
   sessionsCompleted:  number;
   /** For determinism in tests; defaults to Math.random */
   rng?:               () => number;
+  /**
+   * Cross-session memorization defense — itemIds the learner has recently seen.
+   * The generator prefers fresh combos when this is supplied. Defaults to empty.
+   */
+  recentIds?:         Set<string>;
 }
 
 export function composeSession(args: ComposeArgs): SessionPlan {
-  const rng = args.rng ?? Math.random;
+  const rng       = args.rng       ?? Math.random;
+  const recentIds = args.recentIds ?? new Set<string>();
   const reasoning: string[] = [];
   const targetItems =
     args.mode === 'open'
@@ -133,10 +139,10 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // 1. Warm-up
   if (sizes.warmup > 0 && strengthPool.length > 0) {
     const warmSkill = pickRandom(strengthPool, rng);
-    plan.push(...pickItems(warmSkill, 'abstract', sizes.warmup, 'warmup', plan.length, rng, usedIds));
+    plan.push(...pickItems(warmSkill, 'abstract', sizes.warmup, 'warmup', plan.length, rng, usedIds, recentIds));
   } else if (sizes.warmup > 0 && firstGap) {
     // No strength pool yet — warm up on an easy variant of top gap
-    plan.push(...pickItems(firstGap, 'abstract', sizes.warmup, 'warmup', plan.length, rng, usedIds, {
+    plan.push(...pickItems(firstGap, 'abstract', sizes.warmup, 'warmup', plan.length, rng, usedIds, recentIds, {
       preferDifficulty: 1,
     }));
     reasoning.push('No strength pool — warming up on easiest variant of top gap instead');
@@ -145,7 +151,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // 2. New material
   if (sizes.newMaterial > 0 && firstGap) {
     const layer = gap?.cpaStartLayer[firstGap] ?? 'abstract';
-    plan.push(...pickItems(firstGap, layer, sizes.newMaterial, 'new_material', plan.length, rng, usedIds));
+    plan.push(...pickItems(firstGap, layer, sizes.newMaterial, 'new_material', plan.length, rng, usedIds, recentIds));
   }
 
   // 3. Blocked practice
@@ -153,18 +159,18 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     const blockedSkill = secondGap ?? firstGap;
     if (blockedSkill) {
       const layer = gap?.cpaStartLayer[blockedSkill] ?? 'abstract';
-      plan.push(...pickItems(blockedSkill, layer, sizes.blocked, 'blocked_practice', plan.length, rng, usedIds));
+      plan.push(...pickItems(blockedSkill, layer, sizes.blocked, 'blocked_practice', plan.length, rng, usedIds, recentIds));
     }
   }
 
   // 4. Spaced retrieval
   if (sizes.retrieval > 0) {
     if (hasMultFactGap) {
-      plan.push(...pickItems('ARITH_MULT_6_9', 'abstract', sizes.retrieval, 'spaced_retrieval', plan.length, rng, usedIds));
+      plan.push(...pickItems('ARITH_MULT_6_9', 'abstract', sizes.retrieval, 'spaced_retrieval', plan.length, rng, usedIds, recentIds));
     } else {
       const retrievalSkill = thirdGap ?? firstGap;
       if (retrievalSkill) {
-        plan.push(...pickItems(retrievalSkill, 'abstract', sizes.retrieval, 'spaced_retrieval', plan.length, rng, usedIds));
+        plan.push(...pickItems(retrievalSkill, 'abstract', sizes.retrieval, 'spaced_retrieval', plan.length, rng, usedIds, recentIds));
       }
     }
   }
@@ -172,7 +178,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // 5. Interleaved
   if (sizes.interleaved > 0) {
     const pool = strengthPool.length > 0 ? strengthPool : (firstGap ? [firstGap] : []);
-    plan.push(...pickInterleaved(pool, sizes.interleaved, plan.length, rng, usedIds));
+    plan.push(...pickInterleaved(pool, sizes.interleaved, plan.length, rng, usedIds, recentIds));
   }
 
   // ── Primary skill for end-of-session summary ───────────────────────────────
@@ -288,9 +294,10 @@ function pickItems(
   startPosition: number,
   rng:          () => number,
   usedIds:      Set<string>,
+  recentIds:    Set<string>,
   opts: { preferDifficulty?: number } = {},
 ): SessionPlanItem[] {
-  const pool = PRACTICE_ITEMS_BY_SKILL[skillCode] ?? [];
+  const pool = getItemPool(skillCode, { recentIds, rng });
   if (pool.length === 0 || count === 0) return [];
 
   // Filter out items already used anywhere in this session
@@ -329,12 +336,13 @@ function pickInterleaved(
   startPosition: number,
   rng:           () => number,
   usedIds:       Set<string>,
+  recentIds:     Set<string>,
 ): SessionPlanItem[] {
   if (skillPool.length === 0 || count === 0) return [];
   const out: SessionPlanItem[] = [];
   for (let i = 0; i < count; i++) {
     const skill = skillPool[i % skillPool.length];
-    const pool  = (PRACTICE_ITEMS_BY_SKILL[skill] ?? [])
+    const pool  = getItemPool(skill, { recentIds, rng })
                     .filter(it => !usedIds.has(it.itemId));
     if (pool.length === 0) continue;
     const item  = pool[Math.floor(rng() * pool.length)];
@@ -392,8 +400,9 @@ export function pickVariantAtLayer(
   desiredLayer: CPALayer,
   usedIds:      Set<string>,
   rng: () => number = Math.random,
+  recentIds:    Set<string> = new Set(),
 ): PracticeItem | null {
-  const pool = PRACTICE_ITEMS_BY_SKILL[skillCode] ?? [];
+  const pool = getItemPool(skillCode, { recentIds, rng });
   const candidates = pool.filter(
     it => it.cpaLayer === desiredLayer && !usedIds.has(it.itemId),
   );
@@ -412,8 +421,10 @@ export function extendOpenPlan(args: {
   masteryMap:  MasteryMap;
   rng?:        () => number;
   extraCount?: number;
+  recentIds?:  Set<string>;
 }): SessionPlanItem[] {
-  const rng         = args.rng ?? Math.random;
+  const rng         = args.rng       ?? Math.random;
+  const recentIds   = args.recentIds ?? new Set<string>();
   const n           = args.extraCount ?? OPEN_MODE_INITIAL_BATCH;
   const gapsOrdered = args.gapProfile?.sessionComposerNotes.blockedPracticePriority ?? [];
   const strengthPool = [...masteredSkills(args.masteryMap)];
@@ -427,7 +438,7 @@ export function extendOpenPlan(args: {
       ? strengthPool[i % strengthPool.length]
       : gapsOrdered[i % Math.max(1, gapsOrdered.length)];
     if (!skill) continue;
-    const pool = (PRACTICE_ITEMS_BY_SKILL[skill] ?? [])
+    const pool = getItemPool(skill, { recentIds, rng })
                    .filter(it => !usedIds.has(it.itemId));
     if (pool.length === 0) continue;
     const item = pool[Math.floor(rng() * pool.length)];
