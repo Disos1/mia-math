@@ -39,6 +39,7 @@ export interface Trophy {
   labelKey:  string;   // i18n key — resolve via t(labelKey as LocaleKey, {gender})
   emoji:     string;
   earned:    boolean;
+  earnedAt:  string | null;  // ISO completedAt of the session that crossed the threshold
   progress:  number;   // current value toward target
   target:    number;   // threshold to earn
 }
@@ -56,7 +57,11 @@ export interface TrophyState {
 
 export function computeTrophyState(records: SessionRecord[]): TrophyState {
   // Only count sessions that actually completed — abandoned ones don't earn.
-  const completed = records.filter(r => r.completedAt);
+  // Sort chronologically so all downstream logic is stable regardless of
+  // the order records were written / merged from Supabase.
+  const completed = records
+    .filter(r => r.completedAt)
+    .sort((a, b) => (a.completedAt ?? '').localeCompare(b.completedAt ?? ''));
 
   const sessionStars: SessionStar[] = completed.map(r => ({
     sessionId: r.sessionId,
@@ -70,6 +75,70 @@ export function computeTrophyState(records: SessionRecord[]): TrophyState {
   const totalStars   = sessionStars.reduce((s, x) => s + x.stars, 0);
   const sessionCount = completed.length;
 
+  const maxStreak     = computeMaxDayStreak(completed);
+  const currentStreak = computeCurrentStreak(completed);
+
+  // ── earnedAt helpers ──────────────────────────────────────────────────────
+
+  /** Date of the Nth completed session (1-indexed), or null if not yet reached. */
+  function nthSessionDate(n: number): string | null {
+    return completed.length >= n ? (completed[n - 1].completedAt ?? null) : null;
+  }
+
+  /** Date of the Nth high-accuracy session, or null. */
+  function nthHighAccDate(n: number): string | null {
+    let count = 0;
+    for (const r of completed) {
+      if (r.itemsAttempted > 0 && r.itemsCorrect / r.itemsAttempted >= HIGH_ACCURACY_THRESHOLD) {
+        count++;
+        if (count >= n) return r.completedAt ?? null;
+      }
+    }
+    return null;
+  }
+
+  /** Date of the first perfect session, or null. */
+  function firstPerfectDate(): string | null {
+    const r = completed.find(r => r.itemsAttempted > 0 && r.itemsCorrect === r.itemsAttempted);
+    return r?.completedAt ?? null;
+  }
+
+  /** Date the 3-day streak was first achieved, or null. */
+  function firstStreakDate(streakLen: number): string | null {
+    const days = Array.from(new Set(
+      completed.map(r => toLocalDate(r.completedAt!)),
+    )).sort();
+    let cur  = 1;
+    for (let i = 1; i < days.length; i++) {
+      const gap = new Date(days[i]).getTime() - new Date(days[i - 1]).getTime();
+      if (gap <= 24 * 60 * 60 * 1000 * 1.5) {
+        cur++;
+      } else {
+        cur = 1;
+      }
+      if (cur >= streakLen) {
+        // Return the completedAt of the last session on this day
+        const last = [...completed]
+          .reverse()
+          .find(r => toLocalDate(r.completedAt!) === days[i]);
+        return last?.completedAt ?? null;
+      }
+    }
+    return null;
+  }
+
+  /** Date the running star total first crossed a threshold. */
+  function firstStarThresholdDate(threshold: number): string | null {
+    let running = 0;
+    for (const s of sessionStars) {
+      running += s.stars;
+      if (running >= threshold) return s.date;
+    }
+    return null;
+  }
+
+  // ── Trophy definitions ────────────────────────────────────────────────────
+
   const highAccCount = completed.filter(
     r => r.itemsAttempted > 0
       && r.itemsCorrect / r.itemsAttempted >= HIGH_ACCURACY_THRESHOLD,
@@ -79,74 +148,78 @@ export function computeTrophyState(records: SessionRecord[]): TrophyState {
     r => r.itemsAttempted > 0 && r.itemsCorrect === r.itemsAttempted,
   ).length;
 
-  const maxStreak = computeMaxDayStreak(completed);
-
-  const currentStreak = computeCurrentStreak(completed);
-
   const trophies: Trophy[] = [
     {
-      id: 'first_session',
+      id:       'first_session',
       labelKey: 'trophy.first_session',
-      emoji: '🌱',
-      earned: sessionCount >= 1,
+      emoji:    '🌱',
+      earned:   sessionCount >= 1,
+      earnedAt: nthSessionDate(1),
       progress: Math.min(sessionCount, 1),
-      target: 1,
+      target:   1,
     },
     {
-      id: 'three_sessions',
+      id:       'three_sessions',
       labelKey: 'trophy.three_sessions',
-      emoji: '🔥',
-      earned: sessionCount >= 3,
+      emoji:    '🔥',
+      earned:   sessionCount >= 3,
+      earnedAt: nthSessionDate(3),
       progress: Math.min(sessionCount, 3),
-      target: 3,
+      target:   3,
     },
     {
-      id: 'five_sessions',
+      id:       'five_sessions',
       labelKey: 'trophy.five_sessions',
-      emoji: '🌟',
-      earned: sessionCount >= 5,
+      emoji:    '🌟',
+      earned:   sessionCount >= 5,
+      earnedAt: nthSessionDate(5),
       progress: Math.min(sessionCount, 5),
-      target: 5,
+      target:   5,
     },
     {
-      id: 'ten_sessions',
+      id:       'ten_sessions',
       labelKey: 'trophy.ten_sessions',
-      emoji: '🏆',
-      earned: sessionCount >= 10,
+      emoji:    '🏆',
+      earned:   sessionCount >= 10,
+      earnedAt: nthSessionDate(10),
       progress: Math.min(sessionCount, 10),
-      target: 10,
+      target:   10,
     },
     {
-      id: 'perfect_session',
+      id:       'perfect_session',
       labelKey: 'trophy.perfect_session',
-      emoji: '🎯',
-      earned: perfectCount >= 1,
+      emoji:    '🎯',
+      earned:   perfectCount >= 1,
+      earnedAt: firstPerfectDate(),
       progress: Math.min(perfectCount, 1),
-      target: 1,
+      target:   1,
     },
     {
-      id: 'five_high_acc',
+      id:       'five_high_acc',
       labelKey: 'trophy.five_high_acc',
-      emoji: '⚡',
-      earned: highAccCount >= 5,
+      emoji:    '⚡',
+      earned:   highAccCount >= 5,
+      earnedAt: nthHighAccDate(5),
       progress: Math.min(highAccCount, 5),
-      target: 5,
+      target:   5,
     },
     {
-      id: 'three_day_streak',
+      id:       'three_day_streak',
       labelKey: 'trophy.three_day_streak',
-      emoji: '📅',
-      earned: maxStreak >= 3,
+      emoji:    '📅',
+      earned:   maxStreak >= 3,
+      earnedAt: firstStreakDate(3),
       progress: Math.min(maxStreak, 3),
-      target: 3,
+      target:   3,
     },
     {
-      id: 'twenty_stars',
+      id:       'twenty_stars',
       labelKey: 'trophy.twenty_stars',
-      emoji: '✨',
-      earned: totalStars >= 20,
+      emoji:    '✨',
+      earned:   totalStars >= 20,
+      earnedAt: firstStarThresholdDate(20),
       progress: Math.min(totalStars, 20),
-      target: 20,
+      target:   20,
     },
   ];
 

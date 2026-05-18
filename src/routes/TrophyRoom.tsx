@@ -191,6 +191,11 @@ function SessionStarTile({ s }: { s: SessionStar }) {
   );
 }
 
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
+}
+
 function TrophyBadge({ trophy }: { trophy: Trophy }) {
   const g     = { gender: 'f' as const };
   const pct   = trophy.target > 0
@@ -215,6 +220,13 @@ function TrophyBadge({ trophy }: { trophy: Trophy }) {
       <span className="text-xs text-center text-[#2D3047] font-medium leading-tight">
         {t(trophy.labelKey as LocaleKey, g)}
       </span>
+
+      {/* Earned date — only on unlocked badges */}
+      {trophy.earned && trophy.earnedAt && (
+        <div className="text-[9px] text-[#B8860B] font-semibold mt-0.5">
+          {formatShortDate(trophy.earnedAt)}
+        </div>
+      )}
 
       {/* Progress bar — only on locked badges with meaningful progress */}
       {!trophy.earned && trophy.target > 1 && (

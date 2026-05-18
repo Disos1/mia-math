@@ -3,8 +3,9 @@ import type { SessionMode } from '../types';
 import { ParentGate } from '../components/layout/ParentGate';
 
 interface Props {
-  onPick: (mode: SessionMode) => void;
-  onParent: () => void;
+  onPick:       (mode: SessionMode) => void;
+  onParent:     () => void;
+  onTrophyRoom: () => void;
 }
 
 const MODES: { id: SessionMode; icon: string; nameKey: string; descKey: string }[] = [
@@ -13,7 +14,7 @@ const MODES: { id: SessionMode; icon: string; nameKey: string; descKey: string }
   { id: 'open',     icon: '🌟', nameKey: 'mode_picker.open.name',     descKey: 'mode_picker.open.desc'     },
 ];
 
-export function ModePicker({ onPick, onParent }: Props) {
+export function ModePicker({ onPick, onParent, onTrophyRoom }: Props) {
   const g = { gender: 'f' as const };
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in">
@@ -38,6 +39,20 @@ export function ModePicker({ onPick, onParent }: Props) {
             </div>
           </button>
         ))}
+
+        {/* Trophy Room shortcut — always accessible, not just post-session */}
+        <button
+          onClick={onTrophyRoom}
+          className="btn-shadow bg-white rounded-3xl p-4 text-right flex items-center gap-4
+            hover:scale-[1.02] transition-all active:scale-[0.98]"
+          style={{ border: '2px solid #FFD78A' }}
+        >
+          <div className="text-4xl">🏆</div>
+          <div>
+            <div className="text-lg font-bold" style={{ color: '#D96000' }}>חדר הגביעים</div>
+            <div className="text-sm text-gray-500">כוכבים, עיטורים והישגים</div>
+          </div>
+        </button>
       </div>
       <ParentGate onOpen={onParent} />
     </div>

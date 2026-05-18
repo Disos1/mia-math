@@ -413,6 +413,7 @@ export default function App() {
           <ModePicker
             onPick={mode => { setSessionMode(mode); setScreen('session'); }}
             onParent={openParent}
+            onTrophyRoom={() => setScreen('trophyRoom')}
           />
         );
 
