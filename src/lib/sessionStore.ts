@@ -22,7 +22,7 @@ const KEY_LEDGER   = (profileId: string) => `mia_ledger::${profileId}`;
 const KEY_SESSIONS = (profileId: string) => `mia_sessions::${profileId}`;
 const KEY_ATTEMPTS = (profileId: string) => `mia_attempts::${profileId}`;
 
-const MAX_SESSIONS = 30;   // retention cap for session records
+const MAX_SESSIONS = 500;  // retention cap — sessions are ~200 bytes each; 500 ≈ 100 KB
 const MAX_ATTEMPTS = 500;  // retention cap for attempts (trimmed oldest-first)
 
 function read<T>(key: string, fallback: T): T {

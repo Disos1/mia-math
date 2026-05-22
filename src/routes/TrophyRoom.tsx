@@ -31,13 +31,16 @@ export function TrophyRoom({ profile, onBack }: Props) {
     [profile?.profileId, profile?.sessionsCompleted],
   );
 
-  const state = useMemo(() => computeTrophyState(records), [records]);
-
   const mastered = useMemo(() => {
     if (!profile) return [];
     const map = loadMasteryMap(profile.profileId);
     return masteredSkills(map);
   }, [profile?.profileId, profile?.sessionsCompleted]);
+
+  const state = useMemo(
+    () => computeTrophyState(records, mastered.length),
+    [records, mastered.length],
+  );
 
   const isEmpty = state.totalStars === 0 && state.earnedCount === 0;
 
@@ -102,18 +105,33 @@ export function TrophyRoom({ profile, onBack }: Props) {
             </div>
 
             {/* ── Per-session strip ────────────────────────────────────────── */}
-            {state.sessionStars.length > 0 && (
-              <div className="bg-white card-shadow rounded-3xl p-5">
-                <div className="text-sm font-semibold text-gray-500 mb-3">
-                  {t('trophy_room.per_session', g)}
+            {state.sessionStars.length > 0 && (() => {
+              const STRIP_LIMIT = 30;
+              // Show the most-recent STRIP_LIMIT sessions (array is chronological, so reverse then slice)
+              const reversed    = state.sessionStars.slice().reverse();
+              const visible     = reversed.slice(0, STRIP_LIMIT);
+              const hiddenCount = reversed.length - visible.length;
+              return (
+                <div className="bg-white card-shadow rounded-3xl p-5">
+                  <div className="text-sm font-semibold text-gray-500 mb-3">
+                    {t('trophy_room.per_session', g)}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {visible.map(s => (
+                      <SessionStarTile key={s.sessionId} s={s} />
+                    ))}
+                    {hiddenCount > 0 && (
+                      <div
+                        className="w-14 h-14 rounded-2xl flex items-center justify-center text-[11px] text-gray-400 font-semibold"
+                        style={{ background: '#EDE8E0' }}
+                      >
+                        +{hiddenCount}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {state.sessionStars.slice().reverse().map(s => (
-                    <SessionStarTile key={s.sessionId} s={s} />
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ── Badge grid ──────────────────────────────────────────────── */}
             <div className="bg-white card-shadow rounded-3xl p-5">
