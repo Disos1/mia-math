@@ -192,6 +192,7 @@ export function TrophyRoom({ profile, onBack }: Props) {
 
 function SessionStarTile({ s }: { s: SessionStar }) {
   const bg =
+    s.stars >= 3 ? '#FFC65C' :   // combo-boosted session
     s.stars === 2 ? '#FFD78A' :
     s.stars === 1 ? '#FFE8C7' :
                     '#EDE8E0';
@@ -199,10 +200,10 @@ function SessionStarTile({ s }: { s: SessionStar }) {
     <div
       className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center transition-all"
       style={{ background: bg, color: '#2D3047' }}
-      title={`${s.pct}%`}
+      title={`${s.pct}% · ${s.stars} ⭐`}
     >
-      <span className="leading-none text-lg">
-        {s.stars === 2 ? '⭐⭐' : s.stars === 1 ? '⭐' : '·'}
+      <span className="leading-none text-sm">
+        {s.stars === 0 ? '·' : '⭐'.repeat(s.stars)}
       </span>
       <span className="text-[10px] text-[#6A6A6A] mt-0.5 font-bold">{s.pct}%</span>
     </div>

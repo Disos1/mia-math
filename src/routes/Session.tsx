@@ -48,6 +48,7 @@ import {
 } from '../lib/sessionStore';
 import { loadRecentItemIds, appendRecentItemIds } from '../lib/items/recentItems';
 import { updateProfile } from '../lib/profile';
+import { starsForSession, COMBO_BONUS_1 } from '../lib/trophies';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -184,6 +185,14 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   // extra renders; reset whenever we advance to a new item.
   const wrongCountRef = useRef(0);
 
+  // Combo: consecutive first-attempt-correct answers. A wrong answer (on any
+  // attempt) resets it to 0. comboRef is the live source of truth; maxComboRef
+  // is the session high-water mark persisted into the record for star bonuses;
+  // `combo` is the rendered value driving the on-screen 🔥 badge.
+  const comboRef    = useRef(0);
+  const maxComboRef = useRef(0);
+  const [combo, setCombo] = useState(0);
+
   const startedAtRef = useRef<string>(plan.startedAt);
 
   // Save a draft record immediately so the parent dashboard can see that a
@@ -219,6 +228,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
         itemsAttempted:   attempts.length,
         itemsCorrect:     correct,
         primarySkillCode: plan.primarySkillCode,
+        maxCombo:         maxComboRef.current,
       });
       saveMasteryMap(profile.profileId, masteryRef.current);
       saveLedger(profile.profileId, ledgerRef.current);
@@ -297,6 +307,17 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     setMasteryMap(nextMastery);
     setLedger(nextLedger);
     setAttempts(attemptsRef.current);
+
+    // Combo: a first-attempt-correct extends the streak; any wrong answer
+    // (first try or retry) breaks it. Rewards getting it right without guessing.
+    if (correct && firstAttempt) {
+      comboRef.current += 1;
+      if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current;
+      setCombo(comboRef.current);
+    } else if (!correct) {
+      comboRef.current = 0;
+      setCombo(0);
+    }
 
     if (correct) {
       setFeedback({ kind: 'correct' });
@@ -428,6 +449,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       itemsAttempted:   allAttempts.length,
       itemsCorrect:     correctCount,
       primarySkillCode: plan.primarySkillCode,
+      maxCombo:         maxComboRef.current,
     });
 
     try {
@@ -448,6 +470,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
         plan={plan}
         itemsCorrect={attemptsRef.current.filter(a => a.correct).length}
         itemsAttempted={attemptsRef.current.length}
+        maxCombo={maxComboRef.current}
         gender={profile.gender}
         name={profile.displayName}
         onContinue={onComplete}
@@ -477,6 +500,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       index={index}
       total={total}
       mode={mode}
+      combo={combo}
       feedback={feedback}
       isRetry={isRetry}
       layerTransition={layerTransition}
@@ -510,6 +534,7 @@ interface ItemViewProps {
   index:            number;
   total:            number;
   mode:             SessionMode;
+  combo:            number;
   feedback:         SessionFeedback;
   isRetry:          boolean;
   layerTransition?: { from: CPALayer; to: CPALayer } | null;
@@ -518,7 +543,7 @@ interface ItemViewProps {
 }
 
 function PracticeItemView({
-  planItem, index, total, mode, feedback, isRetry, layerTransition, onAnswer, onOpenExit,
+  planItem, index, total, mode, combo, feedback, isRetry, layerTransition, onAnswer, onOpenExit,
 }: ItemViewProps) {
   const { item, sessionPhase } = planItem;
 
@@ -583,6 +608,27 @@ function PracticeItemView({
             </span>
           )}
         </div>
+
+        {/* Combo badge — consecutive first-try-correct streak. Appears at 2,
+            and turns "hot" once it clears the bonus-star threshold. Keyed on the
+            combo value so it re-pops on every increment. */}
+        {combo >= 2 && (() => {
+          const hot = combo >= COMBO_BONUS_1;
+          return (
+            <div
+              key={combo}
+              className="pop-in self-center flex items-center gap-2 rounded-full px-4 py-1.5 font-extrabold"
+              style={{
+                background: hot ? '#FFE0B0' : '#FFF0D6',
+                color:      hot ? '#D96000' : '#B8860B',
+                boxShadow:  hot ? '0 0 0 2px #FFB347' : 'none',
+              }}
+            >
+              <span className="text-lg" style={{ lineHeight: 1 }}>🔥</span>
+              <span className="text-base">{t('session.combo', { gender: 'f', count: combo })}</span>
+            </div>
+          );
+        })()}
 
         {/* Progress bar — quantity mode only; time uses the ring, open has none */}
         {mode === 'quantity' && (
@@ -664,6 +710,7 @@ interface EndProps {
   plan:           SessionPlan;
   itemsAttempted: number;
   itemsCorrect:   number;
+  maxCombo:       number;
   gender:         'f' | 'm';
   name:           string;
   onContinue:     () => void;
@@ -678,18 +725,31 @@ const STAR_POSITIONS = [
   { top: '82%', left: '84%', delay: '0.25s', size: '1.5rem' },
 ];
 
-function EndSession({ plan, itemsAttempted, itemsCorrect, gender, name, onContinue, onTrophyRoom }: EndProps) {
+function EndSession({ plan, itemsAttempted, itemsCorrect, maxCombo, gender, name, onContinue, onTrophyRoom }: EndProps) {
   const g = { gender, name };
   const skillLabelKey = `skill.${plan.primarySkillCode}` as LocaleKey;
   const accuracyPct   = itemsAttempted > 0
     ? Math.round((itemsCorrect / itemsAttempted) * 100)
     : 0;
 
+  // Stars earned this session — same rule as the trophy room, so the number
+  // Mia sees here matches what lands in her total. A guessed session (below the
+  // accuracy floor) earns 0, which we surface as a gentle "slow down" instead
+  // of a full celebration.
+  const starsEarned = starsForSession({
+    sessionId: plan.sessionId, profileId: '', mode: plan.mode,
+    startedAt: '', completedAt: null,
+    itemsAttempted, itemsCorrect,
+    primarySkillCode: plan.primarySkillCode,
+    maxCombo,
+  });
+  const earnedStars = starsEarned > 0;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in relative overflow-hidden">
 
-      {/* Floating stars — positioned absolutely behind the card */}
-      {STAR_POSITIONS.map((s, i) => (
+      {/* Floating stars — only when she actually earned some */}
+      {earnedStars && STAR_POSITIONS.map((s, i) => (
         <span
           key={i}
           className="float-up absolute pointer-events-none select-none"
@@ -706,18 +766,41 @@ function EndSession({ plan, itemsAttempted, itemsCorrect, gender, name, onContin
 
       <div className="bg-white card-shadow rounded-3xl p-8 max-w-md w-full text-center relative z-10">
 
-        {/* Big celebration emoji — pops in */}
-        <div className="pop-in text-7xl mb-2">🎉</div>
+        {/* Big emoji — celebration when stars earned, encouragement otherwise */}
+        <div className="pop-in text-7xl mb-2">{earnedStars ? '🎉' : '💪'}</div>
 
-        <h2 className="text-3xl font-bold mb-1">{t('end_session.title', g)}</h2>
+        <h2 className="text-3xl font-bold mb-1">
+          {earnedStars ? t('end_session.title', g) : t('end_session.try_slower_title', g)}
+        </h2>
         <p className="text-gray-600 text-sm mb-6">
-          {t('end_session.subtitle', { ...g, skill: t(skillLabelKey, g) })}
+          {earnedStars
+            ? t('end_session.subtitle', { ...g, skill: t(skillLabelKey, g) })
+            : t('end_session.try_slower_subtitle', g)}
         </p>
 
         {/* Accuracy ring + score */}
-        <div className="flex flex-col items-center mb-6">
+        <div className="flex flex-col items-center mb-4">
           <AccuracyRing pct={accuracyPct} correct={itemsCorrect} total={itemsAttempted} />
         </div>
+
+        {/* Stars earned this session */}
+        <div className="flex items-center justify-center gap-2 mb-2">
+          {earnedStars ? (
+            <span className="text-3xl" style={{ letterSpacing: '0.1em' }}>
+              {'⭐'.repeat(starsEarned)}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-500">{t('end_session.zero_stars', g)}</span>
+          )}
+        </div>
+
+        {/* Best combo — positive reinforcement when she sustained focus */}
+        {maxCombo >= 3 && (
+          <p className="text-sm font-bold mb-6" style={{ color: '#D96000' }}>
+            🔥 {t('end_session.best_combo', { ...g, count: maxCombo })}
+          </p>
+        )}
+        {maxCombo < 3 && <div className="mb-6" />}
 
         <button
           onClick={onContinue}

@@ -269,6 +269,8 @@ export interface SessionRecord {
   itemsAttempted:   number;
   itemsCorrect:     number;
   primarySkillCode: string;
+  /** Longest run of consecutive correct answers in this session (combo). Optional for back-compat. */
+  maxCombo?:        number;
 }
 
 // ─── Mastery map ──────────────────────────────────────────────────────────────

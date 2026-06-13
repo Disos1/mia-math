@@ -61,6 +61,7 @@
   "session.progress":               "שלב {current} מתוך {total}",
   "session.open_exit":              "סיימתי להיום",
   "session.open_nudge":             "רוצה להמשיך או לסיים בשלב הבא?",
+  "session.combo":                  "רצף {count}!",
 
   "cpa.drop_pictorial":       "בואי ננסה עם תמונה.",
   "cpa.drop_concrete":        "בואי ננסה עם גושים.",
@@ -68,6 +69,10 @@
 
   "end_session.title":        "כל הכבוד {name}!",
   "end_session.subtitle":     "היום עבדנו על {skill}. זה היה קשה, ועשית את זה.",
+  "end_session.try_slower_title":    "כמעט {name}!",
+  "end_session.try_slower_subtitle": "הפעם הבאה — קחי רגע לחשוב על כל שאלה. את יכולה!",
+  "end_session.zero_stars":          "לא אספת כוכבים הפעם — כדאי לענות לאט ובזהירות 🌱",
+  "end_session.best_combo":          "הרצף הכי טוב שלך: {count} ברצף!",
   "end_session.trophies":     "מה השגת:",
   "end_session.no_trophies":  "התחלנו לעבוד על כמה דברים חדשים — נמשיך מחר.",
   "end_session.trophy_room":  "חדר הגביעים 🏆",

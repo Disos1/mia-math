@@ -6,8 +6,16 @@
  * the data model simple (one source of truth) and means past sessions "earn"
  * newly-added trophy criteria automatically.
  *
- * Star rule: 1 base star per completed session (shows up), +1 bonus star if
- * accuracy ≥ 80 %. Zero-item sessions (crashed / abandoned) score 0.
+ * Star rule (rewards care, not volume):
+ *   Accuracy floor — a guessed session earns nothing:
+ *     < 60 %        → 0 base stars
+ *     60–79 %       → 1 base star
+ *     ≥ 80 %        → 2 base stars
+ *   Combo bonus — only on a session that cleared the floor (base ≥ 1), so a
+ *   lucky streak can't rescue a guessed session:
+ *     maxCombo ≥ 5  → +1
+ *     maxCombo ≥ 10 → +2
+ *   Max 4 stars per session. Zero-item sessions (crashed / abandoned) score 0.
  *
  * Badges are all-time milestones; once earned they stay earned even if later
  * sessions pull accuracy down.
@@ -18,11 +26,23 @@ import type { SessionRecord } from '../types';
 // ─── Star rule ───────────────────────────────────────────────────────────────
 
 export const HIGH_ACCURACY_THRESHOLD = 0.8;
+export const MIN_ACCURACY_THRESHOLD  = 0.6;   // below this a session earns 0 stars
+export const COMBO_BONUS_1           = 5;     // maxCombo ≥ 5  → +1 star
+export const COMBO_BONUS_2           = 10;    // maxCombo ≥ 10 → +2 stars
+export const MAX_STARS_PER_SESSION   = 4;
 
 export function starsForSession(r: SessionRecord): number {
   if (r.itemsAttempted === 0) return 0;
-  const acc = r.itemsCorrect / r.itemsAttempted;
-  return acc >= HIGH_ACCURACY_THRESHOLD ? 2 : 1;
+  const acc  = r.itemsCorrect / r.itemsAttempted;
+  const base =
+    acc >= HIGH_ACCURACY_THRESHOLD ? 2 :
+    acc >= MIN_ACCURACY_THRESHOLD  ? 1 :
+                                     0;
+  if (base === 0) return 0;   // guessed session — combo can't rescue it
+
+  const combo = r.maxCombo ?? 0;
+  const bonus = combo >= COMBO_BONUS_2 ? 2 : combo >= COMBO_BONUS_1 ? 1 : 0;
+  return Math.min(base + bonus, MAX_STARS_PER_SESSION);
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
