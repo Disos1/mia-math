@@ -313,12 +313,39 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
 
   const earnedCount = trophies.filter(tr => tr.earned).length;
 
+  // Display order = the order Mia actually earned them, so the badge wall reads
+  // as a timeline of her achievements:
+  //   1. Earned badges, oldest earnedAt first (null dates — e.g. mastery — last
+  //      within the earned group, keeping their relative definition order).
+  //   2. Locked badges after, closest-to-earning first, so the next goals surface.
+  const ordered = trophies
+    .map((tr, idx) => ({ tr, idx }))
+    .sort((a, b) => {
+      if (a.tr.earned !== b.tr.earned) return a.tr.earned ? -1 : 1;
+      if (a.tr.earned) {
+        // both earned — sort by earnedAt ascending, nulls last, ties by definition order
+        const da = a.tr.earnedAt, db = b.tr.earnedAt;
+        if (da && db) {
+          const cmp = da.localeCompare(db);
+          return cmp !== 0 ? cmp : a.idx - b.idx;
+        }
+        if (da) return -1;
+        if (db) return 1;
+        return a.idx - b.idx;
+      }
+      // both locked — sort by progress ratio descending, ties by definition order
+      const ra = a.tr.target > 0 ? a.tr.progress / a.tr.target : 0;
+      const rb = b.tr.target > 0 ? b.tr.progress / b.tr.target : 0;
+      return rb !== ra ? rb - ra : a.idx - b.idx;
+    })
+    .map(x => x.tr);
+
   return {
     totalStars,
     sessionStars,
-    trophies,
+    trophies: ordered,
     earnedCount,
-    totalTrophies: trophies.length,
+    totalTrophies: ordered.length,
     currentStreak,
   };
 }
