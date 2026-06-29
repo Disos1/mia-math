@@ -74,6 +74,18 @@ type SessionFeedback =
   | { kind: 'wrong' }
   | { kind: 'show_answer' };  // 2nd wrong — flash the correct option green
 
+// ─── Score tally ──────────────────────────────────────────────────────────────
+//
+// Accuracy and stars are per-ITEM, not per-attempt. attemptsRef holds every tap
+// including retries, so counting raw rows would deflate accuracy (a mistake then
+// a correct retry would read as 50% on that single item). We count one row per
+// item — the FIRST attempt — which is also exactly what mastery + combo use.
+
+function tallyAttempts(attempts: PracticeAttempt[]): { attempted: number; correct: number } {
+  const firsts = attempts.filter(a => a.firstAttempt);
+  return { attempted: firsts.length, correct: firsts.filter(a => a.correct).length };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type Screen = 'running' | 'end';
@@ -218,14 +230,14 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       if (document.visibilityState !== 'hidden') return;
       const attempts = attemptsRef.current;
       if (attempts.length === 0) return;
-      const correct = attempts.filter(a => a.correct).length;
+      const { attempted, correct } = tallyAttempts(attempts);
       upsertSessionRecord(profile.profileId, {
         sessionId:        plan.sessionId,
         profileId:        profile.profileId,
         mode:             plan.mode,
         startedAt:        startedAtRef.current,
         completedAt:      null,
-        itemsAttempted:   attempts.length,
+        itemsAttempted:   attempted,
         itemsCorrect:     correct,
         primarySkillCode: plan.primarySkillCode,
         maxCombo:         maxComboRef.current,
@@ -433,8 +445,8 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   const finish = () => {
     // Use the ref so we always have the full list even if the last setAttempts
     // hasn't flushed through React's scheduler yet.
-    const allAttempts  = attemptsRef.current;
-    const correctCount = allAttempts.filter(a => a.correct).length;
+    const allAttempts            = attemptsRef.current;
+    const { attempted, correct } = tallyAttempts(allAttempts);
 
     appendAttempts(profile.profileId, allAttempts);
     saveMasteryMap(profile.profileId, masteryRef.current);
@@ -446,8 +458,8 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       mode:             plan.mode,
       startedAt:        startedAtRef.current,
       completedAt:      new Date().toISOString(),
-      itemsAttempted:   allAttempts.length,
-      itemsCorrect:     correctCount,
+      itemsAttempted:   attempted,
+      itemsCorrect:     correct,
       primarySkillCode: plan.primarySkillCode,
       maxCombo:         maxComboRef.current,
     });
@@ -468,8 +480,8 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     return (
       <EndSession
         plan={plan}
-        itemsCorrect={attemptsRef.current.filter(a => a.correct).length}
-        itemsAttempted={attemptsRef.current.length}
+        itemsCorrect={tallyAttempts(attemptsRef.current).correct}
+        itemsAttempted={tallyAttempts(attemptsRef.current).attempted}
         maxCombo={maxComboRef.current}
         gender={profile.gender}
         name={profile.displayName}

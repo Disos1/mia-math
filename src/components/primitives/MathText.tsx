@@ -11,13 +11,19 @@ import React from 'react';
  *   <MathText>כמה זה 300 − 27?</MathText>
  *   <MathText>{item.question}</MathText>
  *
- * It detects runs of: number [op number]+
- * where op ∈ { + − - × ÷ = < > / }
+ * It detects runs of: operand [op operand]+
+ * where operand ∈ { number, ? }  (the ? lets missing-factor equations like
+ * "7 × ? = 42" or "? × 6 = 42" stay left-to-right instead of being reordered
+ * by the RTL bidi algorithm into "42 × ? = 7")
+ * and op ∈ { + − - × ÷ = < > / }
  * and wraps each run in <bdi dir="ltr" style={{unicodeBidi:'isolate'}}>
  */
 
-const MATH_RUN =
-  /(\d+(?:[.,]\d+)?(?:\s*[+\-−×÷=<>/]\s*\d+(?:[.,]\d+)?)+)/g;
+const OPERAND = String.raw`(?:\d+(?:[.,]\d+)?|\?)`;
+const MATH_RUN = new RegExp(
+  `(${OPERAND}(?:\\s*[+\\-−×÷=<>/]\\s*${OPERAND})+)`,
+  'g',
+);
 
 interface Props {
   children: string;

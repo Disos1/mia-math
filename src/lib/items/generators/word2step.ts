@@ -21,8 +21,33 @@ function difficultyFor(a: number, b: number, c: number): number {
   return 3;
 }
 
+/**
+ * Wide grid of (a, b, c) triples for result a − b + c. Spans a ∈ 13..92 with
+ * three (b, c) shapes per a → ~80 distinct number combinations (vs. the old 6),
+ * so the *numbers* vary across problems and can't be memorised by rote.
+ */
+function numberTuples(): [number, number, number][] {
+  const out: [number, number, number][] = [];
+  for (let a = 13; a <= 92; a += 3) {
+    const variants: [number, number][] = [
+      [Math.round(a * 0.35), 4 + (a % 9)],
+      [Math.round(a * 0.55), 6 + (a % 7)],
+      [Math.round(a * 0.45), 3 + (a % 11)],
+    ];
+    for (const [b0, c] of variants) {
+      const b = Math.max(2, b0);
+      if (a - b + c > 0) out.push([a, b, c]);
+    }
+  }
+  return out;
+}
+
+const W2_TUPLES = numberTuples();
+
 function* enumerateNamed(): Generator<PracticeItem> {
-  // Sample param triples — coarse step keeps the pool finite (~hundreds).
+  // Each (actor, object) draws the next number-tuple from the wide grid, so
+  // both the surface words AND the numbers rotate independently.
+  let n = 0;
   for (let i = 0; i < NAMES.length; i++) {
     const actor = NAMES[i];
     const pronoun = actor.gender === 'f' ? 'היא' : 'הוא';
@@ -35,19 +60,10 @@ function* enumerateNamed(): Generator<PracticeItem> {
       const subVerb = actor.gender === 'f' ? sub.f : sub.m;
       const addVerb = actor.gender === 'f' ? add.f : add.m;
 
-      // 3 (a, b, c) tuples per (actor, object) combination
-      const tuples: [number, number, number][] = [
-        [18, 7,  4],
-        [30, 12, 5],
-        [25, 9,  6],
-        [40, 17, 10],
-        [50, 22, 8],
-        [36, 11, 7],
-      ];
-      // Deterministically pick a few to keep variety bounded
-      const picks = [tuples[i % tuples.length], tuples[(i + 2) % tuples.length]];
-
-      for (const [a, b, c] of picks) {
+      // 2 distinct tuples per (actor, object), advancing through the whole grid
+      for (let k = 0; k < 2; k++) {
+        const [a, b, c] = W2_TUPLES[n % W2_TUPLES.length];
+        n++;
         if (a - b + c <= 0) continue;
         const correct = a - b + c;
         const sig     = a + b + c;
@@ -72,18 +88,12 @@ function* enumerateNamed(): Generator<PracticeItem> {
 }
 
 function* enumerateNeutral(): Generator<PracticeItem> {
+  let n = 7; // offset so neutral scenarios use a different slice of the grid
   for (let si = 0; si < NEUTRAL_SCENARIOS.length; si++) {
     const sc = NEUTRAL_SCENARIOS[si];
-    const tuples: [number, number, number][] = [
-      [24, 9,  6],
-      [40, 17, 12],
-      [28, 12, 5],
-      [45, 18, 10],
-      [32, 14, 8],
-      [50, 23, 11],
-    ];
-    for (let ti = 0; ti < tuples.length; ti++) {
-      const [a, b, c] = tuples[ti];
+    for (let k = 0; k < 8; k++) {
+      const [a, b, c] = W2_TUPLES[n % W2_TUPLES.length];
+      n += 3;
       if (a - b + c <= 0) continue;
       const correct = a - b + c;
       const sig     = a + b + c;

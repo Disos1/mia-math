@@ -167,6 +167,14 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
     return null;
   }
 
+  /** Date the first session reaching a combo of `n` was completed, or null. */
+  function firstComboDate(n: number): string | null {
+    for (const r of completed) {
+      if ((r.maxCombo ?? 0) >= n) return r.completedAt ?? null;
+    }
+    return null;
+  }
+
   // ── Trophy definitions ────────────────────────────────────────────────────
 
   const highAccCount = completed.filter(
@@ -177,6 +185,8 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
   const perfectCount = completed.filter(
     r => r.itemsAttempted > 0 && r.itemsCorrect === r.itemsAttempted,
   ).length;
+
+  const bestCombo = completed.reduce((m, r) => Math.max(m, r.maxCombo ?? 0), 0);
 
   // Ordered: session milestones → star milestones → accuracy → streaks → mastery
   const trophies: Trophy[] = [
@@ -235,6 +245,15 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
       progress: Math.min(sessionCount, 50),
       target:   50,
     },
+    {
+      id:       'hundred_sessions',
+      labelKey: 'trophy.hundred_sessions',
+      emoji:    '📚',
+      earned:   sessionCount >= 100,
+      earnedAt: nthSessionDate(100),
+      progress: Math.min(sessionCount, 100),
+      target:   100,
+    },
     // ── Star milestones ─────────────────────────────────────────────────────
     {
       id:       'twenty_stars',
@@ -263,6 +282,24 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
       progress: Math.min(totalStars, 100),
       target:   100,
     },
+    {
+      id:       'two_hundred_stars',
+      labelKey: 'trophy.two_hundred_stars',
+      emoji:    '🌌',
+      earned:   totalStars >= 200,
+      earnedAt: firstStarThresholdDate(200),
+      progress: Math.min(totalStars, 200),
+      target:   200,
+    },
+    {
+      id:       'three_hundred_stars',
+      labelKey: 'trophy.three_hundred_stars',
+      emoji:    '👑',
+      earned:   totalStars >= 300,
+      earnedAt: firstStarThresholdDate(300),
+      progress: Math.min(totalStars, 300),
+      target:   300,
+    },
     // ── Accuracy ────────────────────────────────────────────────────────────
     {
       id:       'perfect_session',
@@ -283,6 +320,15 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
       target:   3,
     },
     {
+      id:       'ten_perfect',
+      labelKey: 'trophy.ten_perfect',
+      emoji:    '🥇',
+      earned:   perfectCount >= 10,
+      earnedAt: nthPerfectDate(10),
+      progress: Math.min(perfectCount, 10),
+      target:   10,
+    },
+    {
       id:       'five_high_acc',
       labelKey: 'trophy.five_high_acc',
       emoji:    '⚡',
@@ -299,6 +345,25 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
       earnedAt: nthHighAccDate(10),
       progress: Math.min(highAccCount, 10),
       target:   10,
+    },
+    // ── Combos (sustained focus) ──────────────────────────────────────────────
+    {
+      id:       'combo_ten',
+      labelKey: 'trophy.combo_ten',
+      emoji:    '🔥',
+      earned:   bestCombo >= 10,
+      earnedAt: firstComboDate(10),
+      progress: Math.min(bestCombo, 10),
+      target:   10,
+    },
+    {
+      id:       'combo_twenty',
+      labelKey: 'trophy.combo_twenty',
+      emoji:    '🌋',
+      earned:   bestCombo >= 20,
+      earnedAt: firstComboDate(20),
+      progress: Math.min(bestCombo, 20),
+      target:   20,
     },
     // ── Streaks ─────────────────────────────────────────────────────────────
     {
@@ -319,6 +384,15 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
       progress: Math.min(maxStreak, 7),
       target:   7,
     },
+    {
+      id:       'fourteen_day_streak',
+      labelKey: 'trophy.fourteen_day_streak',
+      emoji:    '🗓️',
+      earned:   maxStreak >= 14,
+      earnedAt: firstStreakDate(14),
+      progress: Math.min(maxStreak, 14),
+      target:   14,
+    },
     // ── Mastery ─────────────────────────────────────────────────────────────
     {
       id:       'first_mastery',
@@ -328,6 +402,24 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
       earnedAt: null,   // mastery timestamps not tracked per-session; shown as unlocked only
       progress: Math.min(masteredCount, 1),
       target:   1,
+    },
+    {
+      id:       'three_mastery',
+      labelKey: 'trophy.three_mastery',
+      emoji:    '🧠',
+      earned:   masteredCount >= 3,
+      earnedAt: null,
+      progress: Math.min(masteredCount, 3),
+      target:   3,
+    },
+    {
+      id:       'five_mastery',
+      labelKey: 'trophy.five_mastery',
+      emoji:    '🦉',
+      earned:   masteredCount >= 5,
+      earnedAt: null,
+      progress: Math.min(masteredCount, 5),
+      target:   5,
     },
   ];
 

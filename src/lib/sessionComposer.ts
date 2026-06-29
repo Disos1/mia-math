@@ -85,13 +85,32 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // ── Skill selection ─────────────────────────────────────────────────────────
 
   const gap            = args.gapProfile;
-  const gapsOrdered    = gap?.sessionComposerNotes.blockedPracticePriority ?? [];
-  const firstGap       = gap?.sessionComposerNotes.firstNewMaterial || gapsOrdered[0] || null;
-  const secondGap      = gapsOrdered.find(s => s !== firstGap) ?? null;
-  const thirdGap       = gapsOrdered.find(s => s !== firstGap && s !== secondGap) ?? null;
+
+  // The gap profile is a snapshot from the diagnostic and never updates as Mia
+  // masters skills. The mastery map IS live, so we cross-check it here and drop
+  // anything she's already mastered from the gap-driven blocks (new material,
+  // blocked practice, dedicated retrieval). Mastered skills still resurface in
+  // light interleaving for retention — but they no longer dominate the session.
+  const masteredSet    = new Set(masteredSkills(args.masteryMap));
+  const isActive       = (s: string | null | undefined): s is string => !!s && !masteredSet.has(s);
+
+  const gapsOrderedRaw = gap?.sessionComposerNotes.blockedPracticePriority ?? [];
+  const gapsOrdered    = gapsOrderedRaw.filter(isActive);
+  // Fall back to any in-progress (non-mastered) skill if every diagnostic gap
+  // is now mastered, so the session always has fresh material to work on.
+  const focusPool      = [...new Set([
+    ...gapsOrdered,
+    ...skillsInProgress(args.masteryMap).filter(s => !masteredSet.has(s)),
+  ])];
+
+  const firstNew       = gap?.sessionComposerNotes.firstNewMaterial;
+  const firstGap       = (isActive(firstNew) ? firstNew : null) ?? focusPool[0] ?? null;
+  const secondGap      = focusPool.find(s => s !== firstGap) ?? null;
+  const thirdGap       = focusPool.find(s => s !== firstGap && s !== secondGap) ?? null;
   const hasMultFactGap =
-    gap?.strands.ARITH?.activeErrors?.some(e => e === 'ERR_MULT_FACT' || e === 'ERR_MULT_FACT_SLOW')
-    ?? false;
+    !masteredSet.has('ARITH_MULT_6_9') &&
+    (gap?.strands.ARITH?.activeErrors?.some(e => e === 'ERR_MULT_FACT' || e === 'ERR_MULT_FACT_SLOW')
+      ?? false);
 
   // Strengths = skills explicitly confirmed OR mastered, excluding any current gap
   const strengthsFromMastery = masteredSkills(args.masteryMap);

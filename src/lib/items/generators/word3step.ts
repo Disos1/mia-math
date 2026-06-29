@@ -49,18 +49,31 @@ function difficultyFor(a: number): number {
   return a <= 30 ? 3 : a <= 50 ? 3 : 4;
 }
 
-function* enumerateNamed(): Generator<PracticeItem> {
-  const tuples: [number, number, number, number][] = [
-    [40, 8,  15, 5],
-    [25, 10, 8,  4],
-    [60, 22, 15, 8],
-    [45, 12, 20, 15],
-    [30, 6,  11, 4],
-    [50, 18, 14, 7],
-    [36, 11, 9,  6],
-    [28, 12, 5,  3],
-  ];
+/**
+ * Wide grid of (a, b, c, d) tuples — a ∈ 26..98, with three (b, c, d) shapes
+ * per a → ~80 distinct number combinations (vs. the old 8). `a` is kept large
+ * enough that the result stays positive across all four operation chains.
+ */
+function numberTuples(): [number, number, number, number][] {
+  const out: [number, number, number, number][] = [];
+  for (let a = 26; a <= 98; a += 3) {
+    const variants: [number, number, number][] = [
+      [4 + (a % 9),  5 + (a % 7),  3 + (a % 5)],
+      [6 + (a % 11), 4 + (a % 6),  5 + (a % 8)],
+      [3 + (a % 7),  7 + (a % 9),  4 + (a % 6)],
+    ];
+    for (const [b, c, d] of variants) {
+      // Keep positive under the most-subtractive chain (a − b − c is the worst case here)
+      if (a - b - c - d > 0 || a - Math.max(b, c, d) > 0) out.push([a, b, c, d]);
+    }
+  }
+  return out;
+}
 
+const W3_TUPLES = numberTuples();
+
+function* enumerateNamed(): Generator<PracticeItem> {
+  let n = 0;
   for (let i = 0; i < NAMES.length; i++) {
     const actor = NAMES[i];
     const pronoun = actor.gender === 'f' ? 'היא' : 'הוא';
@@ -70,8 +83,8 @@ function* enumerateNamed(): Generator<PracticeItem> {
       const obj   = OBJECTS[oi];
       const chain = CHAINS[(i + oi) % CHAINS.length];
       const verbs = chainText(chain, actor.gender);
-      const tup   = tuples[(i + oi) % tuples.length];
-      const [a, b, c, d] = tup;
+      const [a, b, c, d] = W3_TUPLES[n % W3_TUPLES.length];
+      n++;
       const correct = evalChain(a, b, c, d, chain);
       if (correct <= 0) continue;
       const sig = a + b + c + d;
@@ -98,22 +111,14 @@ function* enumerateNamed(): Generator<PracticeItem> {
 }
 
 function* enumerateNeutral(): Generator<PracticeItem> {
-  const tuples: [number, number, number, number][] = [
-    [28, 12, 5,  3],
-    [45, 12, 20, 15],
-    [60, 22, 15, 8],
-    [50, 18, 14, 7],
-    [40, 8,  15, 5],
-    [36, 11, 9,  6],
-  ];
-
+  let n = 5; // offset into the grid so neutral scenarios use different numbers
   for (let si = 0; si < NEUTRAL_SCENARIOS.length; si++) {
     const sc = NEUTRAL_SCENARIOS[si];
     for (let ci = 0; ci < CHAINS.length; ci++) {
       const chain = CHAINS[ci];
       const verbs = chainTextNeutral(chain);
-      const tup = tuples[(si + ci) % tuples.length];
-      const [a, b, c, d] = tup;
+      const [a, b, c, d] = W3_TUPLES[n % W3_TUPLES.length];
+      n += 2;
       const correct = evalChain(a, b, c, d, chain);
       if (correct <= 0) continue;
       const sig = a + b + c + d;
