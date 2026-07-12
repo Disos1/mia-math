@@ -17,7 +17,7 @@
  */
 
 import { supabase, SUPABASE_CONFIGURED } from './supabase';
-import type { Profile, MasteryMap, SessionRecord } from '../types';
+import type { Profile, MasteryMap, SessionRecord, PracticeAttempt } from '../types';
 
 // ─── Module-level auth state ──────────────────────────────────────────────────
 
@@ -154,22 +154,26 @@ export async function pullMasteryMap(profileId: string): Promise<MasteryMap | nu
 // ─── Session records ──────────────────────────────────────────────────────────
 
 async function _pushSessionRecord(record: SessionRecord): Promise<void> {
+  const base = {
+    session_id:         record.sessionId,
+    profile_id:         record.profileId,
+    mode:               record.mode,
+    started_at:         record.startedAt,
+    completed_at:       record.completedAt,
+    items_answered:     record.itemsAttempted,   // DB column is items_answered
+    items_correct:      record.itemsCorrect,
+    primary_skill_code: record.primarySkillCode,
+  };
+  // max_combo needs migration 002; retry without it until that lands so the
+  // record itself never fails to sync.
   const { error } = await supabase
     .from('session_records')
-    .upsert(
-      {
-        session_id:         record.sessionId,
-        profile_id:         record.profileId,
-        mode:               record.mode,
-        started_at:         record.startedAt,
-        completed_at:       record.completedAt,
-        items_answered:     record.itemsAttempted,   // DB column is items_answered
-        items_correct:      record.itemsCorrect,
-        primary_skill_code: record.primarySkillCode,
-      },
-      { onConflict: 'session_id' },
-    );
-  if (error) throw error;
+    .upsert({ ...base, max_combo: record.maxCombo ?? null }, { onConflict: 'session_id' });
+  if (!error) return;
+  const { error: retryError } = await supabase
+    .from('session_records')
+    .upsert(base, { onConflict: 'session_id' });
+  if (retryError) throw retryError;
 }
 
 /** Fire-and-forget session record push. No-op if not authed. */
@@ -200,7 +204,46 @@ export async function pullSessionRecords(profileId: string): Promise<SessionReco
     itemsAttempted:   r.items_answered,           // DB column is items_answered
     itemsCorrect:     r.items_correct   ?? 0,
     primarySkillCode: r.primary_skill_code ?? '',
+    maxCombo:         r.max_combo       ?? undefined,
   }));
+}
+
+// ─── Session attempts (per-item telemetry) ────────────────────────────────────
+//
+// The audit's "telemetry blackout" fix: without per-item rows in the cloud,
+// guessing patterns (time-to-answer, signature hits, CPA layer) are invisible
+// to the parent surface and to any analysis. Upsert on id so the visibility-
+// change flush and finish() can both push the same rows safely.
+
+async function _pushSessionAttempts(attempts: PracticeAttempt[]): Promise<void> {
+  const rows = attempts.map(a => ({
+    id:                a.id,
+    profile_id:        a.profileId,
+    session_id:        a.sessionId,
+    item_id:           a.itemId,
+    skill_code:        a.skillCode,
+    // The table's check constraint predates the 'warmup' phase; map it to
+    // new_material (pedagogically equivalent for analysis) until migration 002.
+    session_phase:     a.sessionPhase === 'warmup' ? 'new_material' : a.sessionPhase,
+    cpa_layer:         a.cpaLayer,
+    answer:            JSON.stringify(a.answer),
+    correct:           a.correct,
+    first_attempt:     a.firstAttempt,
+    time_to_answer_ms: a.timeToAnswerMs,
+    created_at:        a.createdAt,
+  }));
+  if (rows.length === 0) return;
+
+  const { error } = await supabase
+    .from('session_attempts')
+    .upsert(rows, { onConflict: 'id' });
+  if (error) throw error;
+}
+
+/** Fire-and-forget attempts push. No-op if not authed. */
+export function syncSessionAttempts(attempts: PracticeAttempt[]): void {
+  if (!SUPABASE_CONFIGURED || !_authUserId) return;
+  fire('pushSessionAttempts', _pushSessionAttempts(attempts));
 }
 
 // ─── Hard delete (parent reset) ──────────────────────────────────────────────

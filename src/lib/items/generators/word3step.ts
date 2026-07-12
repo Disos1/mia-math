@@ -5,7 +5,7 @@
  * Signature distractor: a + b + c + d (ERR_NUMBER_GRAB).
  */
 
-import type { PracticeItem } from '../../../types';
+import type { PracticeItem, WorkedStep } from '../../../types';
 import { buildItem, pickFromCombos, type GenerateOpts } from '../shared';
 import { NAMES, OBJECTS, NEUTRAL_SCENARIOS } from '../wordBank';
 
@@ -43,6 +43,19 @@ function chainTextNeutral(chain: OpChain): { v1: string; v2: string; v3: string 
 
 function evalChain(a: number, b: number, c: number, d: number, chain: OpChain): number {
   return a + chain[0] * b + chain[1] * c + chain[2] * d;
+}
+
+/** Chain decomposition: one keypad micro-step per event. */
+function chainSteps(a: number, b: number, c: number, d: number, chain: OpChain): WorkedStep[] {
+  const r1 = a + chain[0] * b;
+  const r2 = r1 + chain[1] * c;
+  const r3 = r2 + chain[2] * d;
+  const op = (s: -1 | 1) => (s === -1 ? '−' : '+');
+  return [
+    { text: `שלב 1: כמה זה ${a} ${op(chain[0])} ${b}?`, answer: r1 },
+    { text: `שלב 2: כמה זה ${r1} ${op(chain[1])} ${c}?`, answer: r2 },
+    { text: `שלב 3: כמה זה ${r2} ${op(chain[2])} ${d}?`, answer: r3 },
+  ];
 }
 
 function difficultyFor(a: number): number {
@@ -104,6 +117,8 @@ function* enumerateNamed(): Generator<PracticeItem> {
         ].filter(x => x > 0 && x !== correct && x !== sig),
         cpaLayer:      'abstract',
         difficulty:    difficultyFor(a),
+        answerMode:    'keypad',
+        steps:         chainSteps(a, b, c, d, chain),
         rng:           () => 0.5,
       });
     }
@@ -138,6 +153,8 @@ function* enumerateNeutral(): Generator<PracticeItem> {
         ].filter(x => x > 0 && x !== correct && x !== sig),
         cpaLayer:      'abstract',
         difficulty:    difficultyFor(a),
+        answerMode:    'keypad',
+        steps:         chainSteps(a, b, c, d, chain),
         rng:           () => 0.5,
       });
     }

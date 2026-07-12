@@ -31,8 +31,28 @@ export const COMBO_BONUS_1           = 5;     // maxCombo ≥ 5  → +1 star
 export const COMBO_BONUS_2           = 10;    // maxCombo ≥ 10 → +2 stars
 export const MAX_STARS_PER_SESSION   = 4;
 
+/** Substance floor: sessions need this many answered items to earn stars.
+ *  Not a cap — she can play as long or short as she likes; short sessions
+ *  just don't mint reward. Closes the 66-tiny-sessions farming pattern. */
+export const MIN_ITEMS_FOR_STARS = 8;
+/** The item floor applies only to sessions started on/after this date, so
+ *  stars Mia already earned are never taken away (fairness test: a rule
+ *  change must not read as punishment). */
+export const STAR_RULE_V2_FROM = '2026-07-12';
+
+function underV2Rule(r: SessionRecord): boolean {
+  return (r.startedAt ?? '') >= STAR_RULE_V2_FROM;
+}
+
+/** Is this session substantial enough to count toward milestones? Historic
+ *  sessions are grandfathered; new ones need the item floor. */
+export function isSubstantial(r: SessionRecord): boolean {
+  return !underV2Rule(r) || r.itemsAttempted >= MIN_ITEMS_FOR_STARS;
+}
+
 export function starsForSession(r: SessionRecord): number {
   if (r.itemsAttempted === 0) return 0;
+  if (underV2Rule(r) && r.itemsAttempted < MIN_ITEMS_FOR_STARS) return 0;
   const acc  = r.itemsCorrect / r.itemsAttempted;
   const base =
     acc >= HIGH_ACCURACY_THRESHOLD ? 2 :
@@ -97,22 +117,25 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
   }));
 
   const totalStars   = sessionStars.reduce((s, x) => s + x.stars, 0);
-  const sessionCount = completed.length;
+  // Milestones count substantial sessions only (item floor from the v2 rule
+  // date) — session-count trophies must reward practice, not session-farming.
+  const substantial  = completed.filter(isSubstantial);
+  const sessionCount = substantial.length;
 
   const maxStreak     = computeMaxDayStreak(completed);
   const currentStreak = computeCurrentStreak(completed);
 
   // ── earnedAt helpers ──────────────────────────────────────────────────────
 
-  /** Date of the Nth completed session (1-indexed), or null if not yet reached. */
+  /** Date of the Nth substantial session (1-indexed), or null if not yet reached. */
   function nthSessionDate(n: number): string | null {
-    return completed.length >= n ? (completed[n - 1].completedAt ?? null) : null;
+    return substantial.length >= n ? (substantial[n - 1].completedAt ?? null) : null;
   }
 
-  /** Date of the Nth high-accuracy session, or null. */
+  /** Date of the Nth high-accuracy substantial session, or null. */
   function nthHighAccDate(n: number): string | null {
     let count = 0;
-    for (const r of completed) {
+    for (const r of substantial) {
       if (r.itemsAttempted > 0 && r.itemsCorrect / r.itemsAttempted >= HIGH_ACCURACY_THRESHOLD) {
         count++;
         if (count >= n) return r.completedAt ?? null;
@@ -121,10 +144,10 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
     return null;
   }
 
-  /** Date of the Nth perfect session (1-indexed), or null. */
+  /** Date of the Nth perfect substantial session (1-indexed), or null. */
   function nthPerfectDate(n: number): string | null {
     let count = 0;
-    for (const r of completed) {
+    for (const r of substantial) {
       if (r.itemsAttempted > 0 && r.itemsCorrect === r.itemsAttempted) {
         count++;
         if (count >= n) return r.completedAt ?? null;
@@ -177,12 +200,12 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
 
   // ── Trophy definitions ────────────────────────────────────────────────────
 
-  const highAccCount = completed.filter(
+  const highAccCount = substantial.filter(
     r => r.itemsAttempted > 0
       && r.itemsCorrect / r.itemsAttempted >= HIGH_ACCURACY_THRESHOLD,
   ).length;
 
-  const perfectCount = completed.filter(
+  const perfectCount = substantial.filter(
     r => r.itemsAttempted > 0 && r.itemsCorrect === r.itemsAttempted,
   ).length;
 

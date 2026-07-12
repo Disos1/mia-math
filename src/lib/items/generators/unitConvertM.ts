@@ -48,6 +48,16 @@ function* enumerate(): Generator<PracticeItem> {
         distractors:   [sumOnly, tenScale, Math.floor(correct / 10)].filter(x => x !== correct && x !== sig && x > 0),
         cpaLayer:      'abstract',
         difficulty:    difficultyFor(km, m),
+        answerMode:    'keypad',
+        steps: m === 0
+          ? [
+              { text: `כל קילומטר = 1000 מטרים.` },
+              { text: `כמה זה ${km} × 1000?`, answer: correct },
+            ]
+          : [
+              { text: `כל קילומטר = 1000 מטרים, אז ${km} ${kmWord} = ${km * 1000} מטרים.` },
+              { text: `כמה זה ${km * 1000} + ${m}?`, answer: correct },
+            ],
         rng:           () => 0.5,
       });
     }

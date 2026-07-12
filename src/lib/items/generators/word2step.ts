@@ -9,11 +9,20 @@
  * Filler distractors: wrong-sign variants (a + b − c, a − b − c).
  */
 
-import type { PracticeItem } from '../../../types';
+import type { PracticeItem, WorkedStep } from '../../../types';
 import { buildItem, pickFromCombos, type GenerateOpts } from '../shared';
 import { NAMES, SUB_VERBS, ADD_VERBS, OBJECTS, NEUTRAL_SCENARIOS } from '../wordBank';
 
 const SKILL = 'ARITH_WORD_2STEP';
+
+/** Event-by-event decomposition: first the subtraction, then the addition —
+ *  the learner types each intermediate result (anti number-grab). */
+function twoStepSteps(a: number, b: number, c: number): WorkedStep[] {
+  return [
+    { text: `מה קרה קודם? ירדו ${b}. כמה זה ${a} − ${b}?`, answer: a - b },
+    { text: `ומה קרה אחר כך? נוספו ${c}. כמה זה ${a - b} + ${c}?`, answer: a - b + c },
+  ];
+}
 
 function difficultyFor(a: number, b: number, c: number): number {
   if (a <= 25 && b + c <= 15) return 2;
@@ -70,16 +79,45 @@ function* enumerateNamed(): Generator<PracticeItem> {
         const wrongSign = a + b - c;
         const noAdd     = a - b - c;
 
+        const question = `ל${actor.name} היו ${a} ${obj}. ${pronoun} ${subVerb} ${b} ${obj}, ואז ${addVerb} עוד ${c}. כמה ${obj} יש ${possessive}?`;
+        const distractors = [wrongSign, noAdd, correct + 5, correct - 5].filter(x => x > 0 && x !== correct && x !== sig);
+
         yield buildItem({
           itemId:        `G_W2_NAMED_${actor.name}_${obj}_${a}_${b}_${c}`,
           skillCode:     SKILL,
-          question:      `ל${actor.name} היו ${a} ${obj}. ${pronoun} ${subVerb} ${b} ${obj}, ואז ${addVerb} עוד ${c}. כמה ${obj} יש ${possessive}?`,
+          question,
           correct,
           signature:     sig === correct ? null : sig,
           signatureCode: sig === correct ? null : 'ERR_NUMBER_GRAB',
-          distractors:   [wrongSign, noAdd, correct + 5, correct - 5].filter(x => x > 0 && x !== correct && x !== sig),
+          distractors,
           cpaLayer:      'abstract',
           difficulty:    difficultyFor(a, b, c),
+          answerMode:    'keypad',
+          steps:         twoStepSteps(a, b, c),
+          rng:           () => 0.5,
+        });
+
+        // Pictorial twin: bar model of the situation — she models before she computes.
+        yield buildItem({
+          itemId:        `G_W2_NAMED_P_${actor.name}_${obj}_${a}_${b}_${c}`,
+          skillCode:     SKILL,
+          question,
+          correct,
+          signature:     sig === correct ? null : sig,
+          signatureCode: sig === correct ? null : 'ERR_NUMBER_GRAB',
+          distractors,
+          visual: {
+            type: 'bar_model',
+            rows: [
+              { label: 'בהתחלה', parts: [{ size: a, label: String(a) }] },
+              { label: 'ירדו',   parts: [{ size: a - b, label: '?' , highlight: true }, { size: b, label: String(b) }] },
+              { label: 'נוספו',  parts: [{ size: a - b, label: '?' }, { size: c, label: `+${c}`, highlight: true }] },
+            ],
+          },
+          cpaLayer:      'pictorial',
+          difficulty:    difficultyFor(a, b, c),
+          answerMode:    'keypad',
+          steps:         twoStepSteps(a, b, c),
           rng:           () => 0.5,
         });
       }
@@ -110,6 +148,8 @@ function* enumerateNeutral(): Generator<PracticeItem> {
         distractors:   [wrongSign, noAdd, correct + 5, correct - 5].filter(x => x > 0 && x !== correct && x !== sig),
         cpaLayer:      'abstract',
         difficulty:    difficultyFor(a, b, c),
+        answerMode:    'keypad',
+        steps:         twoStepSteps(a, b, c),
         rng:           () => 0.5,
       });
     }

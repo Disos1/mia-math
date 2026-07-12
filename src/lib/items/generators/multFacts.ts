@@ -11,7 +11,7 @@
  *   F6: missing factor: ? × b = a·b
  */
 
-import type { PracticeItem } from '../../../types';
+import type { PracticeItem, WorkedStep } from '../../../types';
 import { buildItem, pickFromCombos, type GenerateOpts } from '../shared';
 
 const SKILL = 'ARITH_MULT_6_9';
@@ -30,6 +30,30 @@ function difficultyFor(a: number, b: number): number {
   if (max === 8) return 2;
   if (min >= 8) return 3; // 8×8, 8×9, 9×8, 9×9
   return 2;
+}
+
+/**
+ * Skip-count ladder for a product item: the learner sees the jump sequence
+ * and types the final landing herself.
+ */
+function productSteps(a: number, b: number): WorkedStep[] {
+  const [count, step] = a <= b ? [a, b] : [b, a];
+  const seq: number[] = [];
+  for (let i = 1; i < count; i++) seq.push(step * i);
+  return [
+    { text: `נספור בקפיצות של ${step}: ${seq.join(' , ')} ...` },
+    { text: `עוד קפיצה אחת: כמה זה ${step * (count - 1)} + ${step}?`, answer: step * count },
+  ];
+}
+
+/** Missing-factor items: count the jumps of `step` up to `target`. */
+function missingFactorSteps(step: number, target: number, factor: number): WorkedStep[] {
+  const seq: number[] = [];
+  for (let i = 1; i <= factor; i++) seq.push(step * i);
+  return [
+    { text: `נספור בקפיצות של ${step} עד ${target}: ${seq.join(' , ')}` },
+    { text: `כמה קפיצות עשינו?`, answer: factor },
+  ];
 }
 
 function* enumerate(): Generator<PracticeItem> {
@@ -62,6 +86,8 @@ function* enumerate(): Generator<PracticeItem> {
         distractors:   [neigh[0], neigh[1], neigh[2]].filter(x => x !== undefined) as number[],
         cpaLayer:      'abstract',
         difficulty:    diff,
+        answerMode:    'keypad',
+        steps:         productSteps(aa, bb),
         rng:           () => 0.5,
       });
     }
@@ -77,6 +103,8 @@ function* enumerate(): Generator<PracticeItem> {
       distractors:   neigh.slice(0, 3),
       cpaLayer:      'abstract',
       difficulty:    diff,
+      answerMode:    'keypad',
+      steps:         [{ text: `${a} שורות של ${b} = ${a} × ${b}` }, ...productSteps(a, b)],
       rng:           () => 0.5,
     });
 
@@ -91,6 +119,8 @@ function* enumerate(): Generator<PracticeItem> {
       distractors:   neigh.slice(0, 3),
       cpaLayer:      'abstract',
       difficulty:    diff,
+      answerMode:    'keypad',
+      steps:         [{ text: `${a} קופסאות של ${b} = ${a} × ${b}` }, ...productSteps(a, b)],
       rng:           () => 0.5,
     });
 
@@ -105,6 +135,8 @@ function* enumerate(): Generator<PracticeItem> {
       distractors:   [b + 1, b - 1, a].filter(x => x > 0 && x !== b) as number[],
       cpaLayer:      'abstract',
       difficulty:    diff,
+      answerMode:    'keypad',
+      steps:         missingFactorSteps(a, correct, b),
       rng:           () => 0.5,
     });
 
@@ -120,6 +152,8 @@ function* enumerate(): Generator<PracticeItem> {
         distractors:   [a + 1, a - 1, b].filter(x => x > 0 && x !== a) as number[],
         cpaLayer:      'abstract',
         difficulty:    diff,
+        answerMode:    'keypad',
+        steps:         missingFactorSteps(b, correct, a),
         rng:           () => 0.5,
       });
     }

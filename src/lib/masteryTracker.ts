@@ -2,20 +2,24 @@
  * Mastery tracker — Opus task.
  *
  * Updates a MasteryMap after each first-attempt answer in a practice session.
- * Implements the graduation rule from Mia_Math_Build_Handoff:
+ * Graduation rule (hardened 2026-07-12 after the false-mastery audit):
  *
  *   status = 'שליטה' iff
- *     first_attempt_accuracy ≥ 0.80
- *     AND item_count         ≥ 10  (rolling window)
- *     AND session_count      ≥ 2
- *     AND current CPA layer  = 'abstract'  (mastery only counts at abstract)
+ *     window accuracy ≥ 0.80 over the last 10 ABSTRACT-layer first attempts
+ *     AND ≥ 10 abstract first attempts recorded
+ *     AND those attempts span ≥ 2 distinct calendar days
+ *     AND session_count ≥ 2
  *
- * Before graduation, status is 'בתהליך'. Skills never seen → 'טרם נלמד'
- * (seeded by buildGapProfile — not by this module).
+ * Why abstract-only + 2 days: the previous window mixed pictorial successes
+ * into "abstract mastery" and, at hundreds of items/day, a same-day lucky
+ * streak of 10 was statistically guaranteed. Both were confirmed live
+ * (mult-facts labelled שליטה at "100%" against 68% true accuracy).
  *
- * Rolling window is the most recent 10 first-attempt items. Old attempts
- * outside the window do not drag accuracy down; the kid is judged on
- * her current state, not her learning curve.
+ * Retention probes (previously specced, never implemented — now live):
+ *   graduation schedules a probe at +7 days; passing it schedules +30 days;
+ *   passing that confirms retention. A failed probe demotes to 'בתהליך' and
+ *   returns the skill to active practice. Pre-existing שליטה records with no
+ *   probe date are scheduled immediately (self-healing of old false mastery).
  *
  * Pure functions, no side effects. Persistence lives in sessionStore.ts.
  */
@@ -24,43 +28,69 @@ import type {
   MasteryMap,
   MasteryRecord,
   PracticeAttempt,
+  CPALayer,
 } from '../types';
 import {
   MASTERY_ACCURACY_THRESHOLD,
   MASTERY_ITEM_MINIMUM,
   MASTERY_SESSION_MINIMUM,
+  RETENTION_PROBE_SHORT_DAYS,
+  RETENTION_PROBE_LONG_DAYS,
 } from '../constants/config';
 
-// Rolling-window accuracy is calculated from a per-skill ledger of the last
-// N first-attempts. The MasteryRecord itself stores only the aggregate; this
-// module's caller is responsible for holding the ledger (in localStorage or
-// memory) and passing the last-N attempts in when requesting a recompute.
-//
-// Keeping the ledger outside the MasteryRecord keeps MasteryRecord
-// serialisation small and stable even as the window grows/rolls.
-
 const WINDOW = MASTERY_ITEM_MINIMUM; // 10
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Per-skill rolling ledger. Outer key: skillCode. Inner: recent first-attempt correctness. */
-export type AttemptLedger = Record<string, boolean[]>;
+/** One rolling-ledger entry: correctness, CPA layer, local calendar day. */
+export interface LedgerEntry {
+  c: boolean;
+  l: CPALayer;
+  d: string;   // YYYY-MM-DD, local
+}
 
-/** Append a first-attempt result to the ledger; trim to window. */
+/** Per-skill rolling ledger. Outer key: skillCode. */
+export type AttemptLedger = Record<string, LedgerEntry[]>;
+
+function toLocalDay(iso: string): string {
+  const dt = new Date(iso);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Append a first-attempt result; keep the last WINDOW *abstract* entries
+ *  (non-abstract attempts are tracked for struggle detection but never enter
+ *  the mastery window). */
 export function appendToLedger(
   ledger: AttemptLedger,
   skillCode: string,
-  correct: boolean,
+  entry: LedgerEntry,
 ): AttemptLedger {
+  if (entry.l !== 'abstract') return ledger;  // mastery evidence is abstract-only
   const prior = ledger[skillCode] ?? [];
-  const next = [...prior, correct].slice(-WINDOW);
+  const next = [...prior, entry].slice(-WINDOW);
   return { ...ledger, [skillCode]: next };
 }
 
-/** Accuracy over the rolling window (0 if no attempts yet). */
-function windowAccuracy(ledger: AttemptLedger, skillCode: string): number {
+/** Accuracy over the abstract rolling window (0 if no attempts yet). */
+export function windowAccuracy(ledger: AttemptLedger, skillCode: string): number {
   const window = ledger[skillCode];
   if (!window || window.length === 0) return 0;
-  const correctCount = window.filter(Boolean).length;
+  const correctCount = window.filter(e => e.c).length;
   return correctCount / window.length;
+}
+
+/** Number of abstract first attempts currently in the window. */
+export function windowSize(ledger: AttemptLedger, skillCode: string): number {
+  return ledger[skillCode]?.length ?? 0;
+}
+
+/** Do the window's entries span at least `minDays` distinct calendar days? */
+function windowSpansDays(ledger: AttemptLedger, skillCode: string, minDays: number): boolean {
+  const window = ledger[skillCode];
+  if (!window) return false;
+  return new Set(window.map(e => e.d)).size >= minDays;
 }
 
 // ─── Mastery update ────────────────────────────────────────────────────────────
@@ -72,13 +102,13 @@ function windowAccuracy(ledger: AttemptLedger, skillCode: string): number {
  *
  * Rules:
  *  - Only first-attempt answers (attempt.firstAttempt === true) affect the ledger.
- *  - itemCount increments per first-attempt.
+ *  - Only abstract-layer attempts enter the mastery window.
+ *  - itemCount increments per first-attempt (any layer).
  *  - sessionCount increments once per (skill, session) pair — tracked by
  *    the caller via `isNewSessionForSkill` flag.
- *  - Status promotes to שליטה only when all thresholds met AND current
- *    attempt was at CPA layer 'abstract'. Demotion from שליטה → בתהליך
- *    happens here only if accuracy drops below MASTERY_ACCURACY_THRESHOLD
- *    (retention probe is a separate flow, Phase 7).
+ *  - Graduation additionally requires the window to span ≥ 2 distinct days.
+ *  - Graduation schedules the 7-day retention probe.
+ *  - Demotion from שליטה → בתהליך when window accuracy drops below threshold.
  */
 export function applyAttemptToMastery(args: {
   profileId:            string;
@@ -96,7 +126,11 @@ export function applyAttemptToMastery(args: {
     return { masteryMap, ledger };
   }
 
-  ledger = appendToLedger(ledger, attempt.skillCode, attempt.correct);
+  ledger = appendToLedger(ledger, attempt.skillCode, {
+    c: attempt.correct,
+    l: attempt.cpaLayer,
+    d: toLocalDay(attempt.createdAt),
+  });
 
   const prior: MasteryRecord = masteryMap[attempt.skillCode] ?? {
     profileId,
@@ -113,17 +147,20 @@ export function applyAttemptToMastery(args: {
   const itemCount    = prior.itemCount + 1;
   const sessionCount = prior.sessionCount + (isNewSessionForSkill ? 1 : 0);
   const accuracy     = windowAccuracy(ledger, attempt.skillCode);
+  const size         = windowSize(ledger, attempt.skillCode);
 
   const graduates =
+    prior.status !== 'שליטה' &&
     attempt.cpaLayer === 'abstract' &&
-    accuracy    >= MASTERY_ACCURACY_THRESHOLD &&
-    itemCount   >= MASTERY_ITEM_MINIMUM &&
-    sessionCount >= MASTERY_SESSION_MINIMUM;
+    accuracy     >= MASTERY_ACCURACY_THRESHOLD &&
+    size         >= MASTERY_ITEM_MINIMUM &&
+    sessionCount >= MASTERY_SESSION_MINIMUM &&
+    windowSpansDays(ledger, attempt.skillCode, 2);
 
   const demotes =
     prior.status === 'שליטה' &&
-    itemCount   >= MASTERY_ITEM_MINIMUM &&
-    accuracy    <  MASTERY_ACCURACY_THRESHOLD;
+    size     >= MASTERY_ITEM_MINIMUM &&
+    accuracy <  MASTERY_ACCURACY_THRESHOLD;
 
   const nextStatus: MasteryRecord['status'] =
     graduates ? 'שליטה' :
@@ -139,10 +176,93 @@ export function applyAttemptToMastery(args: {
     lastPracticedAt:      attempt.createdAt,
   };
 
+  if (graduates) {
+    next.probesPassed        = 0;
+    next.needsRetentionProbe = false;
+    next.retentionProbeDueAt = new Date(
+      new Date(attempt.createdAt).getTime() + RETENTION_PROBE_SHORT_DAYS * DAY_MS,
+    ).toISOString();
+  } else if (demotes) {
+    next.probesPassed        = undefined;
+    next.needsRetentionProbe = false;
+    next.retentionProbeDueAt = null;
+  }
+
   return {
     masteryMap: { ...masteryMap, [attempt.skillCode]: next },
     ledger,
   };
+}
+
+// ─── Retention probes ─────────────────────────────────────────────────────────
+
+/** Mastered skills whose retention probe is due at `now`. */
+export function probesDue(masteryMap: MasteryMap, nowIso: string): string[] {
+  return Object.values(masteryMap)
+    .filter(r =>
+      r.status === 'שליטה' &&
+      r.retentionProbeDueAt !== null &&
+      r.retentionProbeDueAt <= nowIso)
+    .map(r => r.skillCode);
+}
+
+/**
+ * Apply the first-attempt outcome of a retention-probe item.
+ *
+ * Pass → advance the probe schedule (7d → 30d → confirmed).
+ * Fail → demote to בתהליך; the skill re-enters active practice and must
+ * re-graduate (which schedules fresh probes).
+ */
+export function applyProbeResult(
+  masteryMap: MasteryMap,
+  skillCode:  string,
+  correct:    boolean,
+  nowIso:     string,
+): MasteryMap {
+  const prior = masteryMap[skillCode];
+  if (!prior || prior.status !== 'שליטה') return masteryMap;
+
+  let next: MasteryRecord;
+  if (!correct) {
+    next = {
+      ...prior,
+      status:              'בתהליך',
+      probesPassed:        undefined,
+      needsRetentionProbe: false,
+      retentionProbeDueAt: null,
+    };
+  } else {
+    const passed = (prior.probesPassed ?? 0) + 1;
+    next = {
+      ...prior,
+      probesPassed:        passed,
+      needsRetentionProbe: false,
+      retentionProbeDueAt: passed >= 2
+        ? null   // 7-day and 30-day probes both passed — retention confirmed
+        : new Date(
+            new Date(nowIso).getTime() +
+            (RETENTION_PROBE_LONG_DAYS - RETENTION_PROBE_SHORT_DAYS) * DAY_MS,
+          ).toISOString(),
+    };
+  }
+  return { ...masteryMap, [skillCode]: next };
+}
+
+/**
+ * Self-healing for legacy data: any שליטה record with no probe scheduled
+ * (graduated before probes existed — i.e. potentially false mastery) gets
+ * probed immediately. Returns the map unchanged if nothing needed fixing.
+ */
+export function ensureProbeSchedules(masteryMap: MasteryMap, nowIso: string): MasteryMap {
+  let changed = false;
+  const next: MasteryMap = { ...masteryMap };
+  for (const [skill, r] of Object.entries(masteryMap)) {
+    if (r.status === 'שליטה' && r.retentionProbeDueAt === null && (r.probesPassed ?? 0) < 2) {
+      next[skill] = { ...r, probesPassed: r.probesPassed ?? 0, retentionProbeDueAt: nowIso };
+      changed = true;
+    }
+  }
+  return changed ? next : masteryMap;
 }
 
 // ─── Seeding from gap profile ─────────────────────────────────────────────────
@@ -207,4 +327,3 @@ export function masteredSkills(masteryMap: MasteryMap): string[] {
     .filter(r => r.status === 'שליטה')
     .map(r => r.skillCode);
 }
-

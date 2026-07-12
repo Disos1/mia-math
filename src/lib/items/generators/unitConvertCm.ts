@@ -49,6 +49,16 @@ function* enumerate(): Generator<PracticeItem> {
         distractors:   [wrongScale, ...fillerExtra, correct - 10, correct + 10].filter(x => x !== correct && x !== sig),
         cpaLayer:      'abstract',
         difficulty:    difficultyFor(m, cm),
+        answerMode:    'keypad',
+        steps: cm === 0
+          ? [
+              { text: `כל מטר = 100 ס״מ.` },
+              { text: `כמה זה ${m} × 100?`, answer: correct },
+            ]
+          : [
+              { text: `כל מטר = 100 ס״מ, אז ${m} מטרים = ${m * 100} ס״מ.` },
+              { text: `כמה זה ${m * 100} + ${cm}?`, answer: correct },
+            ],
         rng:           () => 0.5,
       });
     }
@@ -70,6 +80,11 @@ function* enumerate(): Generator<PracticeItem> {
         distractors:   [m * 1000 + cm, m * 10 + cm, correct + 100],
         cpaLayer:      'abstract',
         difficulty:    3,
+        answerMode:    'keypad',
+        steps: [
+          { text: `כל מטר = 100 ס״מ, אז ${m} ${meterWord} = ${m * 100} ס״מ.` },
+          { text: `כמה זה ${m * 100} + ${cm}?`, answer: correct },
+        ],
         rng:           () => 0.5,
       });
     }

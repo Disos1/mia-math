@@ -49,9 +49,26 @@ const ERROR_NAMES: Record<string, string> = {
   ERR_UNIT_MISMATCH:      'חוסר התאמה ביחידות',
 };
 
+// Kitchen-table suggestions for skills the child is stuck on (mirrors the
+// parent dashboard's parent.suggest.* locale keys).
+const STUCK_SUGGESTIONS: Record<string, string> = {
+  ARITH_SUB_REGROUP_ZERO: 'שבו יחד עם דף: 300 − 47. בקשו ממנה לפרוט מאה לעשר עשרות בקול רם, בלי למהר.',
+  ARITH_MULT_6_9:         'בדרך לבית הספר: כמה זה 7×8? אם היא סופרת — תנו עוגן: 7×7=49, ועוד 7.',
+  ARITH_WORD_2STEP:       'קראו יחד שאלה מילולית ושאלו רק: מה קרה קודם? מה קרה אחר כך? בלי לחשב בכלל.',
+  ARITH_WORD_3STEP:       'קראו סיפור חשבוני ובקשו ממנה לספר אותו במילים שלה לפני שפותרים.',
+  FRAC_COMPARE_UNIT:      'חתכו פיתה לחצאים ופיתה לרבעים — איזו חתיכה גדולה יותר? למה?',
+  FRAC_OF_QUANTITY:       'פזרו 12 קלפים ובקשו רבע מהם. תנו לה לחלק ל-4 ערמות בעצמה.',
+  MEAS_UNIT_CONVERT_CM:   'מדדו יחד את הגובה שלה במטר ובס״מ — כמה זה רק בס״מ?',
+  MEAS_UNIT_CONVERT_M:    'בנסיעה: עוד 2 ק״מ ו-300 מטר. כמה מטרים זה ביחד?',
+  MEAS_TIME_CROSS_HOUR:   'שאלו על השעון: עכשיו 2:40 — מה השעה בעוד חצי שעה?',
+};
+
 function skillName(code: string): string  { return SKILL_NAMES[code]  ?? code; }
 function strandName(code: string): string { return STRAND_NAMES[code] ?? code; }
 function errorName(code: string): string  { return ERROR_NAMES[code]  ?? code; }
+function stuckSuggestion(code: string): string {
+  return STUCK_SUGGESTIONS[code] ?? 'בקשו ממנה להסביר לכם איך פותרים — ללמד זו הדרך הכי טובה ללמוד.';
+}
 
 function toLocalDate(iso: string): string {
   const d = new Date(iso);
@@ -124,6 +141,7 @@ function buildEmail(
   sessionsToday:  any[],
   masteryRecords: any[],
   gapProfile:     any | null,
+  prevWeekPct:    number | null,
 ): { subject: string; html: string } {
 
   const total7d    = sessions7d.reduce((s, r) => s + (r.items_answered ?? 0), 0);
@@ -134,6 +152,18 @@ function buildEmail(
 
   const masteredCount   = masteryRecords.filter(r => r.status === 'שליטה').length;
   const inProgressCount = masteryRecords.filter(r => r.status === 'בתהליך').length;
+
+  // Week-over-week trend on first-attempt accuracy
+  const trendLine =
+    accuracy7d === null || prevWeekPct === null ? '' :
+    accuracy7d - prevWeekPct >= 3 ? `<span style="color:#16A34A;font-weight:bold;">↑ שיפור לעומת שבוע שעבר (${prevWeekPct}%)</span>` :
+    prevWeekPct - accuracy7d >= 3 ? `<span style="color:#DC2626;font-weight:bold;">↓ ירידה לעומת שבוע שעבר (${prevWeekPct}%)</span>` :
+                                    `<span style="color:#6B7280;font-weight:bold;">→ יציב לעומת שבוע שעבר (${prevWeekPct}%)</span>`;
+
+  // Stuck skills: in active practice, enough evidence, window accuracy < 55%
+  const stuckSkills = masteryRecords.filter(
+    r => r.status === 'בתהליך' && (r.item_count ?? 0) >= 10 && (r.first_attempt_accuracy ?? 1) < 0.55,
+  );
 
   const activeSkills = masteryRecords
     .filter(r => r.status === 'בתהליך')
@@ -158,6 +188,19 @@ function buildEmail(
     <div style="background:#FEF9C3;border-radius:12px;padding:14px;margin-bottom:14px;">
       ☀️ לא תרגלה היום עדיין
     </div>`;
+
+  // ── Stuck-skill alert + kitchen-table suggestion ────────────────────────────
+  const stuckHtml = stuckSkills.length > 0 ? `
+    <div style="background:#FEF2F2;border-right:4px solid #DC2626;border-radius:12px;padding:14px;margin-bottom:16px;">
+      <div style="font-size:13px;color:#DC2626;font-weight:bold;margin-bottom:8px;">🔴 דורש תשומת לב</div>
+      ${stuckSkills.map(r => `
+        <div style="margin-bottom:10px;">
+          <div style="font-size:14px;font-weight:600;color:#2D3047;">
+            ${skillName(r.skill_code)} — דיוק ${Math.round((r.first_attempt_accuracy ?? 0) * 100)}%
+          </div>
+          <div style="font-size:13px;color:#6B7280;margin-top:3px;">💡 ${stuckSuggestion(r.skill_code)}</div>
+        </div>`).join('')}
+    </div>` : '';
 
   // ── Active skills section ──────────────────────────────────────────────────
   const activeSkillsHtml = activeSkills.length > 0 ? `
@@ -212,6 +255,10 @@ function buildEmail(
   <p style="color:#9CA3AF;margin:0 0 20px;font-size:14px;">${new Date().toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'long' })}</p>
 
   ${todaySection}
+
+  ${stuckHtml}
+
+  ${trendLine ? `<div style="font-size:13px;margin-bottom:14px;">${trendLine}</div>` : ''}
 
   <!-- 7-day activity strip -->
   <div style="margin-bottom:16px;">
@@ -300,14 +347,21 @@ Deno.serve(async (_req) => {
 
     if (!profile) continue;
 
-    // Use started_at for the 7-day window so partial sessions are included
-    const { data: sessions7d } = await db
+    // Use started_at for the 14-day window so partial sessions are included
+    // and the previous week is available for the trend line.
+    const fourteenAgo = toLocalDate(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString());
+    const { data: sessions14d } = await db
       .from('session_records')
       .select('items_answered, items_correct, completed_at, started_at')
       .eq('profile_id', profile.profile_id)
-      .gte('started_at', sevenAgo + 'T00:00:00Z');
+      .gte('started_at', fourteenAgo + 'T00:00:00Z');
 
-    const countable = (sessions7d ?? []).filter(s => (s.items_answered ?? 0) > 0);
+    const all14      = (sessions14d ?? []).filter(s => (s.items_answered ?? 0) > 0);
+    const countable  = all14.filter(s => toLocalDate(s.started_at) >= sevenAgo);
+    const prevWeek   = all14.filter(s => toLocalDate(s.started_at) <  sevenAgo);
+    const prevTotal  = prevWeek.reduce((s, r) => s + (r.items_answered ?? 0), 0);
+    const prevOk     = prevWeek.reduce((s, r) => s + (r.items_correct  ?? 0), 0);
+    const prevWeekPct = prevTotal > 0 ? Math.round(prevOk / prevTotal * 100) : null;
     if (countable.length === 0) continue;
 
     const sessionsToday = countable.filter(
@@ -325,6 +379,7 @@ Deno.serve(async (_req) => {
       sessionsToday,
       masteryRecords ?? [],
       profile.gap_profile_json,
+      prevWeekPct,
     );
 
     const res = await fetch('https://api.resend.com/emails', {

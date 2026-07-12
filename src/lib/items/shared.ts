@@ -7,7 +7,7 @@
  * to include recent items only if the fresh pool is too small.
  */
 
-import type { PracticeItem, ErrorSignatureCode, CPALayer, ItemVisual } from '../../types';
+import type { PracticeItem, ErrorSignatureCode, CPALayer, ItemVisual, AnswerMode, WorkedStep } from '../../types';
 import { shuffle } from './rng';
 
 export interface GenerateOpts {
@@ -29,6 +29,10 @@ export interface BuildItemArgs {
   cpaLayer:      CPALayer;
   difficulty:    number;
   rng:           () => number;
+  /** 'keypad' items are answered by typing; options are kept as fallback only. */
+  answerMode?:   AnswerMode;
+  /** Worked-solution steps for the step-ladder / worked-example views. */
+  steps?:        WorkedStep[];
 }
 
 /**
@@ -69,6 +73,8 @@ export function buildItem(a: BuildItemArgs): PracticeItem {
     visual:         a.visual ?? null,
     cpaLayer:       a.cpaLayer,
     difficulty:     a.difficulty,
+    answerMode:     a.answerMode ?? 'choice',
+    steps:          a.steps,
   };
 }
 

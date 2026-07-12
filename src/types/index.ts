@@ -34,12 +34,15 @@ export interface MasteryRecord {
   profileId:             string;
   skillCode:             string;
   status:                MasteryStatus;
-  firstAttemptAccuracy:  number;   // 0.0–1.0, rolling window of last 10 items
+  firstAttemptAccuracy:  number;   // 0.0–1.0, rolling window of last 10 abstract-layer items
   itemCount:             number;   // total first-attempt items recorded
   sessionCount:          number;   // distinct sessions in which the skill appeared
   lastPracticedAt:       string;
   needsRetentionProbe:   boolean;
   retentionProbeDueAt:   string | null;
+  /** Retention probes passed since graduation (0 → next is the 7-day probe,
+   *  1 → next is the 30-day probe, 2 → retention confirmed). Local-only. */
+  probesPassed?:         number;
 }
 
 // ─── Error signatures ─────────────────────────────────────────────────────────
@@ -202,6 +205,20 @@ export type SessionPhase =
 // Kept as a separate type so the type system prevents accidentally
 // pushing a diagnostic item into a practice session or vice versa.
 
+/** How the learner produces her answer.
+ *  'keypad' — she types the number on the RTL keypad (no options shown).
+ *  'choice' — 4-option tap grid (only for skills where choosing IS the skill,
+ *  e.g. comparing fractions). Defaults to 'choice' for back-compat. */
+export type AnswerMode = 'choice' | 'keypad';
+
+/** One step of a worked solution. Steps with an `answer` pause and ask the
+ *  learner to type that intermediate result on the keypad; steps without one
+ *  are explanation-only. */
+export interface WorkedStep {
+  text:    string;
+  answer?: number;
+}
+
 export interface PracticeItem {
   itemId:         string;
   skillCode:      string;
@@ -216,6 +233,10 @@ export interface PracticeItem {
   cpaLayer:       CPALayer;
   /** 1 (easiest) to 5 (hardest) within the skill. Used by the composer for adaptive sequencing. */
   difficulty:     number;
+  answerMode?:    AnswerMode;
+  /** Worked-solution steps: shown as a step-ladder after the second miss, and
+   *  as the walkthrough body of worked-example plan items. */
+  steps?:         WorkedStep[];
 }
 
 export interface SessionPlanItem {
@@ -223,6 +244,10 @@ export interface SessionPlanItem {
   sessionPhase:   SessionPhase;
   /** 0-indexed position in the session plan */
   position:       number;
+  /** Teaching slot: the item is walked through, not answered or scored. */
+  isWorkedExample?:  boolean;
+  /** 7/30-day retention probe: first-attempt outcome feeds probe logic. */
+  isRetentionProbe?: boolean;
 }
 
 export interface SessionPlan {
@@ -291,3 +316,19 @@ export interface CPAState {
   consecutiveCorrect: number;
   consecutiveWrong:   number;
 }
+
+// ─── CPA memory (cross-session) ───────────────────────────────────────────────
+//
+// Persisted per skill so a layer drop survives the session boundary. Without
+// this, a learner can fail a skill for weeks and every session restarts at
+// the same layer with no escalation (the 68-sessions-at-45% failure mode).
+
+export interface CpaSkillMemory {
+  /** Layer to start the next session at for this skill. */
+  layer:            CPALayer;
+  /** Consecutive sessions with first-attempt accuracy on this skill < 55%.
+   *  At 3 the composer escalates (layer drop + worked example first). */
+  struggleSessions: number;
+}
+
+export type CPAMemory = Record<string, CpaSkillMemory>;

@@ -14,8 +14,8 @@ import type {
   SessionRecord,
   PracticeAttempt,
 } from '../types';
-import type { AttemptLedger } from './masteryTracker';
-import { syncMasteryMap, syncSessionRecord } from './sync';
+import type { AttemptLedger, LedgerEntry } from './masteryTracker';
+import { syncMasteryMap, syncSessionRecord, syncSessionAttempts } from './sync';
 
 const KEY_MASTERY  = (profileId: string) => `mia_mastery::${profileId}`;
 const KEY_LEDGER   = (profileId: string) => `mia_ledger::${profileId}`;
@@ -56,7 +56,19 @@ export function saveMasteryMap(profileId: string, map: MasteryMap): void {
 // ─── Attempt ledger (rolling-window per skill) ──────────────────────────────
 
 export function loadLedger(profileId: string): AttemptLedger {
-  return read<AttemptLedger>(KEY_LEDGER(profileId), {});
+  const raw = read<Record<string, unknown[]>>(KEY_LEDGER(profileId), {});
+  // Migrate the legacy boolean[] format (pre-2026-07). Old entries carry no
+  // layer/date, so they're stamped 'abstract' on a sentinel day — conservative:
+  // graduation still needs fresh attempts on ≥2 real distinct days.
+  const out: AttemptLedger = {};
+  for (const [skill, entries] of Object.entries(raw)) {
+    out[skill] = entries.map((e): LedgerEntry =>
+      typeof e === 'boolean'
+        ? { c: e, l: 'abstract', d: '2026-01-01' }
+        : (e as LedgerEntry),
+    );
+  }
+  return out;
 }
 
 export function saveLedger(profileId: string, ledger: AttemptLedger): void {
@@ -103,6 +115,7 @@ export function appendAttempts(profileId: string, newAttempts: PracticeAttempt[]
   const cur  = loadAttempts(profileId);
   const next = [...cur, ...newAttempts].slice(-MAX_ATTEMPTS);
   write(KEY_ATTEMPTS(profileId), next);
+  syncSessionAttempts(newAttempts); // fire-and-forget; no-op if not authed
 }
 
 // ─── Bulk clear (used by parent reset) ──────────────────────────────────────

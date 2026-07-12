@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   Profile,
+  Gender,
   SessionMode,
   SessionPlan,
   SessionPlanItem,
@@ -24,19 +25,24 @@ import type {
   CPAState,
   CPALayer,
   PracticeItem,
+  ErrorSignatureCode,
 } from '../types';
 import type { AttemptLedger } from '../lib/masteryTracker';
 
 import { t } from '../i18n/t';
 import type { LocaleKey } from '../i18n/t';
 import { MathText } from '../components/primitives/MathText';
+import { NumPad } from '../components/primitives/NumPad';
 import { VisualRenderer } from '../components/visuals/VisualRenderer';
 
 import { composeSession, extendOpenPlan, pickVariantAtLayer } from '../lib/sessionComposer';
 import {
   applyAttemptToMastery,
+  applyProbeResult,
+  ensureProbeSchedules,
   seedMasteryFromDiagnostic,
 } from '../lib/masteryTracker';
+import { loadCpaMemory, saveCpaMemory, updateCpaMemoryAfterSession } from '../lib/cpaMemory';
 import { initCPAState, onCorrect, onWrong } from '../lib/cpaState';
 import {
   loadMasteryMap,
@@ -48,7 +54,7 @@ import {
 } from '../lib/sessionStore';
 import { loadRecentItemIds, appendRecentItemIds } from '../lib/items/recentItems';
 import { updateProfile } from '../lib/profile';
-import { starsForSession, COMBO_BONUS_1 } from '../lib/trophies';
+import { starsForSession, COMBO_BONUS_1, MIN_ITEMS_FOR_STARS } from '../lib/trophies';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -72,7 +78,8 @@ type SessionFeedback =
   | null
   | { kind: 'correct' }
   | { kind: 'wrong' }
-  | { kind: 'show_answer' };  // 2nd wrong — flash the correct option green
+  | { kind: 'show_answer' }   // 2nd wrong, no steps — flash the correct answer
+  | { kind: 'step_ladder' };  // 2nd wrong, steps exist — solve it together, step by step
 
 // ─── Score tally ──────────────────────────────────────────────────────────────
 //
@@ -94,7 +101,11 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   // ── One-time init ──────────────────────────────────────────────────────────
   const initialMastery = useMemo<MasteryMap>(() => {
     const existing = loadMasteryMap(profile.profileId);
-    if (Object.keys(existing).length > 0) return existing;
+    // Self-heal: pre-probe שליטה records (potential false mastery) get an
+    // immediate retention probe scheduled so the label re-earns itself.
+    if (Object.keys(existing).length > 0) {
+      return ensureProbeSchedules(existing, new Date().toISOString());
+    }
     // First session after diagnostic — seed from gap profile
     if (profile.gapProfileJson) {
       const gaps = profile.gapProfileJson.sessionComposerNotes.blockedPracticePriority;
@@ -129,6 +140,10 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   // Loaded once at mount (snapshot); appended at finish() / visibilitychange.
   const recentIdsRef = useRef<Set<string>>(loadRecentItemIds(profile.profileId));
 
+  // Cross-session CPA memory — start layers + struggle counters. Loaded once;
+  // folded back in at finish()/visibilitychange.
+  const cpaMemoryRef = useRef(loadCpaMemory(profile.profileId));
+
   // Compose the plan once per session
   const plan = useMemo<SessionPlan>(
     () => composeSession({
@@ -137,6 +152,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       masteryMap:        initialMastery,
       mode,
       sessionsCompleted: profile.sessionsCompleted,
+      cpaMemory:         cpaMemoryRef.current,
       recentIds:         recentIdsRef.current,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,6 +209,9 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   const [retryCount, setRetryCount] = useState(0);
   // isRetry tells PracticeItemView to show the skill hint panel.
   const [isRetry, setIsRetry] = useState(false);
+  // Misconception mirror: when her wrong answer matched a known error
+  // signature, the retry hint speaks to THAT error, not a generic tip.
+  const [lastSigHit, setLastSigHit] = useState<ErrorSignatureCode | null>(null);
   // wrongCountRef tracks wrong attempts on the current item without triggering
   // extra renders; reset whenever we advance to a new item.
   const wrongCountRef = useRef(0);
@@ -223,6 +242,26 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // once on mount
 
+  // Fold this session's outcome into cross-session CPA memory: final layer per
+  // skill + per-skill first-attempt stats (feeds the struggle escalator).
+  // Runs at finish() AND on abandonment — quitting a hard session must not
+  // dodge struggle tracking.
+  const persistCpaMemory = () => {
+    const endLayers: Record<string, CPALayer> = {};
+    for (const [skill, cpa] of Object.entries(cpaBySkillRef.current)) {
+      endLayers[skill] = cpa.currentLayer;
+    }
+    const skillStats: Record<string, { attempts: number; correct: number }> = {};
+    for (const a of attemptsRef.current) {
+      if (!a.firstAttempt) continue;
+      const s = (skillStats[a.skillCode] ??= { attempts: 0, correct: 0 });
+      s.attempts += 1;
+      if (a.correct) s.correct += 1;
+    }
+    cpaMemoryRef.current = updateCpaMemoryAfterSession(cpaMemoryRef.current, endLayers, skillStats);
+    saveCpaMemory(profile.profileId, cpaMemoryRef.current);
+  };
+
   // When the tab is hidden (app backgrounded / tab switched / browser closed),
   // flush whatever progress exists so the parent dashboard stays current.
   useEffect(() => {
@@ -245,6 +284,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       saveMasteryMap(profile.profileId, masteryRef.current);
       saveLedger(profile.profileId, ledgerRef.current);
       appendRecentItemIds(profile.profileId, attempts.map(a => a.itemId));
+      persistCpaMemory();
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
@@ -305,13 +345,19 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
 
     // Use refs for mastery/ledger so each answer builds on the previous one
     // even across multiple rapid state updates in the same render cycle.
-    const { masteryMap: nextMastery, ledger: nextLedger } = applyAttemptToMastery({
+    let { masteryMap: nextMastery, ledger: nextLedger } = applyAttemptToMastery({
       profileId:            profile.profileId,
       attempt,
       masteryMap:           masteryRef.current,
       ledger:               ledgerRef.current,
       isNewSessionForSkill: isNewForSkill,
     });
+
+    // Retention probe: the first attempt on a probe item decides whether the
+    // mastery label survives (pass → next probe window; fail → back to practice).
+    if (currentItem.isRetentionProbe && firstAttempt) {
+      nextMastery = applyProbeResult(nextMastery, it.skillCode, correct, attempt.createdAt);
+    }
 
     masteryRef.current  = nextMastery;
     ledgerRef.current   = nextLedger;
@@ -333,6 +379,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
 
     if (correct) {
       setFeedback({ kind: 'correct' });
+      setLastSigHit(null);
       setTimeout(() => {
         setFeedback(null);
         wrongCountRef.current = 0;
@@ -340,17 +387,27 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
         advance();
       }, 1000);
     } else {
+      setLastSigHit(attempt.signatureHit);
       // Wrong: first mistake → show hint and let her retry.
-      // Second mistake → flash correct answer and move on.
+      // Second mistake → solve it TOGETHER via the step ladder (she types every
+      // partial result herself), falling back to an answer flash only for
+      // items that carry no steps.
       wrongCountRef.current += 1;
       if (wrongCountRef.current >= 2) {
-        setFeedback({ kind: 'show_answer' });
-        setTimeout(() => {
-          setFeedback(null);
-          wrongCountRef.current = 0;
-          setIsRetry(false);
-          advance();
-        }, 1500);
+        if (it.steps && it.steps.length > 0) {
+          // Brief "wrong" beat first, then the ladder takes over.
+          setFeedback({ kind: 'wrong' });
+          setTimeout(() => setFeedback({ kind: 'step_ladder' }), 900);
+          // advance happens when the ladder completes (see onLadderDone)
+        } else {
+          setFeedback({ kind: 'show_answer' });
+          setTimeout(() => {
+            setFeedback(null);
+            wrongCountRef.current = 0;
+            setIsRetry(false);
+            advance();
+          }, 1500);
+        }
       } else {
         setFeedback({ kind: 'wrong' });
         setTimeout(() => {
@@ -362,7 +419,24 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     }
   };
 
+  /** Step ladder finished — she reproduced the solution herself; move on. */
+  const onLadderDone = () => {
+    setFeedback(null);
+    wrongCountRef.current = 0;
+    setIsRetry(false);
+    advance();
+  };
+
+  /** Worked-example slot acknowledged — not scored, just advance. */
+  const onWorkedExampleDone = () => {
+    setFeedback(null);
+    wrongCountRef.current = 0;
+    setIsRetry(false);
+    advance();
+  };
+
   const advance = () => {
+    setLastSigHit(null);
     const nextIndex = index + 1;
     const reachedTarget = plan.targetItems !== null && nextIndex >= plan.targetItems;
     const ranOutOfItems = nextIndex >= items.length;
@@ -452,6 +526,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     saveMasteryMap(profile.profileId, masteryRef.current);
     saveLedger(profile.profileId, ledgerRef.current);
     appendRecentItemIds(profile.profileId, allAttempts.map(a => a.itemId));
+    persistCpaMemory();
     upsertSessionRecord(profile.profileId, {
       sessionId:        plan.sessionId,
       profileId:        profile.profileId,
@@ -505,6 +580,31 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     );
   }
 
+  // Teaching slot: worked example is walked through, never answered or scored.
+  if (currentItem.isWorkedExample) {
+    return (
+      <WorkedExampleView
+        key={`we-${index}`}
+        planItem={currentItem}
+        gender={profile.gender}
+        onDone={onWorkedExampleDone}
+      />
+    );
+  }
+
+  // Second miss on an item with steps: solve it together — she types every
+  // partial result herself, ending by producing the full answer.
+  if (feedback?.kind === 'step_ladder') {
+    return (
+      <StepLadder
+        key={`ladder-${index}`}
+        item={currentItem.item}
+        gender={profile.gender}
+        onDone={onLadderDone}
+      />
+    );
+  }
+
   return (
     <PracticeItemView
       key={`${index}-${retryCount}`}  /* remount on new item OR retry */
@@ -515,6 +615,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       combo={combo}
       feedback={feedback}
       isRetry={isRetry}
+      sigHit={lastSigHit}
       layerTransition={layerTransition}
       onAnswer={handleAnswer}
       onOpenExit={mode === 'open' ? earlyExit : undefined}
@@ -549,13 +650,14 @@ interface ItemViewProps {
   combo:            number;
   feedback:         SessionFeedback;
   isRetry:          boolean;
+  sigHit?:          ErrorSignatureCode | null;
   layerTransition?: { from: CPALayer; to: CPALayer } | null;
   onAnswer:         (answer: string | number, timeMs: number) => void;
   onOpenExit?:      () => void;
 }
 
 function PracticeItemView({
-  planItem, index, total, mode, combo, feedback, isRetry, layerTransition, onAnswer, onOpenExit,
+  planItem, index, total, mode, combo, feedback, isRetry, sigHit, layerTransition, onAnswer, onOpenExit,
 }: ItemViewProps) {
   const { item, sessionPhase } = planItem;
 
@@ -681,24 +783,79 @@ function PracticeItemView({
               Abstract items carry visual: null so the renderer is a no-op. */}
           <VisualRenderer visual={item.visual} />
 
+          {/* IMPROVE self-questioning for word problems (Mevarech & Kramarski),
+              faded by CPA layer: full three-question panel at the scaffolded
+              (pictorial) layer, slim one-line reminder at abstract. */}
+          {(item.skillCode === 'ARITH_WORD_2STEP' || item.skillCode === 'ARITH_WORD_3STEP') && (
+            item.cpaLayer === 'pictorial' ? (
+              <div className="bg-[#F3EEFF] border border-[#DCD0F0] rounded-2xl p-4 mb-4">
+                <div className="text-xs font-bold text-[#7C3AED] mb-2">{t('session.improve_title', { gender: 'f' })}</div>
+                <div className="text-sm text-[#2D3047] leading-relaxed">
+                  <div>1️⃣ {t('session.improve_q1', { gender: 'f' })}</div>
+                  <div>2️⃣ {t('session.improve_q2', { gender: 'f' })}</div>
+                  <div>3️⃣ {t('session.improve_q3', { gender: 'f' })}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-gray-400 mb-3 text-center">
+                {t('session.improve_slim', { gender: 'f' })}
+              </div>
+            )
+          )}
+
+          {/* Misconception mirror — her wrong answer matched a known error
+              signature, so the retry hint names THAT error specifically. */}
+          {isRetry && sigHit && (
+            <div className="bg-[#FFEDE8] border border-[#FFC9BC] rounded-2xl p-4 mt-3 fade-in">
+              <div className="flex gap-2 items-start">
+                <span className="text-xl mt-0.5 shrink-0">🪞</span>
+                <div className="text-sm text-[#2D3047] leading-relaxed text-right flex-1 font-medium">
+                  {t(`sig.${sigHit}` as LocaleKey, { gender: 'f' })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Skill hint — shown on retry (after first wrong answer) */}
           {isRetry && <SkillHint item={item} />}
 
-          {/* Options grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {options.map(opt => (
-              <button
-                key={String(opt)}
-                onClick={() => handleTap(opt)}
-                disabled={locked}
-                className={`btn-shadow rounded-2xl py-4 text-2xl font-bold transition-colors
-                  ${locked && selected === opt ? 'bounce' : ''}`}
-                style={{ background: optionBg(opt) }}
-              >
-                <MathText>{String(opt)}</MathText>
-              </button>
-            ))}
-          </div>
+          {item.answerMode === 'keypad' ? (
+            /* Constructed response: she TYPES the answer — nothing to guess from. */
+            <div className="mt-2">
+              {locked && feedback?.kind === 'correct' && (
+                <div className="text-center text-3xl font-black mb-2 pop-in" style={{ color: '#16A34A' }}>
+                  <MathText>{`${selected} ✓`}</MathText>
+                </div>
+              )}
+              {locked && feedback?.kind === 'wrong' && (
+                <div className="text-center text-3xl font-black mb-2" style={{ color: '#DC2626' }}>
+                  <MathText>{`${selected} ✗`}</MathText>
+                </div>
+              )}
+              {feedback?.kind === 'show_answer' && (
+                <div className="bg-[#B8E5C9] rounded-2xl py-3 text-center text-xl font-bold mb-2">
+                  {t('session.answer_was', { gender: 'f', answer: String(item.correct) })}
+                </div>
+              )}
+              {!locked && <NumPad onSubmit={v => handleTap(v)} maxLength={4} />}
+            </div>
+          ) : (
+            /* Options grid — only for skills where choosing IS the skill */
+            <div className="grid grid-cols-2 gap-3">
+              {options.map(opt => (
+                <button
+                  key={String(opt)}
+                  onClick={() => handleTap(opt)}
+                  disabled={locked}
+                  className={`btn-shadow rounded-2xl py-4 text-2xl font-bold transition-colors
+                    ${locked && selected === opt ? 'bounce' : ''}`}
+                  style={{ background: optionBg(opt) }}
+                >
+                  <MathText>{String(opt)}</MathText>
+                </button>
+              ))}
+            </div>
+          )}
 
         </div>
 
@@ -744,18 +901,19 @@ function EndSession({ plan, itemsAttempted, itemsCorrect, maxCombo, gender, name
     ? Math.round((itemsCorrect / itemsAttempted) * 100)
     : 0;
 
-  // Stars earned this session — same rule as the trophy room, so the number
-  // Mia sees here matches what lands in her total. A guessed session (below the
-  // accuracy floor) earns 0, which we surface as a gentle "slow down" instead
-  // of a full celebration.
+  // Stars earned this session — same rule as the trophy room (real startedAt,
+  // so the item floor applies identically in both places). A guessed session
+  // earns 0 with a gentle "slow down"; a too-short session earns 0 with an
+  // honest "stars start at 8 items" — different message, different cause.
   const starsEarned = starsForSession({
     sessionId: plan.sessionId, profileId: '', mode: plan.mode,
-    startedAt: '', completedAt: null,
+    startedAt: plan.startedAt, completedAt: null,
     itemsAttempted, itemsCorrect,
     primarySkillCode: plan.primarySkillCode,
     maxCombo,
   });
-  const earnedStars = starsEarned > 0;
+  const earnedStars  = starsEarned > 0;
+  const shortSession = itemsAttempted > 0 && itemsAttempted < MIN_ITEMS_FOR_STARS;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in relative overflow-hidden">
@@ -782,12 +940,16 @@ function EndSession({ plan, itemsAttempted, itemsCorrect, maxCombo, gender, name
         <div className="pop-in text-7xl mb-2">{earnedStars ? '🎉' : '💪'}</div>
 
         <h2 className="text-3xl font-bold mb-1">
-          {earnedStars ? t('end_session.title', g) : t('end_session.try_slower_title', g)}
+          {earnedStars ? t('end_session.title', g)
+            : shortSession ? t('end_session.short_title', g)
+            : t('end_session.try_slower_title', g)}
         </h2>
         <p className="text-gray-600 text-sm mb-6">
           {earnedStars
             ? t('end_session.subtitle', { ...g, skill: t(skillLabelKey, g) })
-            : t('end_session.try_slower_subtitle', g)}
+            : shortSession
+              ? t('end_session.short_subtitle', { ...g, min: MIN_ITEMS_FOR_STARS })
+              : t('end_session.try_slower_subtitle', g)}
         </p>
 
         {/* Accuracy ring + score */}
@@ -802,7 +964,9 @@ function EndSession({ plan, itemsAttempted, itemsCorrect, maxCombo, gender, name
               {'⭐'.repeat(starsEarned)}
             </span>
           ) : (
-            <span className="text-sm text-gray-500">{t('end_session.zero_stars', g)}</span>
+            <span className="text-sm text-gray-500">
+              {shortSession ? t('end_session.zero_stars_short', { ...g, min: MIN_ITEMS_FOR_STARS }) : t('end_session.zero_stars', g)}
+            </span>
           )}
         </div>
 
@@ -827,6 +991,175 @@ function EndSession({ plan, itemsAttempted, itemsCorrect, maxCombo, gender, name
         >
           {t('end_session.trophy_room', g)}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step ladder (second miss → solve it together) ────────────────────────────
+//
+// Replaces the old "flash the answer for 1.5s" with guided re-construction:
+// the same problem decomposes into micro-steps, and the learner types every
+// partial result herself. She always exits a failure by PRODUCING the correct
+// answer with her own fingers — an errorless-learning exit, not a reveal.
+
+/** Teach-mode rendering of a step: "כמה זה 13 − 8?" → "13 − 8 = 5". */
+function teachLine(text: string, answer?: number): string {
+  if (answer === undefined) return text;
+  const m = text.match(/כמה זה (.+)\?/);
+  return m ? `${m[1]} = ${answer}` : `${text} ${answer}`;
+}
+
+function StepLadder({ item, gender, onDone }: {
+  item:   PracticeItem;
+  gender: Gender;
+  onDone: () => void;
+}) {
+  const steps = item.steps ?? [];
+  const g = { gender };
+  const [idx, setIdx]           = useState(0);
+  const [wrongValue, setWrong]  = useState<number | null>(null);
+
+  const step   = steps[idx];
+  const isLast = idx >= steps.length - 1;
+
+  const next = () => {
+    setWrong(null);
+    if (isLast) onDone();
+    else setIdx(i => i + 1);
+  };
+
+  const submit = (v: number) => {
+    if (step.answer === undefined) return;
+    if (v === step.answer) next();
+    else setWrong(v);
+  };
+
+  // Unreachable when steps is non-empty (the only way this mounts), but never
+  // call onDone during render — just render nothing.
+  if (!step) return null;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in">
+      <div className="w-full max-w-md flex flex-col gap-4">
+
+        <div className="bg-[#FFF3D6] border border-[#FFD78A] rounded-2xl px-4 py-3 text-center text-base font-bold text-[#2D3047]">
+          🪜 {t('session.step_ladder_intro', g)}
+        </div>
+
+        <div className="bg-white card-shadow rounded-3xl p-6">
+          <div className="text-lg leading-relaxed text-gray-400 mb-4">
+            <MathText>{item.question}</MathText>
+          </div>
+
+          {/* Completed steps stay visible so the solution accumulates */}
+          {steps.slice(0, idx).map((s, i) => (
+            <div key={i} className="flex gap-2 items-start text-sm text-gray-500 mb-1.5">
+              <span className="shrink-0" style={{ color: '#16A34A' }}>✓</span>
+              <MathText>{teachLine(s.text, s.answer)}</MathText>
+            </div>
+          ))}
+
+          {/* Current step */}
+          <div className="text-xl font-bold my-4 text-[#2D3047]">
+            <MathText>{step.text}</MathText>
+          </div>
+
+          {step.answer !== undefined && wrongValue === null && (
+            /* key={idx}: each step gets a FRESH pad — the previous step's
+               digits must never leak into the next entry. */
+            <NumPad key={idx} onSubmit={submit} maxLength={4} />
+          )}
+
+          {wrongValue !== null && step.answer !== undefined && (
+            <div className="text-center fade-in">
+              <div className="text-2xl font-bold mb-1 line-through" style={{ color: '#DC2626' }}>
+                <MathText>{String(wrongValue)}</MathText>
+              </div>
+              <div className="text-xl font-bold mb-4" style={{ color: '#16A34A' }}>
+                {t('session.step_correct_is', { ...g, answer: step.answer })}
+              </div>
+              <button
+                onClick={next}
+                className="btn-shadow bg-[#C4A7E7] text-white rounded-2xl px-6 py-3 text-lg font-bold w-full"
+              >
+                {t('session.step_got_it', g)}
+              </button>
+            </div>
+          )}
+
+          {step.answer === undefined && (
+            <button
+              onClick={next}
+              className="btn-shadow bg-[#C4A7E7] text-white rounded-2xl px-6 py-3 text-lg font-bold w-full"
+            >
+              {t('session.step_continue', g)}
+            </button>
+          )}
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex gap-1.5 justify-center">
+          {steps.map((_, i) => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full"
+              style={{ background: i <= idx ? '#C4A7E7' : '#E5E0D8' }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Worked example (teaching slot — never answered, never scored) ────────────
+//
+// Struggling skills open their block with one of these: the full solution
+// revealed step by step at the learner's own pace, then "עכשיו תורי!" hands
+// control back for the faded practice that follows.
+
+function WorkedExampleView({ planItem, gender, onDone }: {
+  planItem: SessionPlanItem;
+  gender:   Gender;
+  onDone:   () => void;
+}) {
+  const { item } = planItem;
+  const steps = item.steps ?? [];
+  const g = { gender };
+  const [revealed, setRevealed] = useState(steps.length > 0 ? 1 : 0);
+  const allShown = revealed >= steps.length;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in">
+      <div className="w-full max-w-md flex flex-col gap-4">
+
+        <div className="bg-[#EAF4FF] border border-[#BBD9F7] rounded-2xl px-4 py-3 text-center text-base font-bold text-[#2D3047]">
+          🧑‍🏫 {t('session.worked_example_title', g)}
+        </div>
+
+        <div className="bg-white card-shadow rounded-3xl p-6">
+          <div className="text-2xl leading-relaxed font-medium mb-4">
+            <MathText>{item.question}</MathText>
+          </div>
+
+          <VisualRenderer visual={item.visual} />
+
+          {steps.slice(0, revealed).map((s, i) => (
+            <div key={i} className="bg-[#F8F4ED] rounded-xl px-4 py-3 mb-2 fade-in text-base">
+              <MathText>{teachLine(s.text, s.answer)}</MathText>
+            </div>
+          ))}
+
+          <button
+            onClick={() => (allShown ? onDone() : setRevealed(r => r + 1))}
+            className={`btn-shadow rounded-2xl px-6 py-4 text-xl font-bold w-full mt-3 text-white ${
+              allShown ? 'bg-[#FF9B7A]' : 'bg-[#C4A7E7]'
+            }`}
+          >
+            {allShown ? t('session.worked_example_done', g) : t('session.worked_example_next', g)}
+          </button>
+        </div>
       </div>
     </div>
   );

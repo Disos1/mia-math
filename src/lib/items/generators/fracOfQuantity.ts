@@ -54,6 +54,34 @@ function* enumerate(): Generator<PracticeItem> {
         distractors:   fillers.slice(0, 2),
         cpaLayer:      'abstract',
         difficulty:    difficultyFor(d, q),
+        answerMode:    'keypad',
+        steps: [
+          { text: `${word} = לחלק ל-${d} חלקים שווים.` },
+          { text: `כמה זה ${q} ÷ ${d}?`, answer: correct },
+        ],
+        rng:           () => 0.5,
+      });
+
+      // Pictorial twin: dot array of q dots in d rows — the learner SEES the
+      // equal-groups structure before dividing. Only for arrays that fit the
+      // card (DotArray has no horizontal scroll; ≤10 dots per row).
+      if (correct > 10) continue;
+      yield buildItem({
+        itemId:        `G_FRAC_QTY_P_${d}_${q}`,
+        skillCode:     SKILL,
+        question:      `כמה זה ${word} מ-${q}? (שורה אחת מתוך ${d})`,
+        correct,
+        signature:     sig === correct ? null : sig,
+        signatureCode: sig === correct ? null : 'ERR_FRAC_QUANTITY_BIAS',
+        distractors:   fillers.slice(0, 2),
+        visual:        { type: 'dot_array', rows: d, cols: correct, highlighted: correct },
+        cpaLayer:      'pictorial',
+        difficulty:    difficultyFor(d, q),
+        answerMode:    'keypad',
+        steps: [
+          { text: `${q} נקודות מסודרות ב-${d} שורות שוות — ${word} זו שורה אחת.` },
+          { text: `כמה נקודות בשורה אחת? (${q} ÷ ${d})`, answer: correct },
+        ],
         rng:           () => 0.5,
       });
     }

@@ -30,10 +30,12 @@ import type {
   SessionPlanItem,
   SessionPhase,
   CPALayer,
+  CPAMemory,
   PracticeItem,
 } from '../types';
 import { getItemPool } from './items';
-import { masteredSkills, skillsInProgress } from './masteryTracker';
+import { masteredSkills, skillsInProgress, probesDue } from './masteryTracker';
+import { startLayerFor, isStruggling } from './cpaMemory';
 
 // ─── Targets ──────────────────────────────────────────────────────────────────
 
@@ -55,6 +57,10 @@ export interface ComposeArgs {
   masteryMap:         MasteryMap;
   mode:               SessionMode;
   sessionsCompleted:  number;
+  /** Cross-session CPA memory: start layers + struggle escalation flags. */
+  cpaMemory?:         CPAMemory;
+  /** For determinism in tests; defaults to new Date().toISOString() */
+  now?:               string;
   /** For determinism in tests; defaults to Math.random */
   rng?:               () => number;
   /**
@@ -67,6 +73,8 @@ export interface ComposeArgs {
 export function composeSession(args: ComposeArgs): SessionPlan {
   const rng       = args.rng       ?? Math.random;
   const recentIds = args.recentIds ?? new Set<string>();
+  const cpaMemory = args.cpaMemory ?? {};
+  const now       = args.now       ?? new Date().toISOString();
   const reasoning: string[] = [];
   const targetItems =
     args.mode === 'open'
@@ -136,16 +144,20 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // For non-open modes we aim at the target; for open we emit an initial batch
   // that the composer extends later.
 
+  const masteredPool = masteredSkills(args.masteryMap);
+  const dueProbes    = probesDue(args.masteryMap, now);
+
   const sizes = computeBlockSizes(targetItems, {
     isFirstSession,
     hasGap:       firstGap !== null,
     hasSecondGap: secondGap !== null,
     hasMultFact:  hasMultFactGap,
     hasStrength:  strengthPool.length > 0,
+    hasMastered:  masteredPool.length > 0 || dueProbes.length > 0,
   });
   reasoning.push(
     `Block sizes: warmup=${sizes.warmup}, new=${sizes.newMaterial}, blocked=${sizes.blocked}, ` +
-    `retrieval=${sizes.retrieval}, interleaved=${sizes.interleaved}`
+    `retrieval=${sizes.retrieval}, interleaved=${sizes.interleaved}; probes due: ${dueProbes.join(',') || '(none)'}`
   );
 
   // ── Emit the plan ──────────────────────────────────────────────────────────
@@ -154,6 +166,20 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // in the same session regardless of which blocks overlap on the same skill.
 
   const usedIds = new Set<string>();
+
+  // Start layer per skill: cross-session CPA memory wins over the (static)
+  // diagnostic snapshot, so yesterday's drop to pictorial survives to today.
+  const layerFor = (skill: string): CPALayer =>
+    startLayerFor(cpaMemory, skill, gap?.cpaStartLayer[skill]);
+
+  // Struggling skills open with a worked example (teach first, then practise)
+  // at the easiest difficulty — the escalation path for the stuck-skill case.
+  const markWorkedExample = (block: SessionPlanItem[], skill: string): void => {
+    if (block.length > 0 && isStruggling(cpaMemory, skill)) {
+      block[0] = { ...block[0], isWorkedExample: true };
+      reasoning.push(`${skill} is struggling — leading its block with a worked example`);
+    }
+  };
 
   // 1. Warm-up
   if (sizes.warmup > 0 && strengthPool.length > 0) {
@@ -169,35 +195,63 @@ export function composeSession(args: ComposeArgs): SessionPlan {
 
   // 2. New material
   if (sizes.newMaterial > 0 && firstGap) {
-    const layer = gap?.cpaStartLayer[firstGap] ?? 'abstract';
-    plan.push(...pickItems(firstGap, layer, sizes.newMaterial, 'new_material', plan.length, rng, usedIds, recentIds));
+    const struggling = isStruggling(cpaMemory, firstGap);
+    const block = pickItems(firstGap, layerFor(firstGap), sizes.newMaterial, 'new_material', plan.length, rng, usedIds, recentIds,
+      struggling ? { preferDifficulty: 1 } : {});
+    markWorkedExample(block, firstGap);
+    plan.push(...block);
   }
 
   // 3. Blocked practice
   if (sizes.blocked > 0) {
     const blockedSkill = secondGap ?? firstGap;
     if (blockedSkill) {
-      const layer = gap?.cpaStartLayer[blockedSkill] ?? 'abstract';
-      plan.push(...pickItems(blockedSkill, layer, sizes.blocked, 'blocked_practice', plan.length, rng, usedIds, recentIds));
+      const struggling = isStruggling(cpaMemory, blockedSkill);
+      const block = pickItems(blockedSkill, layerFor(blockedSkill), sizes.blocked, 'blocked_practice', plan.length, rng, usedIds, recentIds,
+        struggling ? { preferDifficulty: 1 } : {});
+      if (blockedSkill !== firstGap) markWorkedExample(block, blockedSkill);
+      plan.push(...block);
     }
   }
 
-  // 4. Spaced retrieval
+  // 4. Spaced retrieval — retention probes first (7/30-day checks on mastered
+  //    skills), then genuine spacing: the mastered skill practised longest ago.
   if (sizes.retrieval > 0) {
-    if (hasMultFactGap) {
-      plan.push(...pickItems('ARITH_MULT_6_9', 'abstract', sizes.retrieval, 'spaced_retrieval', plan.length, rng, usedIds, recentIds));
-    } else {
-      const retrievalSkill = thirdGap ?? firstGap;
-      if (retrievalSkill) {
-        plan.push(...pickItems(retrievalSkill, 'abstract', sizes.retrieval, 'spaced_retrieval', plan.length, rng, usedIds, recentIds));
+    let retrievalBudget = sizes.retrieval;
+
+    for (const probeSkill of dueProbes.slice(0, 2)) {
+      if (retrievalBudget <= 0) break;
+      const probeCount = Math.min(2, retrievalBudget);
+      const probeItems = pickItems(probeSkill, 'abstract', probeCount, 'spaced_retrieval', plan.length, rng, usedIds, recentIds)
+        .map(p => ({ ...p, isRetentionProbe: true }));
+      plan.push(...probeItems);
+      retrievalBudget -= probeItems.length;
+      if (probeItems.length > 0) reasoning.push(`Retention probe: ${probeSkill} (${probeItems.length} items)`);
+    }
+
+    if (retrievalBudget > 0) {
+      const spacedSkill = [...masteredPool]
+        .filter(s => !dueProbes.includes(s))
+        .sort((a, b) =>
+          (args.masteryMap[a]?.lastPracticedAt ?? '').localeCompare(args.masteryMap[b]?.lastPracticedAt ?? ''))[0]
+        ?? (hasMultFactGap ? 'ARITH_MULT_6_9' : (thirdGap ?? firstGap));
+      if (spacedSkill) {
+        plan.push(...pickItems(spacedSkill, 'abstract', retrievalBudget, 'spaced_retrieval', plan.length, rng, usedIds, recentIds));
       }
     }
   }
 
-  // 5. Interleaved
+  // 5. Interleaved — mastered skills ONLY (mixing in a skill she hasn't secured
+  //    forces strategy-selection before strategy-application exists; the audit
+  //    found the old fallback served her hardest gap here). No mastered skills →
+  //    the budget flows back into blocked practice on the top gap.
   if (sizes.interleaved > 0) {
-    const pool = strengthPool.length > 0 ? strengthPool : (firstGap ? [firstGap] : []);
-    plan.push(...pickInterleaved(pool, sizes.interleaved, plan.length, rng, usedIds, recentIds));
+    if (masteredPool.length > 0) {
+      plan.push(...pickInterleaved(masteredPool, sizes.interleaved, plan.length, rng, usedIds, recentIds));
+    } else if (firstGap) {
+      plan.push(...pickItems(firstGap, layerFor(firstGap), sizes.interleaved, 'blocked_practice', plan.length, rng, usedIds, recentIds));
+      reasoning.push('No mastered skills yet — interleaved budget reallocated to blocked practice');
+    }
   }
 
   // ── Primary skill for end-of-session summary ───────────────────────────────
@@ -226,6 +280,8 @@ interface SizingContext {
   hasSecondGap:   boolean;
   hasMultFact:    boolean;
   hasStrength:    boolean;
+  /** Mastered skills (or due probes) exist — the only valid interleaved pool. */
+  hasMastered:    boolean;
 }
 
 interface BlockSizes {
@@ -261,7 +317,7 @@ function computeBlockSizes(target: number, ctx: SizingContext): BlockSizes {
                                     : ctx.isFirstSession ? 0
                                     : Math.round(budget * 0.20);
 
-  let interleaved = ctx.hasStrength ? Math.round(budget * 0.20)
+  let interleaved = ctx.hasMastered ? Math.round(budget * 0.20)
                                     : 0;
 
   // Reconcile rounding: sum back to budget

@@ -89,6 +89,41 @@ export function Parent({ profile, onBack, onReset }: Props) {
     [masteryMap]
   );
 
+  // ── North Star: mastery count + week-over-week first-attempt accuracy ──────
+
+  const records      = Object.values(masteryMap);
+  const masteredCount = records.filter(r => r.status === 'שליטה').length;
+  const trackedCount  = records.length;
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const weekStats = (from: number, to: number) => {
+    const rs = countableSessions.filter(s => {
+      const ts = new Date(s.startedAt).getTime();
+      return ts >= from && ts < to;
+    });
+    const answered = rs.reduce((x, r) => x + r.itemsAttempted, 0);
+    const correct  = rs.reduce((x, r) => x + r.itemsCorrect,  0);
+    return answered > 0 ? Math.round((correct / answered) * 100) : null;
+  };
+  const now         = Date.now();
+  const thisWeekPct = weekStats(now - 7 * DAY, now + DAY);
+  const lastWeekPct = weekStats(now - 14 * DAY, now - 7 * DAY);
+
+  const trendKey: LocaleKey =
+    thisWeekPct === null || lastWeekPct === null ? 'parent.trend_no_data' :
+    thisWeekPct - lastWeekPct >=  3               ? 'parent.trend_up'      :
+    lastWeekPct - thisWeekPct >=  3               ? 'parent.trend_down'    :
+                                                    'parent.trend_flat';
+  const trendColor =
+    trendKey === 'parent.trend_up'   ? '#16A34A' :
+    trendKey === 'parent.trend_down' ? '#DC2626' : '#6B7280';
+
+  // ── Stuck-skill alert: in practice, ≥10 items, window accuracy < 55% ───────
+
+  const stuckSkills = records.filter(
+    r => r.status === 'בתהליך' && r.itemCount >= 10 && r.firstAttemptAccuracy < 0.55,
+  );
+
   const gap = profile?.gapProfileJson ?? null;
 
   return (
@@ -118,6 +153,51 @@ export function Parent({ profile, onBack, onReset }: Props) {
 
         {gap && profile && (
           <div className="flex flex-col gap-4">
+
+            {/* ── North Star: the 5-second read ──────────────────────────── */}
+            <div className="bg-white card-shadow rounded-3xl p-6" style={{ borderTop: '4px solid #C4A7E7' }}>
+              <div className="text-sm font-medium text-gray-500 mb-2">
+                {t('parent.northstar_title', g)}
+              </div>
+              <div className="text-3xl font-black text-[#2D3047] mb-1">
+                {t('parent.northstar_value', { ...g, mastered: masteredCount, total: trackedCount })}
+              </div>
+              {thisWeekPct !== null && (
+                <div className="text-base text-gray-600">
+                  {t('parent.northstar_week', { ...g, pct: thisWeekPct })}
+                </div>
+              )}
+              <div className="text-sm font-bold mt-1" style={{ color: trendColor }}>
+                {t(trendKey, g)}
+              </div>
+              {masteredCount > 0 && (
+                <div className="text-xs text-gray-400 mt-2">{t('parent.probe_note', g)}</div>
+              )}
+            </div>
+
+            {/* ── Stuck-skill alert + kitchen-table suggestion ───────────── */}
+            {stuckSkills.length > 0 && (
+              <div className="bg-white card-shadow rounded-3xl p-5" style={{ borderRight: '4px solid #DC2626' }}>
+                <div className="text-sm font-bold mb-3" style={{ color: '#DC2626' }}>
+                  🔴 {t('parent.stuck_title', g)}
+                </div>
+                {stuckSkills.map(r => (
+                  <div key={r.skillCode} className="mb-3 last:mb-0">
+                    <div className="text-sm font-semibold text-[#2D3047]">
+                      {t('parent.stuck_row', {
+                        ...g,
+                        skill: t(`skill.${r.skillCode}` as LocaleKey, g),
+                        pct:   Math.round(r.firstAttemptAccuracy * 100),
+                        items: r.itemCount,
+                      })}
+                    </div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      💡 {t(`parent.suggest.${r.skillCode}` as LocaleKey, g)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* ── Summary header ─────────────────────────────────────────── */}
             <div className="bg-white card-shadow rounded-3xl p-5">
