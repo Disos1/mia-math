@@ -370,7 +370,7 @@ Deno.serve(async (_req) => {
 
     const { data: masteryRecords } = await db
       .from('mastery_records')
-      .select('skill_code, status, first_attempt_accuracy, last_practiced_at')
+      .select('skill_code, status, first_attempt_accuracy, item_count, last_practiced_at')
       .eq('profile_id', profile.profile_id);
 
     const { subject, html } = buildEmail(
