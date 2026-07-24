@@ -8,10 +8,13 @@ interface Props {
   onTrophyRoom: () => void;
 }
 
+// Only the two bounded modes are offered: time (15 min) and quantity (20
+// questions). The open/free mode was retired from the picker so every session
+// has a defined end — the 'open' type + runtime branches remain in the code so
+// Mia's historical open-mode sessions still load in the dashboard and trophies.
 const MODES: { id: SessionMode; icon: string; nameKey: string; descKey: string }[] = [
   { id: 'time',     icon: '⏱️', nameKey: 'mode_picker.time.name',     descKey: 'mode_picker.time.desc'     },
   { id: 'quantity', icon: '🎯', nameKey: 'mode_picker.quantity.name', descKey: 'mode_picker.quantity.desc' },
-  { id: 'open',     icon: '🌟', nameKey: 'mode_picker.open.name',     descKey: 'mode_picker.open.desc'     },
 ];
 
 export function ModePicker({ onPick, onParent, onTrophyRoom }: Props) {
