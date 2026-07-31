@@ -40,8 +40,32 @@ function mapOf(entries: Record<string, MasteryRecord['status']>): MasteryMap {
   return m;
 }
 
-/** Mia's real state as of 2026-07-31 (from Supabase mastery_records). */
-const MIA_REAL = mapOf({
+/**
+ * Mia's CURRENT state (Supabase mastery_records, 2026-07-31).
+ *
+ * She cleared subtraction-across-zero and 2-step word problems under the
+ * honest-mastery rules: 89.5% first-attempt at the ABSTRACT layer over 4
+ * separate days. Measurement conversion was demoted by a retention probe.
+ */
+const MIA_NOW = mapOf({
+  ARITH_MULT_6_9:         'שליטה',
+  ARITH_SUB_REGROUP_ZERO: 'שליטה',
+  ARITH_WORD_2STEP:       'שליטה',
+  FRAC_COMPARE_UNIT:      'שליטה',
+  FRAC_OF_QUANTITY:       'שליטה',
+  ARITH_WORD_3STEP:       'בתהליך',
+  MEAS_UNIT_CONVERT_CM:   'בתהליך',
+});
+
+/**
+ * Her state three weeks earlier, kept deliberately as a regression fixture.
+ *
+ * This is the case the graph exists for — a child grinding word problems while
+ * the subtraction beneath them is broken. It must keep working even though she
+ * has since climbed out of it, because the next skill she stalls on will look
+ * exactly like this.
+ */
+const MIA_JULY_10 = mapOf({
   ARITH_MULT_6_9:         'שליטה',
   FRAC_OF_QUANTITY:       'שליטה',
   MEAS_UNIT_CONVERT_CM:   'שליטה',
@@ -127,42 +151,63 @@ describe('curriculum fidelity', () => {
 
 describe('findBlocker', () => {
   it('returns the target itself when nothing blocks it', () => {
-    const r = findBlocker('FRAC_OF_QUANTITY', MIA_REAL);
+    const r = findBlocker('FRAC_OF_QUANTITY', MIA_NOW);
     expect(r.skill).toBe('FRAC_OF_QUANTITY');
     expect(r.depth).toBe(0);
     expect(r.via).toBeNull();
   });
 
-  it("routes Mia's word problems down to the subtraction gap underneath", () => {
-    // The headline case: she has ground 311 word-problem items while the
-    // subtraction they depend on sits at 44.8%.
-    const r = findBlocker('ARITH_WORD_2STEP', MIA_REAL);
+  it('routes a word-problem miss down to a broken subtraction foundation', () => {
+    // The case the graph exists for, pinned against her real July-10 state:
+    // she had ground hundreds of word-problem items while the subtraction they
+    // depend on was still open.
+    const r = findBlocker('ARITH_WORD_2STEP', MIA_JULY_10);
     expect(r.skill).toBe('ARITH_SUB_REGROUP_ZERO');
     expect(r.depth).toBe(1);
     expect(r.via?.why).toMatch(/[֐-׿]/);
   });
 
+  it('stops routing down once she has actually mastered the foundation', () => {
+    // She cleared regroup-zero on 2026-07-31 (89.5% first-attempt, abstract).
+    // The graph must now leave 2-step word problems alone rather than dragging
+    // her back to subtraction she has demonstrably learned.
+    const r = findBlocker('ARITH_WORD_2STEP', MIA_NOW);
+    expect(r.skill).toBe('ARITH_WORD_2STEP');
+    expect(r.depth).toBe(0);
+  });
+
   it('descends only one layer per call by default', () => {
     // 3-step → 2-step → regroup-zero. Default maxDepth 1 stops at 2-step so a
     // single miss can never demote her two levels at once.
-    const r = findBlocker('ARITH_WORD_3STEP', MIA_REAL);
+    const r = findBlocker('ARITH_WORD_3STEP', MIA_JULY_10);
     expect(r.skill).toBe('ARITH_WORD_2STEP');
     expect(r.depth).toBe(1);
   });
 
   it('descends further only when explicitly allowed', () => {
-    const r = findBlocker('ARITH_WORD_3STEP', MIA_REAL, { maxDepth: 5 });
+    const r = findBlocker('ARITH_WORD_3STEP', MIA_JULY_10, { maxDepth: 5 });
     expect(r.skill).toBe('ARITH_SUB_REGROUP_ZERO');
     expect(r.chain).toEqual([
       'ARITH_WORD_3STEP', 'ARITH_WORD_2STEP', 'ARITH_SUB_REGROUP_ZERO',
     ]);
   });
 
+  it('leaves her current weak skill as its own target — nothing beneath it is broken', () => {
+    // ARITH_WORD_3STEP is her one remaining בתהליך arithmetic skill (60%).
+    // Its prerequisite (2-step) is now mastered, so the work is the skill
+    // itself, not a hidden foundation.
+    const r = findBlocker('ARITH_WORD_3STEP', MIA_NOW);
+    expect(r.skill).toBe('ARITH_WORD_3STEP');
+    expect(r.depth).toBe(0);
+  });
+
   it('treats a mastered-but-slow fact skill as blocking a written algorithm', () => {
-    // Mia's facts read as mastered but her true accuracy is ~68% and latency is
-    // the real signal. Slow facts must block long multiplication.
+    // Measured 2026-07-31: her first-attempt-correct multiplication facts average
+    // 18.2s versus 3.1s for unit-fraction comparison on the same keypad. Accuracy
+    // says "mastered"; latency says she is computing, not retrieving — and that
+    // is what collapses inside long multiplication.
     const slow = new Set(['ARITH_MULT_6_9']);
-    const withPlaceValue = { ...MIA_REAL, PLACE_VALUE_TO_MILLION: rec('PLACE_VALUE_TO_MILLION', 'שליטה') };
+    const withPlaceValue = { ...MIA_NOW, PLACE_VALUE_TO_MILLION: rec('PLACE_VALUE_TO_MILLION', 'שליטה') };
 
     expect(isUnlocked('ARITH_MULT_VERTICAL', withPlaceValue)).toBe(true);
     expect(isUnlocked('ARITH_MULT_VERTICAL', withPlaceValue, slow)).toBe(false);
@@ -174,7 +219,7 @@ describe('findBlocker', () => {
   it('degrades fluency edges to accuracy when no latency signal exists', () => {
     // A missing latency signal must never freeze her progress.
     const edge = { skill: 'ARITH_MULT_6_9', kind: 'fluency' as const, why: 'בדיקה' };
-    expect(isPrereqSatisfied(edge, MIA_REAL)).toBe(true);
+    expect(isPrereqSatisfied(edge, MIA_NOW)).toBe(true);
   });
 
   it('cannot hang on a malformed cyclic graph', () => {
@@ -182,27 +227,36 @@ describe('findBlocker', () => {
     const r = findBlocker('ARITH_WORD_3STEP', {}, { maxDepth: 99 });
     expect(r.chain.length).toBeLessThan(20);
   });
+
+  it('re-opens a skill that a retention probe demoted', () => {
+    // MEAS_UNIT_CONVERT_CM was demoted שליטה → בתהליך by a probe on 2026-07-31.
+    // Anything depending on it must route back to it rather than assuming the
+    // earlier mastery still holds.
+    const r = findBlocker('MEAS_UNIT_CONVERT_M', MIA_NOW);
+    expect(r.skill).toBe('MEAS_UNIT_CONVERT_CM');
+    expect(r.depth).toBe(1);
+  });
 });
 
 // ─── Unlocking ────────────────────────────────────────────────────────────────
 
 describe('unlocking', () => {
-  it('blocks every grade-4 skill for Mia today', () => {
-    // She has no place-value skill and her fractions/subtraction gaps are open,
-    // so nothing in grade 4 should be offered as new material yet.
-    expect(unlockedGrade4Skills(MIA_REAL)).not.toContain('ARITH_ADD_SUB_LARGE');
-    expect(unlockedGrade4Skills(MIA_REAL)).not.toContain('ARITH_MULT_VERTICAL');
+  it('still blocks the written algorithms — place value is not built yet', () => {
+    // Vertical multiplication and long division are January–March content and
+    // depend on PLACE_VALUE_TO_MILLION, which has no generator yet.
+    expect(unlockedGrade4Skills(MIA_NOW)).not.toContain('ARITH_MULT_VERTICAL');
+    expect(unlockedGrade4Skills(MIA_NOW)).not.toContain('ARITH_DIV_LONG');
   });
 
   it('opens PLACE_VALUE_TO_MILLION immediately — it is the foundation node', () => {
-    // Deliberate: this is the missing floor beneath her worst skill, so it must
-    // be reachable from day one rather than gated behind the gaps it explains.
-    expect(isUnlocked('PLACE_VALUE_TO_MILLION', MIA_REAL)).toBe(true);
-    expect(unlockedGrade4Skills(MIA_REAL)).toContain('PLACE_VALUE_TO_MILLION');
+    // Deliberate: this is the October classroom topic and the floor beneath the
+    // arithmetic skills, so it must be reachable rather than gated behind them.
+    expect(isUnlocked('PLACE_VALUE_TO_MILLION', MIA_NOW)).toBe(true);
+    expect(unlockedGrade4Skills(MIA_NOW)).toContain('PLACE_VALUE_TO_MILLION');
   });
 
   it('opens equivalent fractions, since her unit-fraction skill is mastered', () => {
-    expect(isUnlocked('FRAC_EQUIVALENT', MIA_REAL)).toBe(true);
+    expect(isUnlocked('FRAC_EQUIVALENT', MIA_NOW)).toBe(true);
   });
 
   it('reports what a skill unlocks, for the "you opened this" payoff', () => {
@@ -210,11 +264,19 @@ describe('unlocking', () => {
       .toEqual(['ARITH_DIV_LONG', 'ARITH_MULT_VERTICAL']);
   });
 
-  it('opens large add/sub only once place value AND regroup-zero are secure', () => {
-    const partial = { ...MIA_REAL, PLACE_VALUE_TO_MILLION: rec('PLACE_VALUE_TO_MILLION', 'שליטה') };
-    expect(isUnlocked('ARITH_ADD_SUB_LARGE', partial)).toBe(false); // regroup still open
+  it('now needs only place value to open large add/sub — she cleared regroup-zero', () => {
+    // Before 2026-07-31 this needed two things. Her mastery of regroup-zero
+    // means place value is the single remaining gate.
+    expect(isUnlocked('ARITH_ADD_SUB_LARGE', MIA_NOW)).toBe(false);
 
-    const full = { ...partial, ARITH_SUB_REGROUP_ZERO: rec('ARITH_SUB_REGROUP_ZERO', 'שליטה') };
-    expect(isUnlocked('ARITH_ADD_SUB_LARGE', full)).toBe(true);
+    const withPlaceValue = { ...MIA_NOW, PLACE_VALUE_TO_MILLION: rec('PLACE_VALUE_TO_MILLION', 'שליטה') };
+    expect(isUnlocked('ARITH_ADD_SUB_LARGE', withPlaceValue)).toBe(true);
+  });
+
+  it('would re-close large add/sub if regroup-zero were demoted by a probe', () => {
+    // Honest mastery is reversible; the gate must reverse with it.
+    const withPlaceValue = { ...MIA_NOW, PLACE_VALUE_TO_MILLION: rec('PLACE_VALUE_TO_MILLION', 'שליטה') };
+    const demoted = { ...withPlaceValue, ARITH_SUB_REGROUP_ZERO: rec('ARITH_SUB_REGROUP_ZERO', 'בתהליך') };
+    expect(isUnlocked('ARITH_ADD_SUB_LARGE', demoted)).toBe(false);
   });
 });

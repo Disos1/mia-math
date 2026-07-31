@@ -164,6 +164,14 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
         why: 'בחירת ספרת המנה היא שאלת כפל — צריך לזכור אותה מהר' },
       { skill: 'ARITH_SUB_REGROUP_ZERO', kind: 'accuracy',
         why: 'בכל שלב בחילוק ארוך מחסרים — כולל מעבר לאפס' },
+      // Place value is load-bearing here, not incidental. The documented long-
+      // division misconceptions are place-value failures: omitting a zero from
+      // the quotient, bringing down without preserving place, and dividing each
+      // digit independently (936÷4 → 201). Without this edge the graph let
+      // long division unlock in July purely because facts and subtraction
+      // happened to be green — caught by test, 2026-07-31.
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'בחילוק ארוך כל ספרה שומרת על הערך שלה — בלי זה האפס במנה נעלם' },
     ],
   },
 };
