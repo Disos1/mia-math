@@ -26,6 +26,7 @@ import { generate as genWord3Step }      from './generators/word3step';
 import { generate as genUnitConvertCm }  from './generators/unitConvertCm';
 import { generate as genUnitConvertM }   from './generators/unitConvertM';
 import { generate as genTimeCrossHour }  from './generators/timeCrossHour';
+import { generate as genPlaceValueMil } from './generators/placeValueMillion';
 
 type GenFn = (opts: GenerateOpts) => PracticeItem[];
 
@@ -38,6 +39,7 @@ const REGISTRY: Record<string, GenFn> = {
   ARITH_WORD_3STEP:       genWord3Step,
   MEAS_UNIT_CONVERT_CM:   genUnitConvertCm,
   MEAS_UNIT_CONVERT_M:    genUnitConvertM,
+  PLACE_VALUE_TO_MILLION: genPlaceValueMil,
   MEAS_TIME_CROSS_HOUR:   genTimeCrossHour,
 };
 

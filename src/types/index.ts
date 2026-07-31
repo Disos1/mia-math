@@ -54,7 +54,12 @@ export type ErrorSignatureCode =
   | 'ERR_FRACTION_BIAS'      // reads denominator as magnitude (⅓ > ½ because 3 > 2)
   | 'ERR_FRAC_QUANTITY_BIAS' // multiplies instead of divides (¼ of 20 = 80)
   | 'ERR_NUMBER_GRAB'        // grabs all numbers in a word problem without modelling
-  | 'ERR_UNIT_MISMATCH';     // adds/concatenates quantities across different units
+  | 'ERR_UNIT_MISMATCH'      // adds/concatenates quantities across different units
+  // ── Grade 4 (validated deep research, 3/3 tool agreement, 2026-07-31) ──────
+  | 'ERR_DIGIT_FOR_VALUE'    // reports the digit (7) instead of its value (70,000)
+  | 'ERR_ZERO_PLACEHOLDER'   // drops internal zeros when writing a numeral
+  | 'ERR_FIRST_DIGIT_CMP'    // 98,765 > 102,345 because 9 > 1
+  | 'ERR_PLACE_SHIFT';       // expanded form assembled one column off
 
 export type SignatureConfidence = 'confirmed' | 'suspected' | 'ruled_out';
 

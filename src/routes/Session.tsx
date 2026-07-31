@@ -1288,6 +1288,25 @@ function SkillHint({ item }: { item: PracticeItem }) {
     ));
   }
 
+  if (item.skillCode === 'PLACE_VALUE_TO_MILLION') {
+    // A place-value chart is the scaffold this skill actually needs: the whole
+    // point is that a digit's meaning comes from WHERE it sits.
+    return wrap('🔢', (
+      <>
+        <div className="font-medium mb-1">כל מקום שווה פי 10 מהמקום שלפניו:</div>
+        <div dir="ltr" className="font-mono text-xs leading-relaxed mt-1 text-right">
+          <div>100,000 &nbsp;10,000 &nbsp;1,000 &nbsp;100 &nbsp;10 &nbsp;1</div>
+        </div>
+        <div className="text-xs text-gray-600 mt-1">
+          מאות-אלפים · עשרות-אלפים · אלפים · מאות · עשרות · אחדות
+        </div>
+        <div className="text-xs text-gray-500 mt-2">
+          מקום ריק לא נעלם — כותבים בו <strong>0</strong>.
+        </div>
+      </>
+    ));
+  }
+
   return null;
 }
 
