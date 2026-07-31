@@ -36,6 +36,7 @@ import {
   MASTERY_SESSION_MINIMUM,
   RETENTION_PROBE_SHORT_DAYS,
   RETENTION_PROBE_LONG_DAYS,
+  RETENTION_DEMOTION_ACCURACY,
 } from '../constants/config';
 
 const WINDOW = MASTERY_ITEM_MINIMUM; // 10
@@ -149,9 +150,11 @@ export function applyAttemptToMastery(args: {
   const accuracy     = windowAccuracy(ledger, attempt.skillCode);
   const size         = windowSize(ledger, attempt.skillCode);
 
+  // Note: the ledger is abstract-only by construction (`appendToLedger` drops
+  // non-abstract entries), so `accuracy` and `size` already describe abstract
+  // evidence. Graduation therefore needs no separate layer test.
   const graduates =
     prior.status !== 'שליטה' &&
-    attempt.cpaLayer === 'abstract' &&
     accuracy     >= MASTERY_ACCURACY_THRESHOLD &&
     size         >= MASTERY_ITEM_MINIMUM &&
     sessionCount >= MASTERY_SESSION_MINIMUM &&
@@ -218,19 +221,51 @@ export function applyProbeResult(
   skillCode:  string,
   correct:    boolean,
   nowIso:     string,
+  /**
+   * Rolling-window accuracy for this skill. Optional so existing callers keep
+   * compiling; when omitted the old single-miss behaviour is preserved.
+   */
+  windowAcc?: number,
 ): MasteryMap {
   const prior = masteryMap[skillCode];
   if (!prior || prior.status !== 'שליטה') return masteryMap;
 
   let next: MasteryRecord;
   if (!correct) {
-    next = {
-      ...prior,
-      status:              'בתהליך',
-      probesPassed:        undefined,
-      needsRetentionProbe: false,
-      retentionProbeDueAt: null,
-    };
+    // A single missed probe must NOT erase mastery on its own.
+    //
+    // The PRD rule is explicit: mastery is lost when retrieval accuracy "drops
+    // below 70%" — RETENTION_DEMOTION_ACCURACY, a constant that existed in
+    // config and was never referenced. The implementation demoted on one wrong
+    // item instead, so MEAS_UNIT_CONVERT_CM fell from שליטה to בתהליך on
+    // 2026-07-24 while its window still read 90% and Mia demonstrably knew the
+    // material (confirmed by Dima, 2026-07-31).
+    //
+    // Missing one spaced-retrieval item after two weeks is normal — effortful
+    // retrieval is the mechanism we WANT. Demoting on it punishes the thing
+    // that makes spacing work. So: demote only when the accumulated evidence
+    // agrees; otherwise keep mastery and re-probe sooner.
+    const evidenceAgrees =
+      windowAcc !== undefined && windowAcc < RETENTION_DEMOTION_ACCURACY;
+
+    next = evidenceAgrees
+      ? {
+          ...prior,
+          status:              'בתהליך',
+          probesPassed:        undefined,
+          needsRetentionProbe: false,
+          retentionProbeDueAt: null,
+        }
+      : {
+          ...prior,
+          // Mastery held. Re-probe on the short schedule so a genuine decay is
+          // caught quickly rather than waiting the full 30 days.
+          probesPassed:        0,
+          needsRetentionProbe: false,
+          retentionProbeDueAt: new Date(
+            new Date(nowIso).getTime() + RETENTION_PROBE_SHORT_DAYS * DAY_MS,
+          ).toISOString(),
+        };
   } else {
     const passed = (prior.probesPassed ?? 0) + 1;
     next = {

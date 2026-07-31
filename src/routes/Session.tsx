@@ -39,6 +39,7 @@ import { composeSession, extendOpenPlan, pickVariantAtLayer } from '../lib/sessi
 import {
   applyAttemptToMastery,
   applyProbeResult,
+  windowAccuracy,
   ensureProbeSchedules,
   seedMasteryFromDiagnostic,
 } from '../lib/masteryTracker';
@@ -356,7 +357,12 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     // Retention probe: the first attempt on a probe item decides whether the
     // mastery label survives (pass → next probe window; fail → back to practice).
     if (currentItem.isRetentionProbe && firstAttempt) {
-      nextMastery = applyProbeResult(nextMastery, it.skillCode, correct, attempt.createdAt);
+      // Pass the rolling-window accuracy so a single missed probe can't erase a
+      // skill the accumulated evidence still supports (PRD: demote below 70%).
+      nextMastery = applyProbeResult(
+        nextMastery, it.skillCode, correct, attempt.createdAt,
+        windowAccuracy(nextLedger, it.skillCode),
+      );
     }
 
     masteryRef.current  = nextMastery;
