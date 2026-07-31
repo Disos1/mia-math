@@ -169,6 +169,8 @@
   "end_session.short_title": "תרגול קצר, {name}!",
   "end_session.short_subtitle": "כוכבים מקבלים מתרגול של {min} שאלות ומעלה. בא לך עוד סיבוב?",
   "end_session.zero_stars_short": "תרגול קצר — כוכבים מ-{min} שאלות ומעלה 🌱",
+  "parent.audit_title": "אי-התאמה בנתונים",
+  "parent.audit_footer": "האפליקציה בודקת את עצמה — ההודעה הזו מופיעה כשהסטטוס השמור לא מתאים לביצועים בפועל. היא תיעלם מעצמה אחרי התרגול הבא.",
   "parent.northstar_title": "המדד המרכזי",
   "parent.northstar_value": "{mastered} מתוך {total} מיומנויות בשליטה",
   "parent.northstar_week": "דיוק בניסיון ראשון השבוע: {pct}%",

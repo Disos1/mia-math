@@ -4,7 +4,8 @@ import type { LocaleKey } from '../i18n/t';
 import type { Gender } from '../i18n/t';
 import type { Profile, StrandCode } from '../types';
 import { loadSessionRecords } from '../lib/sessionStore';
-import { loadMasteryMap } from '../lib/sessionStore';
+import { loadMasteryMap, loadLedger } from '../lib/sessionStore';
+import { auditMastery } from '../lib/masteryAudit';
 
 interface Props {
   profile: Profile | null;
@@ -77,6 +78,16 @@ export function Parent({ profile, onBack, onReset }: Props) {
   const masteryMap = useMemo(
     () => (profile ? loadMasteryMap(profile.profileId) : {}),
     [profile?.profileId, profile?.sessionsCompleted]
+  );
+
+  // Self-audit: does the stored mastery state actually agree with the evidence?
+  // This is the check that would have caught the July 2026 unit-conversion
+  // demotion in a day instead of three weeks.
+  const auditFindings = useMemo(
+    () => (profile
+      ? auditMastery(loadMasteryMap(profile.profileId), loadLedger(profile.profileId))
+      : []),
+    [profile?.profileId, profile?.sessionsCompleted],
   );
 
   const activeSkills = useMemo(
@@ -153,6 +164,35 @@ export function Parent({ profile, onBack, onReset }: Props) {
 
         {gap && profile && (
           <div className="flex flex-col gap-4">
+
+            {/* ── Self-audit: stored state vs. the evidence ───────────────
+                Sits above the North Star deliberately. If the app's own
+                bookkeeping is wrong, every number below it is suspect, and
+                Dima should see that before he reads them. Silent when
+                consistent — which is the normal case. */}
+            {auditFindings.length > 0 && (
+              <div
+                className="bg-white card-shadow rounded-3xl p-5"
+                style={{ borderTop: '4px solid #DC2626' }}
+              >
+                <div className="text-sm font-bold text-[#DC2626] mb-3">
+                  ⚠️ {t('parent.audit_title', g)}
+                </div>
+                {auditFindings.map(f => (
+                  <div key={`${f.skillCode}-${f.kind}`} className="mb-3 last:mb-0">
+                    <div className="text-sm font-semibold text-[#2D3047]">
+                      {t(`skill.${f.skillCode}` as LocaleKey, g)}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-0.5 leading-relaxed">
+                      {f.detail}
+                    </div>
+                  </div>
+                ))}
+                <div className="text-xs text-gray-400 mt-3 leading-relaxed">
+                  {t('parent.audit_footer', g)}
+                </div>
+              </div>
+            )}
 
             {/* ── North Star: the 5-second read ──────────────────────────── */}
             <div className="bg-white card-shadow rounded-3xl p-6" style={{ borderTop: '4px solid #C4A7E7' }}>
