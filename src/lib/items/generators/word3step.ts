@@ -7,7 +7,8 @@
 
 import type { PracticeItem, WorkedStep } from '../../../types';
 import { buildItem, pickFromCombos, type GenerateOpts } from '../shared';
-import { NAMES, OBJECTS, NEUTRAL_SCENARIOS } from '../wordBank';
+import { NAMES, OBJECTS, NEUTRAL_SCENARIOS, subVerbsFor, addVerbsFor } from '../wordBank';
+import type { ObjectKind } from '../wordBank';
 
 const SKILL = 'ARITH_WORD_3STEP';
 
@@ -20,25 +21,42 @@ const CHAINS: OpChain[] = [
   [-1, +1, +1],
 ];
 
-function chainText(chain: OpChain, actorGender: 'f' | 'm'): { v1: string; v2: string; v3: string } {
-  const subF = ['נתנה', 'איבדה', 'מכרה'];
-  const subM = ['נתן',  'איבד',  'מכר' ];
-  const addF = ['קנתה', 'קיבלה', 'מצאה'];
-  const addM = ['קנה',  'קיבל',  'מצא' ];
-  const f = chain.map((s, i) => (s === -1 ? subF[i] : addF[i]));
-  const m = chain.map((s, i) => (s === -1 ? subM[i] : addM[i]));
-  const arr = actorGender === 'f' ? f : m;
+/**
+ * Verbs for a named actor, filtered to those that make sense for the object.
+ * Drawing from the full verb list regardless of object is what produced
+ * "he ate 32 books"; the kind filter makes that unrepresentable.
+ */
+function chainText(
+  chain: OpChain, actorGender: 'f' | 'm', kind: ObjectKind,
+): { v1: string; v2: string; v3: string } {
+  const subs = subVerbsFor(kind);
+  const adds = addVerbsFor(kind);
+  const pick = (i: number, sign: number) => {
+    const pool = sign === -1 ? subs : adds;
+    const v    = pool[i % pool.length];
+    return actorGender === 'f' ? v.f : v.m;
+  };
+  const arr = chain.map((s, i) => pick(i, s));
   return { v1: arr[0], v2: arr[1], v3: arr[2] };
 }
 
-function chainTextNeutral(chain: OpChain): { v1: string; v2: string; v3: string } {
-  const sub = ['ניתנו', 'אבדו', 'נמכרו'];
-  const add = ['נקנו', 'התקבלו', 'נמצאו'];
-  return {
-    v1: chain[0] === -1 ? sub[0] : add[0],
-    v2: chain[1] === -1 ? sub[1] : add[1],
-    v3: chain[2] === -1 ? sub[2] : add[2],
+/**
+ * Verbs for a neutral scenario, taken from the SCENARIO ITSELF.
+ *
+ * This function previously returned a hardcoded נמכרו/נקנו list for every
+ * scenario, which generated "בכיתה יש 40 ילדים. נמכרו 12, נקנו 5" — children
+ * being sold and bought. The scenarios always carried correct verbs; nothing
+ * used them. Now they are the only source.
+ */
+function chainTextNeutral(
+  chain: OpChain, sc: { subVerbs: string[]; addVerbs: string[] },
+): { v1: string; v2: string; v3: string } {
+  const pick = (i: number, sign: number) => {
+    const pool = sign === -1 ? sc.subVerbs : sc.addVerbs;
+    return pool[i % pool.length];
   };
+  const arr = chain.map((s, i) => pick(i, s));
+  return { v1: arr[0], v2: arr[1], v3: arr[2] };
 }
 
 function evalChain(a: number, b: number, c: number, d: number, chain: OpChain): number {
@@ -93,9 +111,10 @@ function* enumerateNamed(): Generator<PracticeItem> {
     const possessive = actor.gender === 'f' ? 'לה' : 'לו';
 
     for (let oi = 0; oi < OBJECTS.length; oi += 3) {
-      const obj   = OBJECTS[oi];
+      const entry = OBJECTS[oi];
+      const obj   = entry.noun;
       const chain = CHAINS[(i + oi) % CHAINS.length];
-      const verbs = chainText(chain, actor.gender);
+      const verbs = chainText(chain, actor.gender, entry.kind);
       const [a, b, c, d] = W3_TUPLES[n % W3_TUPLES.length];
       n++;
       const correct = evalChain(a, b, c, d, chain);
@@ -131,7 +150,7 @@ function* enumerateNeutral(): Generator<PracticeItem> {
     const sc = NEUTRAL_SCENARIOS[si];
     for (let ci = 0; ci < CHAINS.length; ci++) {
       const chain = CHAINS[ci];
-      const verbs = chainTextNeutral(chain);
+      const verbs = chainTextNeutral(chain, sc);
       const [a, b, c, d] = W3_TUPLES[n % W3_TUPLES.length];
       n += 2;
       const correct = evalChain(a, b, c, d, chain);

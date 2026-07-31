@@ -11,7 +11,7 @@
 
 import type { PracticeItem, WorkedStep } from '../../../types';
 import { buildItem, pickFromCombos, type GenerateOpts } from '../shared';
-import { NAMES, SUB_VERBS, ADD_VERBS, OBJECTS, NEUTRAL_SCENARIOS } from '../wordBank';
+import { NAMES, OBJECTS, NEUTRAL_SCENARIOS, subVerbsFor, addVerbsFor } from '../wordBank';
 
 const SKILL = 'ARITH_WORD_2STEP';
 
@@ -63,9 +63,14 @@ function* enumerateNamed(): Generator<PracticeItem> {
     const possessive = actor.gender === 'f' ? 'לה' : 'לו';
 
     for (let oi = 0; oi < OBJECTS.length; oi += 2) {
-      const obj = OBJECTS[oi];
-      const sub = SUB_VERBS[(i + oi) % SUB_VERBS.length];
-      const add = ADD_VERBS[(i + oi + 1) % ADD_VERBS.length];
+      const entry = OBJECTS[oi];
+      const obj   = entry.noun;
+      // Only verbs that make sense for THIS object. Index arithmetic across the
+      // full verb list is what produced "אכל 32 ספרים" (ate 32 books).
+      const subPool = subVerbsFor(entry.kind);
+      const addPool = addVerbsFor(entry.kind);
+      const sub = subPool[(i + oi) % subPool.length];
+      const add = addPool[(i + oi + 1) % addPool.length];
       const subVerb = actor.gender === 'f' ? sub.f : sub.m;
       const addVerb = actor.gender === 'f' ? add.f : add.m;
 
@@ -141,7 +146,7 @@ function* enumerateNeutral(): Generator<PracticeItem> {
       yield buildItem({
         itemId:        `G_W2_NEUTRAL_${si}_${a}_${b}_${c}`,
         skillCode:     SKILL,
-        question:      `${sc.subjectStart} ${a} ${sc.object}. ${sc.subVerb} ${b}, ואחר כך ${sc.addVerb} ${c}. כמה ${sc.object} יש עכשיו?`,
+        question:      `${sc.subjectStart} ${a} ${sc.object}. ${sc.subVerbs[0]} ${b}, ואחר כך ${sc.addVerbs[0]} ${c}. כמה ${sc.object} יש עכשיו?`,
         correct,
         signature:     sig === correct ? null : sig,
         signatureCode: sig === correct ? null : 'ERR_NUMBER_GRAB',

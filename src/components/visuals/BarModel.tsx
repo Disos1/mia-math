@@ -13,9 +13,10 @@
  *   - Above-bar captions add CAP_H px of vertical space above the bar row.
  *     The per-row offset is pre-computed so only rows that need it pay the
  *     height cost.
- *   - Row labels use textAnchor="start" at x=2 (not "end") because SVG BiDi
- *     handling of RTL text with textAnchor="end" is unreliable across browsers
- *     and produces a stray glyph at the left edge.
+ *   - Row labels anchor their RIGHT edge at the inner edge of the label column
+ *     (textAnchor="start" under an explicit direction:rtl). Anchoring at x=2
+ *     instead pushed the label off-canvas and left a stray glyph at the left
+ *     edge — the artefact reported from live use on 2026-07-31.
  *   - rx is clamped to pw/4 so very narrow rects never become oval dots.
  *   - Stroke is suppressed on segments < 6 px wide to avoid "black dot"
  *     artefacts where the 1.5 px border dominates the tiny segment area.
@@ -89,12 +90,22 @@ export function BarModel({ rows }: Props) {
           return (
             <g key={rIdx}>
 
-              {/* Row label — left-anchored for reliable RTL rendering */}
+              {/* Row label.
+                  The page is dir="rtl", so the SVG text inherits RTL: with
+                  textAnchor="start" the anchor is the text's RIGHT edge. At
+                  x=2 the label therefore ran leftward off-canvas and only its
+                  final glyph stayed visible — the stray tick Mia saw beside
+                  every bar on 2026-07-31.
+                  Anchoring the right edge at the inner edge of the label
+                  column makes the Hebrew read right-to-left inside its own
+                  column, which is also how it should look. direction is set
+                  explicitly so this does not depend on inheritance. */}
               {row.label && (
                 <text
-                  x={2}
+                  x={LABEL_W - 6}
                   y={rowY + BAR_H / 2 + 5}
                   textAnchor="start"
+                  style={{ direction: 'rtl' }}
                   fontSize="12"
                   fontWeight="600"
                   fill="#2D3047"
