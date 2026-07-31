@@ -21,6 +21,7 @@ const KEY_MASTERY  = (profileId: string) => `mia_mastery::${profileId}`;
 const KEY_LEDGER   = (profileId: string) => `mia_ledger::${profileId}`;
 const KEY_SESSIONS = (profileId: string) => `mia_sessions::${profileId}`;
 const KEY_ATTEMPTS = (profileId: string) => `mia_attempts::${profileId}`;
+const KEY_MASTERED_HW = (profileId: string) => `mia_mastered_hw::${profileId}`;
 
 const MAX_SESSIONS = 500;  // retention cap — sessions are ~200 bytes each; 500 ≈ 100 KB
 const MAX_ATTEMPTS = 500;  // retention cap for attempts (trimmed oldest-first)
@@ -51,6 +52,29 @@ export function loadMasteryMap(profileId: string): MasteryMap {
 export function saveMasteryMap(profileId: string, map: MasteryMap): void {
   write(KEY_MASTERY(profileId), map);
   syncMasteryMap(map); // fire-and-forget; no-op if not authed
+}
+
+/**
+ * Mastered-count high-water mark — the most skills that have EVER been at
+ * שליטה simultaneously for this profile.
+ *
+ * Badges are all-time milestones ("once earned they stay earned" — see
+ * trophies.ts), but the mastery badges were computed from the *current*
+ * mastered count. Under honest mastery + retention probes a demotion is a
+ * normal, expected event — and it must never un-earn a badge Mia already
+ * celebrated. Callers pass the current count; this returns (and persists)
+ * the historical maximum, which is what badge logic should consume.
+ *
+ * Device-local by design: badges are recomputed per device, and Mia plays
+ * on one iPad. Worst case on a brand-new device the high-water restarts at
+ * the current count — badges may briefly under-report, never over-report.
+ */
+export function bumpMasteredHighWater(profileId: string, currentCount: number): number {
+  const key   = KEY_MASTERED_HW(profileId);
+  const prior = read<number>(key, 0);
+  const next  = Math.max(prior, currentCount);
+  if (next !== prior) write(key, next);
+  return next;
 }
 
 // ─── Attempt ledger (rolling-window per skill) ──────────────────────────────

@@ -3,7 +3,7 @@ import { t } from '../i18n/t';
 import type { LocaleKey } from '../i18n/t';
 import type { Profile } from '../types';
 import { loadSessionRecords } from '../lib/sessionStore';
-import { loadMasteryMap }     from '../lib/sessionStore';
+import { loadMasteryMap, bumpMasteredHighWater } from '../lib/sessionStore';
 import { masteredSkills }      from '../lib/masteryTracker';
 import { computeTrophyState }  from '../lib/trophies';
 import type { Trophy, SessionStar } from '../lib/trophies';
@@ -37,9 +37,17 @@ export function TrophyRoom({ profile, onBack }: Props) {
     return masteredSkills(map);
   }, [profile?.profileId, profile?.sessionsCompleted]);
 
+  // Badges consume the all-time high-water mark, not the current count —
+  // a retention-probe demotion must never un-earn a badge she celebrated.
+  // The mastered-skills wall below still renders `mastered` (current truth).
+  const masteredEver = useMemo(
+    () => (profile ? bumpMasteredHighWater(profile.profileId, mastered.length) : 0),
+    [profile?.profileId, mastered.length],
+  );
+
   const state = useMemo(
-    () => computeTrophyState(records, mastered.length),
-    [records, mastered.length],
+    () => computeTrophyState(records, masteredEver),
+    [records, masteredEver],
   );
 
   const isEmpty = state.totalStars === 0 && state.earnedCount === 0;
