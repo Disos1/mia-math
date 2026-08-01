@@ -156,6 +156,7 @@
   "skill.PLACE_VALUE_TO_MILLION": "מספרים עד מיליון וערך המקום",
   "skill.MEAS_TIME_CROSS_HOUR": "חישוב זמן חולף מעבר לשעה",
   "skill.MEAS_UNIT_CONVERT_M": "המרה בין קילומטרים למטרים",
+  "session.prereq_title": "כלי לעבודה של היום",
   "session.step_ladder_intro": "בואי נפתור יחד, שלב אחרי שלב",
   "session.step_continue": "המשך",
   "session.step_got_it": "הבנתי!",

@@ -155,6 +155,10 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       sessionsCompleted: profile.sessionsCompleted,
       cpaMemory:         cpaMemoryRef.current,
       recentIds:         recentIdsRef.current,
+      // Mia enters כיתה ד' in September 2026. Grade-4 skills only surface once
+      // their prerequisites are met, so this is safe before she is ready: the
+      // composer simply finds nothing unlocked and runs an all-repair session.
+      targetGrade:       4,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []   // intentionally empty: compose once, on mount
@@ -615,6 +619,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     <PracticeItemView
       key={`${index}-${retryCount}`}  /* remount on new item OR retry */
       planItem={currentItem}
+      isBlockStart={items[index - 1]?.item.skillCode !== currentItem.item.skillCode}
       index={index}
       total={total}
       mode={mode}
@@ -650,6 +655,8 @@ function transitionMessageKey(from: CPALayer, to: CPALayer): LocaleKey | null {
 
 interface ItemViewProps {
   planItem:         SessionPlanItem;
+  /** First item of its prerequisite block — the banner shows once, not per item. */
+  isBlockStart:     boolean;
   index:            number;
   total:            number;
   mode:             SessionMode;
@@ -663,7 +670,7 @@ interface ItemViewProps {
 }
 
 function PracticeItemView({
-  planItem, index, total, mode, combo, feedback, isRetry, sigHit, layerTransition, onAnswer, onOpenExit,
+  planItem, isBlockStart, index, total, mode, combo, feedback, isRetry, sigHit, layerTransition, onAnswer, onOpenExit,
 }: ItemViewProps) {
   const { item, sessionPhase } = planItem;
 
@@ -763,6 +770,23 @@ function PracticeItemView({
                 }}
               />
             ))}
+          </div>
+        )}
+
+        {/* Tools-for-today banner.
+            Prerequisite items are easier than her grade level, and a child who
+            knows she is behind reads "easier" as demotion unless told why. The
+            graph edge supplies the reason, so the block arrives as equipment for
+            the thing she is actually trying to do. Shown once, on the first item
+            of the block. */}
+        {planItem.track === 'prerequisite' && planItem.prereqWhy && isBlockStart && (
+          <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl px-4 py-3 fade-in">
+            <div className="text-xs font-bold text-[#1D4ED8] mb-1">
+              🧰 {t('session.prereq_title', { gender: 'f' })}
+            </div>
+            <div className="text-sm text-[#2D3047] leading-relaxed">
+              {planItem.prereqWhy}
+            </div>
           </div>
         )}
 

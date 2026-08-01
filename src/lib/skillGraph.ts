@@ -280,6 +280,11 @@ export function isUnlocked(
   return prerequisitesOf(skill).every(p => isPrereqSatisfied(p, masteryMap, slowSkills));
 }
 
+/** Every declared skill at a given curriculum year, in declaration order. */
+export function skillsAtGrade(grade: Grade): string[] {
+  return Object.values(SKILL_GRAPH).filter(n => n.grade === grade).map(n => n.skill);
+}
+
 /** Grade-4 skills whose prerequisites are all met — candidates for new material. */
 export function unlockedGrade4Skills(
   masteryMap: MasteryMap,

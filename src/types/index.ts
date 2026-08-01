@@ -244,6 +244,16 @@ export interface PracticeItem {
   steps?:         WorkedStep[];
 }
 
+/**
+ * Which track an item belongs to in a dual-track session.
+ *
+ *   current_grade — what her class is doing now (the point of the session)
+ *   prerequisite  — an earlier skill that is blocking current-grade work.
+ *                   Framed to her as a tool for today, never as demotion.
+ *   retention     — mastered material resurfacing for spacing/probes
+ */
+export type SkillTrack = 'current_grade' | 'prerequisite' | 'retention';
+
 export interface SessionPlanItem {
   item:           PracticeItem;
   sessionPhase:   SessionPhase;
@@ -253,6 +263,16 @@ export interface SessionPlanItem {
   isWorkedExample?:  boolean;
   /** 7/30-day retention probe: first-attempt outcome feeds probe logic. */
   isRetentionProbe?: boolean;
+  /** Dual-track classification. Absent on legacy/grade-3-only plans. */
+  track?:            SkillTrack;
+  /**
+   * For prerequisite items: the graph edge's reason, in Hebrew, e.g.
+   * "כדי לכתוב מספרים גדולים צריך להבין ערך מקום". Shown to Mia so the easier
+   * work reads as equipment for today's goal.
+   */
+  prereqWhy?:        string;
+  /** The current-grade skill this prerequisite item unblocks. */
+  prereqFor?:        string;
 }
 
 export interface SessionPlan {
