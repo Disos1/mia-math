@@ -12,6 +12,9 @@
 import { useState } from 'react';
 import { MathText } from './MathText';
 
+/** Floor for the pad width; grade-3 answers never exceed this. */
+const DEFAULT_MAX_DIGITS = 4;
+
 interface Props {
   /** Called with the typed number when the learner taps ✓. */
   onSubmit:    (value: number) => void;
@@ -28,7 +31,24 @@ const KEYS: ReadonlyArray<ReadonlyArray<string>> = [
   ['⌫', '0', '✓'],
 ];
 
-export function NumPad({ onSubmit, disabled = false, maxLength = 4, placeholder = '?' }: Props) {
+/**
+ * Digits the pad must accept for a given expected answer.
+ *
+ * Derived, never hardcoded: a fixed cap silently makes items unanswerable the
+ * moment content grows. On 2026-07-31 the pad was pinned at 4 while a grade-4
+ * item asked for 200,030 — Mia typed "2000" and could not continue.
+ *
+ * One digit of headroom is deliberate. Some misconceptions produce a LONGER
+ * numeral than the answer (writing 1,000,000 as more zeros than it needs), and
+ * she must be able to enter a wrong answer in order for it to be diagnosed.
+ */
+export function digitsNeededFor(answer: string | number | undefined): number {
+  if (answer === undefined || answer === null) return DEFAULT_MAX_DIGITS;
+  const digits = String(answer).replace(/[^0-9]/g, '').length;
+  return Math.max(DEFAULT_MAX_DIGITS, digits + 1);
+}
+
+export function NumPad({ onSubmit, disabled = false, maxLength = DEFAULT_MAX_DIGITS, placeholder = '?' }: Props) {
   const [value, setValue] = useState('');
 
   const tap = (key: string) => {

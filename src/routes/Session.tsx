@@ -32,7 +32,7 @@ import type { AttemptLedger } from '../lib/masteryTracker';
 import { t } from '../i18n/t';
 import type { LocaleKey } from '../i18n/t';
 import { MathText } from '../components/primitives/MathText';
-import { NumPad } from '../components/primitives/NumPad';
+import { NumPad, digitsNeededFor } from '../components/primitives/NumPad';
 import { VisualRenderer } from '../components/visuals/VisualRenderer';
 
 import { composeSession, extendOpenPlan, pickVariantAtLayer } from '../lib/sessionComposer';
@@ -867,7 +867,7 @@ function PracticeItemView({
                   {t('session.answer_was', { gender: 'f', answer: String(item.correct) })}
                 </div>
               )}
-              {!locked && <NumPad onSubmit={v => handleTap(v)} maxLength={4} />}
+              {!locked && <NumPad onSubmit={v => handleTap(v)} maxLength={digitsNeededFor(item.correct)} />}
             </div>
           ) : (
             /* Options grid — only for skills where choosing IS the skill */
@@ -1098,7 +1098,7 @@ function StepLadder({ item, gender, onDone }: {
           {step.answer !== undefined && wrongValue === null && (
             /* key={idx}: each step gets a FRESH pad — the previous step's
                digits must never leak into the next entry. */
-            <NumPad key={idx} onSubmit={submit} maxLength={4} />
+            <NumPad key={idx} onSubmit={submit} maxLength={digitsNeededFor(step.answer)} />
           )}
 
           {wrongValue !== null && step.answer !== undefined && (
