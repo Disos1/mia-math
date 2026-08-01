@@ -230,6 +230,9 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   const [combo, setCombo] = useState(0);
 
   const startedAtRef = useRef<string>(plan.startedAt);
+  /** Set by finish(). Stops the visibility handler from re-drafting a session
+   *  that already completed (see the handler for why that mattered). */
+  const finishedRef = useRef(false);
 
   // Save a draft record immediately so the parent dashboard can see that a
   // session is in progress even if the app is closed before finish() runs.
@@ -269,9 +272,17 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
 
   // When the tab is hidden (app backgrounded / tab switched / browser closed),
   // flush whatever progress exists so the parent dashboard stays current.
+  //
+  // The `finishedRef` guard is load-bearing. finish() writes the record with a
+  // real completedAt; this handler writes the SAME sessionId with completedAt:
+  // null. Closing the app on the end card therefore fired after finish() and
+  // downgraded a completed session back to "partial" — which is exactly what
+  // Mia saw: she answered every question, and the dashboard still called it
+  // partial. A finished session must never be re-drafted.
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'hidden') return;
+      if (finishedRef.current) return;
       const attempts = attemptsRef.current;
       if (attempts.length === 0) return;
       const { attempted, correct } = tallyAttempts(attempts);
@@ -527,6 +538,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   };
 
   const finish = () => {
+    finishedRef.current = true;
     // Use the ref so we always have the full list even if the last setAttempts
     // hasn't flushed through React's scheduler yet.
     const allAttempts            = attemptsRef.current;
