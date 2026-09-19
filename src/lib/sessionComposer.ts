@@ -37,6 +37,7 @@ import { getItemPool, SKILLS_WITH_PRACTICE } from './items';
 import { masteredSkills, skillsInProgress, probesDue } from './masteryTracker';
 import { startLayerFor, isStruggling } from './cpaMemory';
 import { skillsAtGrade, isUnlocked, findBlocker, type Grade } from './skillGraph';
+import { curriculumFrontier, type ClassPosition } from './curriculum/classPosition';
 
 // ─── Targets ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,13 @@ export interface ComposeArgs {
   slowSkills?:        ReadonlySet<string>;
   /** Override the adaptive current-grade share (0..1). Test seam. */
   currentGradeShare?: number;
+  /**
+   * Where her class is in the ה.ש.ב.ח.ה book. When supplied (grade 4), new
+   * material follows the BOOK: the class's current unit until she has mastered
+   * it, then the next one — pre-teaching, so class becomes her second exposure.
+   * Without it the composer falls back to graph order, as before.
+   */
+  classPosition?:     ClassPosition;
 }
 
 // ─── Dual-track policy ────────────────────────────────────────────────────────
@@ -230,22 +238,65 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     ? selectTracks({ targetGrade, masteryMap: args.masteryMap, masteredSet, slowSkills })
     : { currentGrade: [] as string[], blockers: [] as Blocker[] };
 
-  // Prerequisite work = graph blockers first (they gate current-grade progress),
-  // then her own still-open earlier-grade gaps.
-  const blockerSkills = tracks.blockers.map(b => b.skill);
-  const prereqPool    = [...new Set([...blockerSkills, ...focusPool])];
-  const whyFor        = new Map(tracks.blockers.map(b => [b.skill, b] as const));
+  // ── Book alignment (ה.ש.ב.ח.ה ד') ──────────────────────────────────────────
+  //
+  // With a class position, the BOOK decides what is new: per strand, the unit
+  // the class is on until she has it, then the next — never more than two units
+  // ahead. Strands are rotated by session so numbers, fractions and geometry
+  // all move forward across a week, as they do in class.
+  const frontier = targetGrade > 3 && args.classPosition
+    ? curriculumFrontier(args.classPosition, args.masteryMap, slowSkills)
+    : null;
+
+  const rotate = <T,>(xs: T[], k: number): T[] =>
+    xs.length ? [...xs.slice(k % xs.length), ...xs.slice(0, k % xs.length)] : xs;
+
+  const bookTargets = frontier
+    ? [0, 1, 2].flatMap(tier => rotate(
+        frontier.targets.filter(t => Math.min(t.aheadBy, 2) === tier),
+        args.sessionsCompleted))
+    : [];
+  const currentGrade = frontier
+    ? [...new Set(bookTargets.map(t => t.skill))]
+    : tracks.currentGrade;
+  const aheadSkills  = new Set(bookTargets.filter(t => t.aheadBy > 0).map(t => t.skill));
+  const strandOf     = new Map(bookTargets.map(t => [t.skill, t.strand] as const));
+
+  // Units the class has already passed that she has not mastered are repair,
+  // not new material — a gap behind the class must never stop her keeping up
+  // with this week's lesson. They carry an honest reason for the banner.
+  const behindGaps: Blocker[] = (frontier?.behind ?? []).map(g => ({
+    skill:    g.skill,
+    why:      `זה נלמד בכיתה בנושא "${g.unit.title}" — בואי נחזק את זה`,
+    forSkill: bookTargets.find(t => t.strand === g.strand)?.skill ?? '',
+  }));
+
+  // Weak skills the class is about to reach: repair them BEFORE the lesson.
+  const upcomingGaps: Blocker[] = (frontier?.upcoming ?? []).map(g => ({
+    skill:    g.skill,
+    why:      `בקרוב זה יגיע בכיתה ("${g.unit.title}") — בואי נגיע מוכנות`,
+    forSkill: g.skill,
+  }));
+
+  // Repair order: graph blockers (gate upcoming grade-level work), weak skills
+  // the class is about to need, gaps behind the class, then her other open gaps.
+  const allBlockers   = [...tracks.blockers, ...upcomingGaps, ...behindGaps];
+  const blockerSkills = allBlockers.map(b => b.skill);
+  const prereqPool    = [...new Set([...blockerSkills, ...focusPool])]
+    .filter(s => !currentGrade.includes(s));
+  const whyFor        = new Map(allBlockers.map(b => [b.skill, b] as const));
 
   // The share adapts on the prerequisites actually being worked, not just the
   // graph blockers — her open earlier-grade gaps count too.
-  const activePrereqs = prereqPool.filter(s => !tracks.currentGrade.includes(s));
+  const activePrereqs = prereqPool;
   const currentShare  = args.currentGradeShare
     ?? (targetGrade > 3 ? adaptiveCurrentGradeShare(args.masteryMap, activePrereqs) : 0);
 
   if (targetGrade > 3) {
     reasoning.push(
-      `Dual-track (grade ${targetGrade}): current-grade=[${tracks.currentGrade.join(',') || '—'}] ` +
-      `blocked-by=[${tracks.blockers.map(b => `${b.skill}→${b.forSkill}`).join(',') || '—'}] ` +
+      `Dual-track (grade ${targetGrade}${frontier ? ', book-aligned' : ''}): current-grade=[${currentGrade.join(',') || '—'}] ` +
+      `ahead=[${[...aheadSkills].join(',') || '—'}] ` +
+      `blocked-by=[${allBlockers.map(b => `${b.skill}→${b.forSkill}`).join(',') || '—'}] ` +
       `share=${Math.round(currentShare * 100)}%`,
     );
   }
@@ -254,8 +305,18 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // New material is current-grade work when any is unlocked; otherwise the
   // session is honestly all repair, which is the right answer when she is not
   // ready for her grade's content yet.
-  const firstGap       = tracks.currentGrade[0]
+  const firstGap       = currentGrade[0]
     ?? (isActive(firstNew) ? firstNew : null) ?? focusPool[0] ?? null;
+  // A second new-material skill from a DIFFERENT strand, so one session moves
+  // two strands forward instead of one.
+  // The second slot rotates over the OTHER strands' targets — at-class or ahead
+  // alike — so with three strands and two slots none is permanently left out.
+  // (Taking the next at-class target instead always starved the strand she was
+  // furthest ahead in, which is exactly where pre-teaching pays.)
+  const secondNew      = frontier
+    ? rotate(currentGrade.filter(s => s !== firstGap && strandOf.get(s) !== strandOf.get(firstGap ?? '')),
+        args.sessionsCompleted)[0] ?? null
+    : null;
   const secondGap      = prereqPool.find(s => s !== firstGap) ?? null;
   const thirdGap       = prereqPool.find(s => s !== firstGap && s !== secondGap) ?? null;
   const hasMultFactGap =
@@ -302,7 +363,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // Re-balance the two working blocks to hit the current-grade share. The
   // working budget (new material + blocked practice) is what the ratio governs;
   // retrieval and interleaving are retention and belong to neither track.
-  if (targetGrade > 3 && tracks.currentGrade.length > 0) {
+  if (targetGrade > 3 && currentGrade.length > 0) {
     const working = sizes.newMaterial + sizes.blocked;
     if (working > 0) {
       const wantCurrent = Math.max(1, Math.round(working * currentShare));
@@ -358,8 +419,9 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     if (targetGrade <= 3) return block;
     // Current-grade membership wins: a skill at her grade is grade-level work,
     // whatever else it happens to unlock.
-    if (tracks.currentGrade.includes(skill)) {
-      return block.map(p => ({ ...p, track: 'current_grade' as const }));
+    if (currentGrade.includes(skill)) {
+      const ahead = aheadSkills.has(skill);
+      return block.map(p => ({ ...p, track: 'current_grade' as const, ...(ahead ? { ahead: true } : {}) }));
     }
     const b = whyFor.get(skill);
     return block.map(p => ({
@@ -369,13 +431,29 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     }));
   };
 
-  // 2. New material
+  // A skill she has never practised opens with a worked example: she watches it
+  // solved, then practises. Pre-teaching material she has not met in class yet
+  // must never arrive as a cold quiz. (Needs steps to walk through.)
+  const markFirstEncounter = (block: SessionPlanItem[], skill: string): void => {
+    const never = (args.masteryMap[skill]?.itemCount ?? 0) === 0;
+    if (never && block.length > 1 && (block[0].item.steps?.length ?? 0) > 0 && !block[0].isWorkedExample) {
+      block[0] = { ...block[0], isWorkedExample: true };
+      reasoning.push(`${skill} is new to her — leading with a worked example`);
+    }
+  };
+
+  // 2. New material — split across two strands when the book offers two.
   if (sizes.newMaterial > 0 && firstGap) {
-    const struggling = isStruggling(cpaMemory, firstGap);
-    const block = pickItems(firstGap, layerFor(firstGap), sizes.newMaterial, 'new_material', plan.length, rng, usedIds, recentIds,
-      struggling ? { preferDifficulty: 1 } : {});
-    markWorkedExample(block, firstGap);
-    plan.push(...tag(block, firstGap));
+    const firstCount = secondNew ? Math.ceil(sizes.newMaterial / 2) : sizes.newMaterial;
+    for (const [skill, count] of [[firstGap, firstCount], [secondNew, sizes.newMaterial - firstCount]] as const) {
+      if (!skill || count <= 0) continue;
+      const struggling = isStruggling(cpaMemory, skill);
+      const block = pickItems(skill, layerFor(skill), count, 'new_material', plan.length, rng, usedIds, recentIds,
+        struggling ? { preferDifficulty: 1 } : {});
+      markWorkedExample(block, skill);
+      markFirstEncounter(block, skill);
+      plan.push(...tag(block, skill));
+    }
   }
 
   // 3. Blocked practice — in a dual-track session this is the prerequisite
@@ -384,8 +462,14 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   if (sizes.blocked > 0) {
     // Must differ from the new-material skill, or the "two tracks" collapse into
     // one skill filling the whole session.
+    // Book-aligned: rotate over the four most urgent repairs (graph blockers,
+    // weak-and-coming-soon, behind the class) so one skill cannot hog the slot
+    // while the others decay. Without a book position the original rule stands:
+    // the graph blocker comes first, always — a slow fact that blocks long
+    // multiplication must reach the repair stream, not wait its turn.
+    const candidates = prereqPool.filter(s => s !== firstGap && s !== secondNew);
     const dualTrackPick = targetGrade > 3
-      ? prereqPool.find(s => s !== firstGap)
+      ? (frontier ? rotate(candidates.slice(0, 4), args.sessionsCompleted)[0] : candidates[0])
       : undefined;
     const blockedSkill = dualTrackPick ?? secondGap ?? firstGap;
     if (blockedSkill) {

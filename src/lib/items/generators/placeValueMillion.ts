@@ -93,17 +93,20 @@ function* enumerateCompare(): Generator<PracticeItem> {
       itemId:        `G_PV_CMP_${small}_${large}`,
       skillCode:     SKILL,
       question:      `איזה מספר גדול יותר: ${fmt(small)} או ${fmt(large)}?`,
-      correct:       large,
-      signature:     small,          // chose by leading digit
+      // Written exactly as in the question (with commas) and ONLY the two
+      // candidates — a two-way question must offer two buttons, not four.
+      correct:       fmt(large),
+      signature:     fmt(small),     // chose by leading digit
       signatureCode: 'ERR_FIRST_DIGIT_CMP',
       distractors:   [],
+      exactOptions:  true,
       cpaLayer:      'abstract',
       difficulty:    2,
       rng:           () => 0.5,
       steps: [
         { text: `כמה ספרות יש ב-${fmt(small)}?`,  answer: String(small).length },
         { text: `כמה ספרות יש ב-${fmt(large)}?`, answer: String(large).length },
-        { text: 'למספר עם יותר ספרות יש יותר — לא משנה איזו ספרה ראשונה. איזה גדול יותר?', answer: large },
+        { text: 'למספר עם יותר ספרות יש יותר — לא משנה איזו ספרה ראשונה. הקלידי את המספר הגדול:', answer: large },
       ],
     });
   }

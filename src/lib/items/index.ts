@@ -27,6 +27,9 @@ import { generate as genUnitConvertCm }  from './generators/unitConvertCm';
 import { generate as genUnitConvertM }   from './generators/unitConvertM';
 import { generate as genTimeCrossHour }  from './generators/timeCrossHour';
 import { generate as genPlaceValueMil } from './generators/placeValueMillion';
+import { generatePartWhole, generateCompareSame } from './generators/fracBasics';
+import { generateOrderLine, generateRounding }   from './generators/numbersOrderRound';
+import { generatePolygons, generateParallelPerp } from './generators/geometry';
 
 type GenFn = (opts: GenerateOpts) => PracticeItem[];
 
@@ -40,6 +43,13 @@ const REGISTRY: Record<string, GenFn> = {
   MEAS_UNIT_CONVERT_CM:   genUnitConvertCm,
   MEAS_UNIT_CONVERT_M:    genUnitConvertM,
   PLACE_VALUE_TO_MILLION: genPlaceValueMil,
+  // ה.ש.ב.ח.ה ד' — units the class is on now or reaches next (2026-09-19)
+  FRAC_PART_WHOLE:        generatePartWhole,
+  FRAC_COMPARE_SAME:      generateCompareSame,
+  NUM_ORDER_LINE:         generateOrderLine,
+  NUM_ROUNDING:           generateRounding,
+  GEOM_POLYGONS:          generatePolygons,
+  GEOM_PARALLEL_PERP:     generateParallelPerp,
   MEAS_TIME_CROSS_HOUR:   genTimeCrossHour,
 };
 

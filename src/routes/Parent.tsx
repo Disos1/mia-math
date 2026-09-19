@@ -6,6 +6,7 @@ import type { Profile, StrandCode } from '../types';
 import { loadSessionRecords } from '../lib/sessionStore';
 import { loadMasteryMap, loadLedger } from '../lib/sessionStore';
 import { auditMastery } from '../lib/masteryAudit';
+import { ClassAlignmentCard } from '../components/parent/ClassAlignmentCard';
 
 interface Props {
   profile: Profile | null;
@@ -193,6 +194,9 @@ export function Parent({ profile, onBack, onReset }: Props) {
                 </div>
               </div>
             )}
+
+            {/* ── School alignment: where is the class, is she ahead? ────── */}
+            <ClassAlignmentCard profileId={profile.profileId} masteryMap={masteryMap} />
 
             {/* ── North Star: the 5-second read ──────────────────────────── */}
             <div className="bg-white card-shadow rounded-3xl p-6" style={{ borderTop: '4px solid #C4A7E7' }}>

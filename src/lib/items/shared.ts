@@ -33,6 +33,12 @@ export interface BuildItemArgs {
   answerMode?:   AnswerMode;
   /** Worked-solution steps for the step-ladder / worked-example views. */
   steps?:        WorkedStep[];
+  /**
+   * Use exactly the supplied options — no numeric padding. For "X or Y?"
+   * questions the ±1 fallback invented numbers that were not in the question
+   * (103,208 as a choice in "87,654 or 103,210?").
+   */
+  exactOptions?: boolean;
 }
 
 /**
@@ -49,7 +55,7 @@ export function buildItem(a: BuildItemArgs): PracticeItem {
     opts.push(d);
   }
   // Numeric fallback if dedupe collapsed below 4
-  if (typeof a.correct === 'number') {
+  if (typeof a.correct === 'number' && !a.exactOptions) {
     let k = 1;
     while (opts.length < 4) {
       const cand = (a.correct as number) + (k % 2 === 0 ? -k : k);
@@ -58,8 +64,11 @@ export function buildItem(a: BuildItemArgs): PracticeItem {
       if (k > 50) break; // safety
     }
   }
-  // Last-resort string fallback
-  while (opts.length < 4) opts.push(`?${opts.length}`);
+  // No placeholder padding for text answers. This used to push "?2", "?3" so
+  // every item had four buttons — which would show a child literal junk options
+  // whenever a text item had fewer real ones. Two or three honest options render
+  // fine in the grid; a fake one never does. (Guarded by a test over every
+  // generator: no option may be a placeholder.)
 
   return {
     itemId:         a.itemId,

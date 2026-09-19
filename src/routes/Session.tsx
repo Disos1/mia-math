@@ -34,6 +34,7 @@ import type { LocaleKey } from '../i18n/t';
 import { MathText } from '../components/primitives/MathText';
 import { NumPad, digitsNeededFor } from '../components/primitives/NumPad';
 import { VisualRenderer } from '../components/visuals/VisualRenderer';
+import { BlockBanners } from '../components/session/BlockBanners';
 
 import { composeSession, extendOpenPlan, pickVariantAtLayer } from '../lib/sessionComposer';
 import {
@@ -56,6 +57,7 @@ import {
 import { loadRecentItemIds, appendRecentItemIds } from '../lib/items/recentItems';
 import { updateProfile } from '../lib/profile';
 import { starsForSession, COMBO_BONUS_1, MIN_ITEMS_FOR_STARS } from '../lib/trophies';
+import { loadClassPosition } from '../lib/curriculum/classPosition';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -159,6 +161,9 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       // their prerequisites are met, so this is safe before she is ready: the
       // composer simply finds nothing unlocked and runs an all-repair session.
       targetGrade:       4,
+      // Her textbook (ה.ש.ב.ח.ה ד'): the parent's "where is the class" setting,
+      // or the publisher's pacing estimate until he sets it.
+      classPosition:     loadClassPosition(profile.profileId),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []   // intentionally empty: compose once, on mount
@@ -785,22 +790,7 @@ function PracticeItemView({
           </div>
         )}
 
-        {/* Tools-for-today banner.
-            Prerequisite items are easier than her grade level, and a child who
-            knows she is behind reads "easier" as demotion unless told why. The
-            graph edge supplies the reason, so the block arrives as equipment for
-            the thing she is actually trying to do. Shown once, on the first item
-            of the block. */}
-        {planItem.track === 'prerequisite' && planItem.prereqWhy && isBlockStart && (
-          <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl px-4 py-3 fade-in">
-            <div className="text-xs font-bold text-[#1D4ED8] mb-1">
-              🧰 {t('session.prereq_title', { gender: 'f' })}
-            </div>
-            <div className="text-sm text-[#2D3047] leading-relaxed">
-              {planItem.prereqWhy}
-            </div>
-          </div>
-        )}
+        {isBlockStart && <BlockBanners planItem={planItem} />}
 
         {/* CPA layer-transition banner — "let's try with a picture" etc.
             Visible until the next advance() recomputes the banner state. */}
@@ -1161,7 +1151,8 @@ function StepLadder({ item, gender, onDone }: {
 // revealed step by step at the learner's own pace, then "עכשיו תורי!" hands
 // control back for the faded practice that follows.
 
-function WorkedExampleView({ planItem, gender, onDone }: {
+/** Exported for its render test. A worked example always opens its block. */
+export function WorkedExampleView({ planItem, gender, onDone }: {
   planItem: SessionPlanItem;
   gender:   Gender;
   onDone:   () => void;
@@ -1175,6 +1166,8 @@ function WorkedExampleView({ planItem, gender, onDone }: {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 fade-in">
       <div className="w-full max-w-md flex flex-col gap-4">
+
+        <BlockBanners planItem={planItem} />
 
         <div className="bg-[#EAF4FF] border border-[#BBD9F7] rounded-2xl px-4 py-3 text-center text-base font-bold text-[#2D3047]">
           🧑‍🏫 {t('session.worked_example_title', g)}
@@ -1320,6 +1313,67 @@ function SkillHint({ item }: { item: PracticeItem }) {
         <div>1️⃣ כמה דקות עד השעה העגולה?</div>
         <div>2️⃣ כמה דקות נשארו אחרי?</div>
         <div className="text-xs text-gray-500 mt-1">למשל: 2:40 + 30 דק׳ → 20 דק׳ עד 3:00, ואז עוד 10</div>
+      </>
+    ));
+  }
+
+  // ── ה.ש.ב.ח.ה ד' units (2026-09-19) — each hint teaches the idea, never the answer.
+
+  if (item.skillCode === 'FRAC_PART_WHOLE') {
+    return wrap('🍕', (
+      <>
+        <div className="font-medium mb-1">שבר = חלק מתוך כל השלם:</div>
+        <div><strong>המכנה</strong> (למטה) — לכמה חלקים שווים חילקו</div>
+        <div><strong>המונה</strong> (למעלה) — כמה חלקים לקחנו</div>
+        <div className="text-xs text-gray-500 mt-1">סופרים את כל החלקים — גם את הלבנים!</div>
+      </>
+    ));
+  }
+
+  if (item.skillCode === 'FRAC_COMPARE_SAME') {
+    return wrap('⚖️', (
+      <>
+        <div><strong>אותו מכנה</strong> — החלקים באותו גודל. יותר חלקים = שבר גדול יותר.</div>
+        <div className="mt-1"><strong>אותו מונה</strong> — לוקחים אותו מספר חלקים. חילקו לפחות חלקים = כל חלק גדול יותר.</div>
+      </>
+    ));
+  }
+
+  if (item.skillCode === 'NUM_ORDER_LINE') {
+    return wrap('📏', (
+      <>
+        <div><strong>עוקב</strong> = המספר הבא (+1). <strong>קודם</strong> = המספר שלפני (−1).</div>
+        <div className="mt-1">בישר המספרים: כמה קפיצות בין שני המספרים? כמה שווה כל קפיצה?</div>
+        <div className="text-xs text-gray-500 mt-1">בסדרה: בודקים בכמה עולים או יורדים כל פעם.</div>
+      </>
+    ));
+  }
+
+  if (item.skillCode === 'NUM_ROUNDING') {
+    return wrap('🎯', (
+      <>
+        <div className="font-medium mb-1">עיגול — לאיזה מספר עגול הכי קרוב?</div>
+        <div>1️⃣ מוצאים את שני המספרים העגולים משני הצדדים</div>
+        <div>2️⃣ בודקים את הספרה שאחרי: <strong>5 ומעלה — למעלה</strong>, פחות מ-5 — למטה</div>
+      </>
+    ));
+  }
+
+  if (item.skillCode === 'GEOM_POLYGONS') {
+    return wrap('🔷', (
+      <>
+        <div>שם המצולע בא ממספר הצלעות: 5 — מחומש, 6 — משושה, 7 — משובע, 8 — מתומן.</div>
+        <div className="mt-1"><strong>אלכסון</strong> מחבר קדקוד לקדקוד שהוא <strong>לא</strong> שכן שלו.</div>
+      </>
+    ));
+  }
+
+  if (item.skillCode === 'GEOM_PARALLEL_PERP') {
+    return wrap('📐', (
+      <>
+        <div><strong>מקבילות</strong> — הולכות באותו כיוון ולא נפגשות לעולם (כמו פסי רכבת).</div>
+        <div className="mt-1"><strong>מאונכות</strong> — נפגשות בפינה ישרה (כמו פינה של דף).</div>
+        <div className="text-xs text-gray-500 mt-1">הצורה יכולה להיות מסובבת — חפשי את הכיוון, לא את השכיבה.</div>
       </>
     ));
   }

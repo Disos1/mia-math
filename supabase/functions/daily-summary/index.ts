@@ -3,7 +3,8 @@
  *
  * Called once per day by the GitHub Actions cron (see .github/workflows/daily-summary.yml).
  * For every auth user who has a profile and at least one session in the last 7 days,
- * it sends a dashboard-style summary email via Resend.
+ * it sends a dashboard-style summary email via Resend. After 7+ days without
+ * practice it sends a short nudge instead (day 8, then weekly) — never silence.
  *
  * Required Supabase secrets (set via Supabase dashboard → Project Settings → Edge Functions):
  *   RESEND_API_KEY      — from resend.com
@@ -27,6 +28,16 @@ const SKILL_NAMES: Record<string, string> = {
   MEAS_TIME_CROSS_HOUR:   'חישוב זמן חולף מעבר לשעה',
   MEAS_UNIT_CONVERT_CM:   'המרה בין מטרים לסנטימטרים',
   MEAS_UNIT_CONVERT_M:    'המרה בין קילומטרים למטרים',
+  // Grade 4 — ה.ש.ב.ח.ה ד'. Without these the email printed raw codes
+  // ("PLACE_VALUE_TO_MILLION") for everything newer than grade 3. A test in
+  // src/lib/emailNames.test.ts keeps this table in step with the app's registry.
+  PLACE_VALUE_TO_MILLION: 'מספרים עד מיליון וערך המקום',
+  FRAC_PART_WHOLE:        'השבר כחלק משלם',
+  FRAC_COMPARE_SAME:      'השוואת שברים',
+  NUM_ORDER_LINE:         'סדר בין מספרים וישר המספרים',
+  NUM_ROUNDING:           'עיגול מספרים',
+  GEOM_POLYGONS:          'מצולעים ואלכסונים',
+  GEOM_PARALLEL_PERP:     'צלעות מקבילות ומאונכות',
 };
 
 const STRAND_NAMES: Record<string, string> = {
@@ -47,6 +58,15 @@ const ERROR_NAMES: Record<string, string> = {
   ERR_FRAC_QUANTITY_BIAS: 'שבר מתוך כמות — כפל במקום חילוק',
   ERR_NUMBER_GRAB:        'חטיפת מספרים בבעיה מילולית',
   ERR_UNIT_MISMATCH:      'חוסר התאמה ביחידות',
+  ERR_DIGIT_FOR_VALUE:    'ערך הספרה לפי מקומה',
+  ERR_ZERO_PLACEHOLDER:   'אפס כשומר מקום',
+  ERR_FIRST_DIGIT_CMP:    'השוואה לפי הספרה הראשונה',
+  ERR_PLACE_SHIFT:        'הזזה במקום הספרה',
+  ERR_PART_PART:          'חלק מול חלק במקום חלק מהשלם',
+  ERR_NUM_DEN_SWAP:       'בלבול בין מונה למכנה',
+  ERR_ROUND_TRUNCATE:     'עיגול על ידי מחיקה',
+  ERR_DIAGONAL_SIDES:     'ספירת צלעות כאלכסונים',
+  ERR_PARALLEL_PERP_SWAP: 'בלבול בין מקבילות למאונכות',
 };
 
 // Kitchen-table suggestions for skills the child is stuck on (mirrors the
@@ -313,6 +333,34 @@ function buildEmail(
   return { subject, html };
 }
 
+// ─── No-practice nudge ────────────────────────────────────────────────────────
+
+function buildNudgeEmail(childName: string, daysSince: number, lastDay: string): { subject: string; html: string } {
+  const lastHe = new Date(lastDay).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' });
+  const subject = `💤 ${childName} לא תרגלה ${daysSince} ימים`;
+  const html = `<!DOCTYPE html>
+<html dir="rtl" lang="he"><head><meta charset="UTF-8"></head>
+<body dir="rtl" style="font-family:Arial,sans-serif;background:#F8F4ED;margin:0;padding:24px;direction:rtl;text-align:right;">
+<div dir="rtl" style="max-width:480px;margin:0 auto;background:white;border-radius:20px;padding:28px;direction:rtl;text-align:right;">
+  <h2 style="margin:0 0 8px;color:#2D3047;">💤 ${daysSince} ימים בלי תרגול</h2>
+  <p style="color:#6B7280;margin:0 0 18px;font-size:14px;">התרגול האחרון של ${childName} היה ב-${lastHe}.</p>
+  <div style="background:#F3EEFF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:14px;color:#2D3047;line-height:1.6;">
+    💡 <strong>הצעה:</strong> 10 דקות רגע לפני שיעורי הבית. האפליקציה מתרגלת את מה שלומדים עכשיו בכיתה
+    (ה.ש.ב.ח.ה ד׳) ומקדימה נושא אחד קדימה — כך בשיעור הבא הנושא כבר מוכר לה.
+  </div>
+  <div style="background:#FEF9C3;border-radius:12px;padding:14px;margin-bottom:18px;font-size:13px;color:#2D3047;line-height:1.6;">
+    📚 כדאי לעדכן במסך ההורים איפה הכיתה בספר — לפי החוברות שלה.
+  </div>
+  <div style="text-align:center;">
+    <a href="https://disos1.github.io/mia-math/"
+       style="display:inline-block;background:#C4A7E7;color:white;text-decoration:none;border-radius:12px;padding:10px 24px;font-weight:bold;font-size:15px;">
+      פתח את האפליקציה
+    </a>
+  </div>
+</div></body></html>`;
+  return { subject, html };
+}
+
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 Deno.serve(async (_req) => {
@@ -362,7 +410,36 @@ Deno.serve(async (_req) => {
     const prevTotal  = prevWeek.reduce((s, r) => s + (r.items_answered ?? 0), 0);
     const prevOk     = prevWeek.reduce((s, r) => s + (r.items_correct  ?? 0), 0);
     const prevWeekPct = prevTotal > 0 ? Math.round(prevOk / prevTotal * 100) : null;
-    if (countable.length === 0) continue;
+    if (countable.length === 0) {
+      // No practice for 7+ days. This used to `continue` — so the email went
+      // silent exactly when the parent most needed to hear something: Mia
+      // stopped practising when school started in Sept 2026 and the only signal
+      // Dima got was an absence of email. Nudge on day 8, then weekly — never
+      // daily, which would be spam.
+      const { data: lastRow } = await db
+        .from('session_records')
+        .select('started_at')
+        .eq('profile_id', profile.profile_id)
+        .gt('items_answered', 0)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!lastRow) continue;                       // never practised — nothing to nudge about
+      const lastDay   = toLocalDate(lastRow.started_at);
+      const daysSince = Math.round(
+        (new Date(today).getTime() - new Date(lastDay).getTime()) / (24 * 60 * 60 * 1000));
+      if (!(daysSince === 8 || (daysSince > 8 && daysSince % 7 === 0))) continue;
+
+      const nudge = buildNudgeEmail(profile.display_name, daysSince, lastDay);
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: fromEmail, to: user.email, subject: nudge.subject, html: nudge.html }),
+      });
+      if (res.ok) sent.push(user.email);
+      else console.error('[summary] Resend error (nudge):', await res.text());
+      continue;
+    }
 
     const sessionsToday = countable.filter(
       s => toLocalDate(s.completed_at ?? s.started_at) === today

@@ -19,6 +19,7 @@ import { BaseTenBlocks }   from './BaseTenBlocks';
 import { BarModel }        from './BarModel';
 import { NumberLine }      from './NumberLine';
 import { AnalogClock }     from './AnalogClock';
+import { PolygonShape }    from './PolygonShape';
 
 interface Props {
   visual: ItemVisual | null | undefined;
@@ -35,6 +36,9 @@ export function VisualRenderer({ visual }: Props) {
           labelA={visual.labelA}
           partsB={visual.partsB}
           labelB={visual.labelB}
+          shadedA={visual.shadedA}
+          shadedB={visual.shadedB}
+          single={visual.single}
         />
       );
     case 'fraction_bar':
@@ -73,6 +77,18 @@ export function VisualRenderer({ visual }: Props) {
           from={visual.from}
           to={visual.to}
           arrowLabel={visual.arrowLabel}
+          mark={visual.mark}
+          markLabel={visual.markLabel}
+          labelValues={visual.labelValues}
+        />
+      );
+    case 'polygon':
+      return (
+        <PolygonShape
+          points={visual.points}
+          labels={visual.labels}
+          diagonalsFrom={visual.diagonalsFrom}
+          highlightSides={visual.highlightSides}
         />
       );
     case 'analog_clock':

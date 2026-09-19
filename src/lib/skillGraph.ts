@@ -14,11 +14,14 @@
  *   - Grade-4 number range is to 1,000,000.
  *   - Decimals and averages are GRADE 5 — deliberately absent here.
  *   - Long division is limited to a single-digit divisor or a whole ten.
- *   - Classroom order: Sept = grade-3 review; Oct–Nov = numbers to a million +
- *     multi-digit add/sub + intro fractions; Jan–Mar = vertical multiplication
- *     and long division.
  *
- * See Mia_Math_Grade4_Plan.md §v2.0.
+ * Classroom ORDER comes from her actual textbook, ה.ש.ב.ח.ה ד' — see
+ * curriculum/hashbacha4.ts. (Corrected 2026-09-19: the research's "September is
+ * grade-3 review, fractions from October" does not hold for this series. New
+ * material starts on 1 September on three parallel strands — numbers,
+ * fractions and geometry; multiplication/division arrive in January.)
+ *
+ * See Mia_Math_Grade4_Plan.md §v2.0 and §v3.0.
  */
 
 import type { MasteryMap } from '../types';
@@ -115,14 +118,18 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     prereqs: [],
   },
 
-  // ── Grade 4 — Phase A (October alignment) ─────────────────────────────────
+  // ── Grade 4 — aligned to her textbook, ה.ש.ב.ח.ה ד' ────────────────────────
+  //
+  // Timings come from the publisher's own pacing plan (curriculum/hashbacha4.ts),
+  // which replaced the generic-research timings on 2026-09-19. Numbers, fractions
+  // and geometry all start on 1 September; nothing waits for October.
   //
   // Nodes are declared ahead of their generators so the graph, the composer and
   // the parent dashboard can already reason about the year. Skills without a
   // generator simply never get selected.
 
   PLACE_VALUE_TO_MILLION: {
-    skill: 'PLACE_VALUE_TO_MILLION', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'oct',
+    skill: 'PLACE_VALUE_TO_MILLION', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'sept',
     // No prereq inside the app yet — this IS the foundational node, and it is
     // the missing floor beneath ARITH_SUB_REGROUP_ZERO (her worst skill).
     prereqs: [],
@@ -136,8 +143,47 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
         why: 'ההמרה מעבר לאפס היא בדיוק אותו רעיון — רק במספרים גדולים' },
     ],
   },
+  NUM_ORDER_LINE: {
+    skill: 'NUM_ORDER_LINE', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'sept',
+    prereqs: [
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'כדי לסדר מספרים גדולים על ישר המספרים צריך לדעת כמה כל ספרה שווה' },
+    ],
+  },
+  NUM_ROUNDING: {
+    skill: 'NUM_ROUNDING', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'עיגול לאלפים או לעשרות אלפים מתחיל מלזהות את הספרה במקום הנכון' },
+    ],
+  },
+  FRAC_PART_WHOLE: {
+    skill: 'FRAC_PART_WHOLE', grade: 4, strand: 'FRAC', taughtFrom: 'sept',
+    // Foundation of the fractions booklet: the name of a fraction comes from the
+    // number of equal parts. Nothing in the app sits beneath it.
+    prereqs: [],
+  },
+  FRAC_COMPARE_SAME: {
+    skill: 'FRAC_COMPARE_SAME', grade: 4, strand: 'FRAC', taughtFrom: 'sept',
+    prereqs: [
+      { skill: 'FRAC_COMPARE_UNIT', kind: 'accuracy',
+        why: 'להשוות 3/5 ו-3/8 זה כמו להשוות חמישית ושמינית — רק כמה חתיכות מכל אחת' },
+    ],
+  },
+  GEOM_POLYGONS: {
+    skill: 'GEOM_POLYGONS', grade: 4, strand: 'GEOM', taughtFrom: 'sept',
+    prereqs: [],
+  },
+  GEOM_PARALLEL_PERP: {
+    skill: 'GEOM_PARALLEL_PERP', grade: 4, strand: 'GEOM', taughtFrom: 'sept',
+    // Not gated on GEOM_POLYGONS: the class is on this unit NOW, and gating it
+    // behind a skill she has never practised would put her a fortnight behind
+    // the lesson. Polygon naming reaches her through the repair stream instead.
+    prereqs: [],
+  },
   FRAC_EQUIVALENT: {
-    skill: 'FRAC_EQUIVALENT', grade: 4, strand: 'FRAC', taughtFrom: 'oct',
+    // שמות שונים לשבר — late January in the book (pp. 111–120), not October.
+    skill: 'FRAC_EQUIVALENT', grade: 4, strand: 'FRAC', taughtFrom: 'jan',
     prereqs: [
       { skill: 'FRAC_COMPARE_UNIT', kind: 'accuracy',
         why: 'שברים שקולים בנויים על ההבנה מה גודל של שבר' },

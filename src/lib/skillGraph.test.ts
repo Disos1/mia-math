@@ -140,10 +140,14 @@ describe('curriculum fidelity', () => {
     }
   });
 
-  it('schedules the Jan–Mar algorithms after the Oct place-value work', () => {
+  it('matches the timing in her textbook, not the generic research', () => {
+    // ה.ש.ב.ח.ה ד' pacing: place value from 1 September; equivalent fractions in
+    // late January; multiplication/division from January. The earlier 'oct'
+    // for place value came from research that assumed a different series.
+    expect(SKILL_GRAPH.PLACE_VALUE_TO_MILLION.taughtFrom).toBe('sept');
+    expect(SKILL_GRAPH.FRAC_EQUIVALENT.taughtFrom).toBe('jan');
     expect(SKILL_GRAPH.ARITH_MULT_VERTICAL.taughtFrom).toBe('jan');
     expect(SKILL_GRAPH.ARITH_DIV_LONG.taughtFrom).toBe('jan');
-    expect(SKILL_GRAPH.PLACE_VALUE_TO_MILLION.taughtFrom).toBe('oct');
   });
 });
 

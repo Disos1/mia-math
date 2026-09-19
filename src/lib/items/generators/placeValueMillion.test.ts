@@ -35,10 +35,9 @@ describe('place-value generator', () => {
 
   it('stays inside the grade-4 curriculum range (≤ 1,000,000)', () => {
     for (const it of ALL) {
-      if (typeof it.correct === 'number') {
-        expect(it.correct).toBeGreaterThanOrEqual(0);
-        expect(it.correct).toBeLessThanOrEqual(1_000_000);
-      }
+      const v = Number(String(it.correct).replace(/,/g, ''));
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1_000_000);
     }
   });
 
@@ -99,8 +98,10 @@ describe('comparison items', () => {
       expect(large).toBeGreaterThan(small);
       expect(String(large).length).toBeGreaterThan(String(small).length);
       expect(Number(String(small)[0])).toBeGreaterThan(Number(String(large)[0]));
-      expect(it.correct).toBe(large);
-      expect(it.signature).toBe(small);
+      // Written as in the question, and ONLY the two candidates are offered.
+      expect(it.correct).toBe(large.toLocaleString('en-US'));
+      expect(it.signature).toBe(small.toLocaleString('en-US'));
+      expect(it.options).toHaveLength(2);
     }
   });
 });
@@ -192,7 +193,10 @@ describe('step ladders', () => {
       if (!it.steps?.length) continue;
       const numeric = it.steps.filter(s => s.answer !== undefined);
       if (numeric.length === 0) continue;
-      expect(numeric[numeric.length - 1].answer).toBe(it.correct);
+      // Choice answers may be written with commas ("102,345"); the ladder's final
+      // step is typed on the keypad (102345). Same number either way.
+      const asNumber = Number(String(it.correct).replace(/,/g, ''));
+      expect(numeric[numeric.length - 1].answer).toBe(asNumber);
     }
   });
 

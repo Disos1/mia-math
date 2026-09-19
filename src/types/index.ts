@@ -59,7 +59,17 @@ export type ErrorSignatureCode =
   | 'ERR_DIGIT_FOR_VALUE'    // reports the digit (7) instead of its value (70,000)
   | 'ERR_ZERO_PLACEHOLDER'   // drops internal zeros when writing a numeral
   | 'ERR_FIRST_DIGIT_CMP'    // 98,765 > 102,345 because 9 > 1
-  | 'ERR_PLACE_SHIFT';       // expanded form assembled one column off
+  | 'ERR_PLACE_SHIFT'        // expanded form assembled one column off
+  // ── Grade 4, ה.ש.ב.ח.ה units (2026-09-19) ─────────────────────────────────
+  // NOT from the validated research catalogue. Each is defined as the exact
+  // output of a stated faulty rule and checked by arithmetic in the generator
+  // tests, so the mirror message is always true of the answer she gave. They
+  // must not be presented to the parent as research-backed prevalence claims.
+  | 'ERR_PART_PART'          // shaded : unshaded instead of shaded : whole (3 of 8 → 3/5)
+  | 'ERR_NUM_DEN_SWAP'       // gives the numerator when asked for the denominator
+  | 'ERR_ROUND_TRUNCATE'     // rounds by chopping (4,768 → 4,760 instead of 4,770)
+  | 'ERR_DIAGONAL_SIDES'     // counts sides as diagonals: n−1 from a vertex, not n−3
+  | 'ERR_PARALLEL_PERP_SWAP';// asked for the parallel side, gives the perpendicular one
 
 export type SignatureConfidence = 'confirmed' | 'suspected' | 'ruled_out';
 
@@ -92,7 +102,11 @@ export type CPALayer = 'concrete' | 'pictorial' | 'abstract';
  */
 export type ItemVisual =
   /** Two side-by-side fraction circles for comparison (½ vs ⅓). */
-  | { type: 'fraction_circles'; partsA: number; labelA: string; partsB: number; labelB: string }
+  | { type: 'fraction_circles'; partsA: number; labelA: string; partsB: number; labelB: string;
+      /** Shaded slices per circle; defaults to 1 (unit fraction). Needed for 3/8 vs 5/8. */
+      shadedA?: number; shadedB?: number;
+      /** Hide circle B entirely — for "what part is shaded?" items with a single shape. */
+      single?: boolean }
   /** One circle split into N parts with K highlighted — used for "¼ of 20" type questions. */
   | { type: 'fraction_bar';     parts: number; highlighted: number; total?: number }
   /** Analog clock; optional arc shows elapsed minutes sweeping forward from `time`. */
@@ -104,7 +118,20 @@ export type ItemVisual =
   /** Bar model — each row is a stacked horizontal bar; parts carry values or "?". */
   | { type: 'bar_model';        rows: Array<{ label?: string; parts: Array<{ size: number; label?: string; highlight?: boolean }> }> }
   /** Number line with optional jump arrow (for time / conversion / word problems). */
-  | { type: 'number_line';      min: number; max: number; step: number; from?: number; to?: number; arrowLabel?: string };
+  | { type: 'number_line';      min: number; max: number; step: number; from?: number; to?: number; arrowLabel?: string;
+      /** A marked point (e.g. the number being rounded), with an optional caption such as "?". */
+      mark?: number; markLabel?: string;
+      /** Tick values to print. Defaults to every tick — too crowded for six-digit numbers. */
+      labelValues?: number[] }
+  /**
+   * A polygon on a 0–100 canvas. Vertices are labelled with Hebrew letters
+   * (א ב ג…), sides are named by their two vertex letters, as in the textbook.
+   */
+  | { type: 'polygon';          points: Array<[number, number]>; labels?: string[];
+      /** Draw every diagonal from this vertex index (pictorial layer for diagonal counting). */
+      diagonalsFrom?: number;
+      /** Side indices to emphasise; side i joins vertex i to vertex i+1. */
+      highlightSides?: number[] };
 
 /** @deprecated Kept for backward compatibility. Use `ItemVisual` instead. */
 export type DiagnosticVisual = ItemVisual;
@@ -273,6 +300,12 @@ export interface SessionPlanItem {
   prereqWhy?:        string;
   /** The current-grade skill this prerequisite item unblocks. */
   prereqFor?:        string;
+  /**
+   * Pre-teaching: this unit is AHEAD of where her class is in the book. Shown to
+   * her as "לפני הכיתה" so arriving in class already knowing it is a win she
+   * can see.
+   */
+  ahead?:            boolean;
 }
 
 export interface SessionPlan {
