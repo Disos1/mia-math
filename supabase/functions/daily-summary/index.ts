@@ -378,7 +378,7 @@ function buildNudgeEmail(childName: string, daysSince: number, lastDay: string):
   <p style="color:#6B7280;margin:0 0 18px;font-size:14px;">התרגול האחרון של ${childName} היה ב-${lastHe}.</p>
   <div style="background:#F3EEFF;border-radius:12px;padding:14px;margin-bottom:14px;font-size:14px;color:#2D3047;line-height:1.6;">
     💡 <strong>הצעה:</strong> 10 דקות רגע לפני שיעורי הבית. האפליקציה מתרגלת את מה שלומדים עכשיו בכיתה
-    (ה.ש.ב.ח.ה ד׳) ומקדימה נושא אחד קדימה — כך בשיעור הבא הנושא כבר מוכר לה.
+    (ה.ש.ב.ח.ה ד׳), וברגע שהיא שולטת בנושא — ממשיכה הלאה בלי לחכות לכיתה.
   </div>
   <div style="background:#FEF9C3;border-radius:12px;padding:14px;margin-bottom:18px;font-size:13px;color:#2D3047;line-height:1.6;">
     📚 כדאי לעדכן במסך ההורים איפה הכיתה בספר — לפי החוברות שלה.

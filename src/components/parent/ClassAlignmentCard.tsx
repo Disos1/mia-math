@@ -52,7 +52,8 @@ export function ClassAlignmentCard({ profileId, masteryMap }: Props) {
     <div className="bg-white card-shadow rounded-3xl p-5" style={{ borderTop: '4px solid #7C3AED' }}>
       <div className="text-sm font-bold text-[#2D3047]">📚 איפה הכיתה בספר?</div>
       <div className="text-xs text-gray-500 mt-1 mb-4 leading-relaxed">
-        ה.ש.ב.ח.ה ד׳ · האפליקציה מתרגלת את הנושא של הכיתה ומקדימה נושא או שניים קדימה.
+        ה.ש.ב.ח.ה ד׳ · האפליקציה מתרגלת את הנושא של הכיתה, וכשמיה שולטת בו היא ממשיכה לנושא הבא
+        בלי לחכות. המיקום כאן קובע מה נחשב "חזרה" ומתי מופיע "לפני הכיתה".
       </div>
 
       {STRANDS.map(strand => {
