@@ -50,15 +50,14 @@ const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 const CW = 'FRAC_COMPLETE_WHOLE';
 
 function* completeWhole(): Generator<PracticeItem> {
-  for (const d of [3, 4, 5, 6, 8, 10, 12]) {
+  for (const d of [3, 4, 5, 6, 7, 8, 9, 10, 12]) {
     for (let a = 1; a < d; a++) {
-      if (d >= 10 && a % 2 === 0) continue;             // keep the pool sane
       const missing = d - a;
+
       yield buildItem({
         itemId:    `G_CW_MISS_${a}_${d}`, skillCode: CW,
         question:  `כמה ${PART_PLURAL[d]} ${missingVerb(d)} ל-${frac(a, d)} כדי להשלים שלם?`,
         correct:   missing,
-        // Answering the denominator = "a whole is d parts, so d more are needed".
         signature: missing === d ? null : d,
         signatureCode: null,
         distractors: [], cpaLayer: 'abstract', difficulty: d <= 5 ? 1 : 2,
@@ -69,11 +68,23 @@ function* completeWhole(): Generator<PracticeItem> {
           { text: `כבר יש ${a}. כמה חסרות כדי להגיע ל-${d}?`, answer: missing },
         ],
       });
-    }
-  }
 
-  // "How many eighths make a whole?" — the idea underneath all of it.
-  for (const d of [3, 4, 5, 6, 7, 8, 9, 10, 12]) {
+      // The same question, answered as a fraction rather than a count.
+      yield buildItem({
+        itemId:    `G_CW_MISSF_${a}_${d}`, skillCode: CW,
+        question:  `איזה שבר חסר ל-${frac(a, d)} כדי להשלים שלם?`,
+        correct:   frac(missing, d),
+        // Half of a whole is missing half: there the "wrong" answer is right.
+        signature: a !== missing ? frac(a, d) : null, signatureCode: null,
+        distractors: [frac(missing, d + 1), frac(Math.max(1, missing - 1), d)],
+        exactOptions: true, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+        steps: [
+          { text: `השלם הוא ${frac(d, d)}.` },
+          { text: `${frac(d, d)} − ${frac(a, d)} = ${frac(missing, d)}.` },
+        ],
+      });
+    }
+
     yield buildItem({
       itemId: `G_CW_UNIT_${d}`, skillCode: CW,
       question: `כמה ${PART_PLURAL[d]} ${makeUpVerb(d)} שלם אחד?`,
@@ -84,28 +95,27 @@ function* completeWhole(): Generator<PracticeItem> {
     });
   }
 
-  // Compare by the gap to 1 — the whole point of the unit. Both fractions are
-  // one part short, so the one cut into MORE parts is the bigger number, which
-  // is exactly the intuition ERR_FRACTION_BIAS gets backwards.
-  const near: Array<[number, number]> = [[3, 4], [4, 5], [5, 6], [6, 8], [8, 10], [4, 6], [5, 8], [3, 6], [6, 12], [8, 12]];
-  for (const [p, q] of near) {
-    const A = frac(p - 1, p), B = frac(q - 1, q);   // (p−1)/p vs (q−1)/q
-    const bigger = p > q ? A : B;
-    const smaller = p > q ? B : A;
-    yield buildItem({
-      itemId: `G_CW_NEAR_${p}_${q}`, skillCode: CW,
-      question: `לשני השברים חסר חלק אחד כדי להשלים שלם. איזה שבר גדול יותר: ${A} או ${B}?`,
-      correct: bigger,
-      signature: smaller,                 // picks by "bigger denominator = smaller"
-      signatureCode: 'ERR_FRACTION_BIAS',
-      distractors: ['שווים'], exactOptions: true,
-      cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
-      steps: [
-        { text: `ל-${A} חסר ${frac(1, p)}, ול-${B} חסר ${frac(1, q)}.` },
-        { text: 'ככל שהחלק החסר קטן יותר, השבר קרוב יותר לשלם — וגדול יותר.' },
-        { text: `החלק החסר הקטן יותר שייך ל-${bigger}.` },
-      ],
-    });
+  // Compare by the gap to 1 — every pair of denominators, not a chosen few.
+  // Both fractions are one part short, so the one cut into MORE parts is the
+  // bigger number, which is exactly what ERR_FRACTION_BIAS gets backwards.
+  for (const p of [3, 4, 5, 6, 7, 8, 9, 10, 12]) {
+    for (const q of [3, 4, 5, 6, 7, 8, 9, 10, 12]) {
+      if (p >= q) continue;
+      const A = frac(p - 1, p), B = frac(q - 1, q);
+      yield buildItem({
+        itemId: `G_CW_NEAR_${p}_${q}`, skillCode: CW,
+        question: `לשני השברים חסר חלק אחד כדי להשלים שלם. איזה שבר גדול יותר: ${A} או ${B}?`,
+        correct: B,                      // q > p, so (q−1)/q is closer to 1
+        signature: A, signatureCode: 'ERR_FRACTION_BIAS',
+        distractors: ['שווים'], exactOptions: true,
+        cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+        steps: [
+          { text: `ל-${A} חסר ${frac(1, p)}, ול-${B} חסר ${frac(1, q)}.` },
+          { text: 'ככל שהחלק החסר קטן יותר, השבר קרוב יותר לשלם — וגדול יותר.' },
+          { text: `החלק החסר הקטן יותר שייך ל-${B}.` },
+        ],
+      });
+    }
   }
 }
 
@@ -114,51 +124,49 @@ function* completeWhole(): Generator<PracticeItem> {
 const IM = 'FRAC_IMPROPER';
 
 function* improper(): Generator<PracticeItem> {
-  const cases: Array<[number, number]> = [
-    [7, 3], [5, 2], [9, 4], [11, 4], [7, 5], [13, 5], [8, 3], [11, 3],
-    [9, 2], [13, 6], [17, 8], [11, 8], [15, 4], [19, 10], [14, 5], [10, 3],
-  ];
-  for (const [n, d] of cases) {
-    const whole = Math.floor(n / d);
-    const rest  = n % d;
-    yield buildItem({
-      itemId: `G_IM_WHOLES_${n}_${d}`, skillCode: IM,
-      question: `כמה שלמים יש ב-${frac(n, d)}?`,
-      correct: whole, signature: null, signatureCode: null, distractors: [],
-      cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: `כל ${d} ${PART_PLURAL[d]} הם שלם אחד.` },
-        { text: `כמה פעמים נכנס ${d} בתוך ${n}?`, answer: whole },
-      ],
-    });
+  for (const d of [2, 3, 4, 5, 6, 8, 10, 12]) {
+    for (let n = d + 1; n <= d * 4; n += 2) {
+      if (n % d === 0) continue;                  // that is a whole number, not mixed
+      const whole = Math.floor(n / d), rest = n % d;
 
-    yield buildItem({
-      itemId: `G_IM_MIXED_${n}_${d}`, skillCode: IM,
-      question: `איזה מספר מעורב שווה ל-${frac(n, d)}?`,
-      correct: mixed(whole, rest, d),
-      // Whole and remainder read off in the wrong order. Where the two happen to
-      // be equal (8/3 → "2 2/3") the swap IS the right answer, so claim nothing.
-      signature: rest !== whole && whole < d && rest > 0 ? mixed(rest, whole, d) : null,
-      signatureCode: null,
-      distractors: [mixed(whole + 1, rest, d), mixed(whole, rest === 0 ? 1 : (rest % d) + (rest + 1 < d ? 1 : -1), d)],
-      exactOptions: true, cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
-      steps: [
-        { text: `${n} חלקי ${d}: ${whole} שלמים, ונשארו ${rest} ${PART_PLURAL[d]}.` },
-        { text: `כותבים את זה ${mixed(whole, rest, d)}.` },
-      ],
-    });
+      yield buildItem({
+        itemId: `G_IM_WHOLES_${n}_${d}`, skillCode: IM,
+        question: `כמה שלמים יש ב-${frac(n, d)}?`,
+        correct: whole, signature: null, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: `כל ${d} ${PART_PLURAL[d]} הם שלם אחד.` },
+          { text: `כמה פעמים נכנס ${d} בתוך ${n}?`, answer: whole },
+        ],
+      });
 
-    yield buildItem({
-      itemId: `G_IM_BACK_${n}_${d}`, skillCode: IM,
-      question: `כמה ${PART_PLURAL[d]} יש ב-${mixed(whole, rest, d)}?`,
-      correct: n, signature: null, signatureCode: null, distractors: [],
-      cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: `בכל שלם יש ${d} ${PART_PLURAL[d]}, ויש ${whole} שלמים.` },
-        { text: `${whole} × ${d} = ?`, answer: whole * d },
-        { text: `מוסיפים את ${rest} שנשארו.`, answer: n },
-      ],
-    });
+      yield buildItem({
+        itemId: `G_IM_MIXED_${n}_${d}`, skillCode: IM,
+        question: `איזה מספר מעורב שווה ל-${frac(n, d)}?`,
+        correct: mixed(whole, rest, d),
+        // Whole and remainder read off in the wrong order, where that is legal.
+        signature: rest !== whole && whole < d && rest > 0 ? mixed(rest, whole, d) : null,
+        signatureCode: null,
+        distractors: [mixed(whole + 1, rest, d), mixed(whole, rest === 0 ? 1 : (rest % d) + (rest + 1 < d ? 1 : -1), d)],
+        exactOptions: true, cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+        steps: [
+          { text: `${n} חלקי ${d}: ${whole} שלמים, ונשארו ${rest} ${PART_PLURAL[d]}.` },
+          { text: `כותבים את זה ${mixed(whole, rest, d)}.` },
+        ],
+      });
+
+      yield buildItem({
+        itemId: `G_IM_BACK_${n}_${d}`, skillCode: IM,
+        question: `כמה ${PART_PLURAL[d]} יש ב-${mixed(whole, rest, d)}?`,
+        correct: n, signature: null, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: `בכל שלם יש ${d} ${PART_PLURAL[d]}, ויש ${whole} שלמים.` },
+          { text: `${whole} × ${d} = ?`, answer: whole * d },
+          { text: `מוסיפים את ${rest} שנשארו.`, answer: n },
+        ],
+      });
+    }
   }
 }
 
@@ -219,42 +227,43 @@ function* addSubSame(): Generator<PracticeItem> {
 const MX = 'FRAC_MIXED_ADD_SUB';
 
 function* mixedAddSub(): Generator<PracticeItem> {
-  const cases: Array<[number, number, number, number]> = [
-    // [whole, numerator, addend numerator, denominator]  — no regrouping needed
-    [1, 2, 1, 5], [2, 1, 2, 5], [1, 1, 2, 4], [3, 1, 1, 4], [2, 3, 2, 8],
-    [1, 4, 3, 8], [2, 2, 3, 6], [1, 1, 1, 3], [4, 2, 2, 6], [2, 5, 4, 10],
-    [3, 3, 4, 10], [1, 5, 6, 12], [2, 1, 1, 2],
-  ];
-  for (const [w, a, b, d] of cases) {
-    if (a + b >= d) continue;
-    yield buildItem({
-      itemId: `G_MX_ADD_${w}_${a}_${b}_${d}`, skillCode: MX,
-      question: `כמה זה ${mixed(w, a, d)} + ${frac(b, d)}?`,
-      correct: mixed(w, a + b, d),
-      signature: mixed(w + b, a, d),        // added the fraction to the whole
-      signatureCode: null,
-      distractors: [mixed(w, a + b, d + d), mixed(w + 1, a + b, d)],   // second: whole carried without cause
-      exactOptions: true, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
-      steps: [
-        { text: 'השלמים נשארים כמו שהם — מחברים רק את השברים.' },
-        { text: `${a} ${PART_PLURAL[d]} ועוד ${b} — כמה חלקים?`, answer: a + b },
-        { text: `התשובה: ${mixed(w, a + b, d)}.` },
-      ],
-    });
+  // Swept over whole parts, denominators and both fraction parts. No regrouping
+  // yet: a + b stays under the denominator, which is unit (א) in the book.
+  for (const d of [3, 4, 5, 6, 8, 10, 12]) {
+    for (let w = 1; w <= 4; w++) {
+      for (let a = 1; a < d - 1; a++) {
+        for (let b = 1; a + b < d; b++) {
+          yield buildItem({
+            itemId: `G_MX_ADD_${w}_${a}_${b}_${d}`, skillCode: MX,
+            question: `כמה זה ${mixed(w, a, d)} + ${frac(b, d)}?`,
+            correct: mixed(w, a + b, d),
+            signature: mixed(w + b, a, d),        // added the fraction to the whole
+            signatureCode: null,
+            distractors: [mixed(w, a + b, d + d), mixed(w + 1, a + b, d)],
+            exactOptions: true, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+            steps: [
+              { text: 'השלמים נשארים כמו שהם — מחברים רק את השברים.' },
+              { text: `${a} ${PART_PLURAL[d]} ועוד ${b} — כמה חלקים?`, answer: a + b },
+              { text: `התשובה: ${mixed(w, a + b, d)}.` },
+            ],
+          });
 
-    yield buildItem({
-      itemId: `G_MX_SUB_${w}_${a}_${b}_${d}`, skillCode: MX,
-      question: `כמה זה ${mixed(w, a + b, d)} − ${frac(b, d)}?`,
-      correct: mixed(w, a, d),
-      signature: mixed(w - 1, a, d), signatureCode: null,
-      distractors: [mixed(w, Math.min(a + b + b, d - 1), d), mixed(w, Math.max(1, a - b), d)],
-      exactOptions: true, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
-      steps: [
-        { text: 'מחסרים רק את השברים; השלמים לא זזים.' },
-        { text: `${a + b} ${PART_PLURAL[d]} פחות ${b} — כמה נשארו?`, answer: a },
-        { text: `התשובה: ${mixed(w, a, d)}.` },
-      ],
-    });
+          yield buildItem({
+            itemId: `G_MX_SUB_${w}_${a}_${b}_${d}`, skillCode: MX,
+            question: `כמה זה ${mixed(w, a + b, d)} − ${frac(b, d)}?`,
+            correct: mixed(w, a, d),
+            signature: mixed(w - 1, a, d), signatureCode: null,
+            distractors: [mixed(w, Math.min(a + b + b, d - 1), d), mixed(w, Math.max(1, a - b), d)],
+            exactOptions: true, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+            steps: [
+              { text: 'מחסרים רק את השברים; השלמים לא זזים.' },
+              { text: `${a + b} ${PART_PLURAL[d]} פחות ${b} — כמה נשארו?`, answer: a },
+              { text: `התשובה: ${mixed(w, a, d)}.` },
+            ],
+          });
+        }
+      }
+    }
   }
 }
 
@@ -262,39 +271,48 @@ function* mixedAddSub(): Generator<PracticeItem> {
 
 const EQ = 'FRAC_EQUIVALENT';
 
+/** "how many twelfths" where a plural name exists, else "parts out of 12". */
+const partsPhrase = (d: number) =>
+  (PART_PLURAL[d] ? `${PART_PLURAL[d]}` : `חלקים מתוך ${d}`);
+
 function* equivalent(): Generator<PracticeItem> {
-  const bases: Array<[number, number]> = [[1, 2], [1, 3], [2, 3], [1, 4], [3, 4], [1, 5], [2, 5], [1, 6], [5, 6]];
-  for (const [a, b] of bases) {
-    for (const k of [2, 3, 4]) {
-      const n = a * k, d = b * k;
-      if (d > 12) continue;
+  // Swept: every fraction in lowest terms with denominator ≤ 12, times every
+  // multiplier that keeps the bigger denominator ≤ 24.
+  for (let b = 2; b <= 12; b++) {
+    for (let a = 1; a < b; a++) {
+      if (gcd(a, b) !== 1) continue;             // start from lowest terms
+      for (let k = 2; b * k <= 24; k++) {
+        const n = a * k, d = b * k;
 
-      yield buildItem({
-        itemId: `G_EQ_SIMPLIFY_${n}_${d}`, skillCode: EQ,
-        question: `איזה שבר שווה ל-${frac(n, d)}?`,
-        correct: frac(a, b),
-        signature: frac(a, d),              // divided the numerator only
-        signatureCode: null,
-        distractors: [frac(n, b), frac(a + 1, b + 1)],
-        exactOptions: true, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
-        visual: { type: 'fraction_circles', partsA: d, labelA: frac(n, d), partsB: b, labelB: frac(a, b), shadedA: n, shadedB: a },
-        steps: [
-          { text: `כשמחלקים גם את המונה וגם את המכנה באותו מספר, השבר לא משתנה.` },
-          { text: `${n} ÷ ${k} = ?`, answer: a },
-          { text: `${d} ÷ ${k} = ?`, answer: b },
-        ],
-      });
+        yield buildItem({
+          itemId: `G_EQ_SIMPLIFY_${n}_${d}`, skillCode: EQ,
+          question: `איזה שבר שווה ל-${frac(n, d)}?`,
+          correct: frac(a, b),
+          signature: frac(a, d) !== frac(a, b) ? frac(a, d) : null,   // divided the numerator only
+          signatureCode: null,
+          distractors: [frac(n, b), frac(a + 1, b + 1)],
+          exactOptions: true, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+          visual: d <= 12
+            ? { type: 'fraction_circles', partsA: d, labelA: frac(n, d), partsB: b, labelB: frac(a, b), shadedA: n, shadedB: a }
+            : null,
+          steps: [
+            { text: 'כשמחלקים גם את המונה וגם את המכנה באותו מספר, השבר לא משתנה.' },
+            { text: `${n} ÷ ${k} = ?`, answer: a },
+            { text: `${d} ÷ ${k} = ?`, answer: b },
+          ],
+        });
 
-      yield buildItem({
-        itemId: `G_EQ_BUILD_${a}_${b}_${k}`, skillCode: EQ,
-        question: `כמה ${PART_PLURAL[d]} ${equalVerb(d)} ל-${frac(a, b)}?`,
-        correct: n, signature: null, signatureCode: null, distractors: [],
-        cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
-        steps: [
-          { text: `מ-${b} חלקים ל-${d} חלקים: כל חלק התפצל ל-${k}.` },
-          { text: `${a} × ${k} = ?`, answer: n },
-        ],
-      });
+        yield buildItem({
+          itemId: `G_EQ_BUILD_${a}_${b}_${k}`, skillCode: EQ,
+          question: `כמה ${partsPhrase(d)} שווים ל-${frac(a, b)}?`,
+          correct: n, signature: null, signatureCode: null, distractors: [],
+          cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+          steps: [
+            { text: `מ-${b} חלקים ל-${d} חלקים: כל חלק התפצל ל-${k}.` },
+            { text: `${a} × ${k} = ?`, answer: n },
+          ],
+        });
+      }
     }
   }
 }
@@ -303,30 +321,60 @@ function* equivalent(): Generator<PracticeItem> {
 
 const AD = 'FRAC_ADD_SUB_DIFF';
 
+/** A fraction in lowest terms, or "1" when it is a whole. */
+function reduced(n: number, d: number): string {
+  if (n === d) return '1';
+  const g = gcd(n, d);
+  return frac(n / g, d / g);
+}
+
 function* addSubDiff(): Generator<PracticeItem> {
   // Grade 4: one denominator divides the other, so only one fraction is rewritten.
-  const pairs: Array<[number, number]> = [[2, 4], [2, 6], [2, 8], [2, 10], [3, 6], [3, 9], [3, 12], [4, 8], [4, 12], [5, 10], [6, 12]];
+  const pairs: Array<[number, number]> = [[2, 4], [2, 6], [2, 8], [2, 10], [2, 12], [3, 6], [3, 9], [3, 12], [4, 8], [4, 12], [5, 10], [6, 12]];
   for (const [small, big] of pairs) {
     const k = big / small;
     for (let a = 1; a < small; a++) {
       for (let b = 1; b < big; b++) {
-        const num = a * k + b;
-        if (num > big) continue;
-        if (gcd(num, big) !== 1 && num !== big) continue;   // keep answers in lowest terms
-        yield buildItem({
-          itemId: `G_AD_ADD_${a}_${small}_${b}_${big}`, skillCode: AD,
-          question: `כמה זה ${frac(a, small)} + ${frac(b, big)}?`,
-          correct: sumLabel(num, big),
-          signature: frac(a + b, small + big),      // added across both bars
-          signatureCode: 'ERR_ADD_DENOMINATORS',
-          distractors: [frac(a + b, big), frac(num, small)],
-          exactOptions: true, cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
-          steps: [
-            { text: `אי אפשר לחבר חלקים בגדלים שונים — קודם עושים להם שם משותף.` },
-            { text: `כמה ${PART_PLURAL[big]} ${equalVerb(big)} ל-${frac(a, small)}?`, answer: a * k },
-            { text: `${a * k} ועוד ${b} — כמה ${PART_PLURAL[big]}?`, answer: num },
-          ],
-        });
+        const sum = a * k + b;
+
+        if (sum <= big) {
+          yield buildItem({
+            itemId: `G_AD_ADD_${a}_${small}_${b}_${big}`, skillCode: AD,
+            question: `כמה זה ${frac(a, small)} + ${frac(b, big)}?`,
+            correct: reduced(sum, big),
+            signature: frac(a + b, small + big),      // added across both bars
+            signatureCode: 'ERR_ADD_DENOMINATORS',
+            distractors: [frac(a + b, big), frac(sum, small)],
+            exactOptions: true, cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+            steps: [
+              { text: 'אי אפשר לחבר חלקים בגדלים שונים — קודם עושים להם שם משותף.' },
+              { text: `כמה ${partsPhrase(big)} ${equalVerb(big)} ל-${frac(a, small)}?`, answer: a * k },
+              { text: `${a * k} ועוד ${b} — כמה ${partsPhrase(big)}?`, answer: sum },
+            ],
+          });
+        }
+
+        // The same move, subtracting.
+        const diff = a * k - b;
+        if (diff > 0) {
+          yield buildItem({
+            itemId: `G_AD_SUB_${a}_${small}_${b}_${big}`, skillCode: AD,
+            question: `כמה זה ${frac(a, small)} − ${frac(b, big)}?`,
+            correct: reduced(diff, big),
+            // Working across the bar in a SUBTRACTION is the same faulty move,
+            // but the mirror text for ERR_ADD_DENOMINATORS says "you added the
+            // denominators" — which is not what she did. Offer it as a wrong
+            // answer without mislabelling it.
+            signature: null, signatureCode: null,
+            distractors: [frac(Math.abs(a - b), Math.abs(small - big) || big), frac(diff, small), frac(a + b, big)],
+            exactOptions: true, cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+            steps: [
+              { text: 'קודם שם משותף, ורק אז מחסרים.' },
+              { text: `כמה ${partsPhrase(big)} ${equalVerb(big)} ל-${frac(a, small)}?`, answer: a * k },
+              { text: `${a * k} פחות ${b} — כמה נשארו?`, answer: diff },
+            ],
+          });
+        }
       }
     }
   }

@@ -98,6 +98,21 @@ describe('every skill can actually be mastered', () => {
   });
 });
 
+describe('a claimed misconception stays observable', () => {
+  it('leaves enough items carrying each signature to diagnose it', () => {
+    // buildItem drops a signature that collides with the correct answer. If a
+    // skill's signature collided on EVERY item, the misconception would quietly
+    // become undiagnosable — the engine could never see her make it.
+    for (const { skill, items } of pools) {
+      const codes = new Set(items.map(i => i.signatureCode).filter(Boolean));
+      for (const code of codes) {
+        const carrying = items.filter(i => i.signatureCode === code).length;
+        expect(carrying, `${skill}: only ${carrying} items can show ${code}`).toBeGreaterThanOrEqual(5);
+      }
+    }
+  });
+});
+
 describe('two-way questions offer exactly the two things asked about', () => {
   it('never invents a number that is not in an "X or Y" question', () => {
     // 2026-09-19: "איזה מספר גדול יותר: 87,654 או 103,210?" offered 103,208 and

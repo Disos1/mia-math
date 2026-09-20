@@ -28,10 +28,10 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 const OL = 'NUM_ORDER_LINE';
 
 function* successorPredecessor(): Generator<PracticeItem> {
-  // Every case crosses at least one boundary — that is where the errors live.
-  const succ = [9_999, 49_999, 99_999, 209_999, 359_099, 499_999, 70_909, 699_990, 999_999];
-  const pred = [10_000, 100_000, 300_000, 180_100, 450_000, 1_000_000, 205_000, 60_010];
-  for (const n of succ) {
+  // Swept, with the property that made the old hand-picked list worth picking:
+  // the number has to CROSS a boundary, which is where the errors live.
+  for (let n = 1_099; n <= 999_999; n += 2_777) {
+    if (!String(n).endsWith('99')) continue;
     yield buildItem({
       itemId: `G_OL_SUCC_${n}`, skillCode: OL,
       question:   `מהו המספר העוקב ל-${fmt(n)}?`,
@@ -44,7 +44,9 @@ function* successorPredecessor(): Generator<PracticeItem> {
       ],
     });
   }
-  for (const n of pred) {
+
+  for (let n = 10_000; n <= 1_000_000; n += 3_100) {
+    if (!String(n).endsWith('00')) continue;
     yield buildItem({
       itemId: `G_OL_PRED_${n}`, skillCode: OL,
       question:   `מהו המספר הקודם ל-${fmt(n)}?`,
@@ -61,11 +63,13 @@ function* successorPredecessor(): Generator<PracticeItem> {
 
 function* sequences(): Generator<PracticeItem> {
   // Constant-step sequences, rising and falling, across the whole range.
-  const specs: Array<[number, number]> = [
-    [45_000, 5_000], [120_000, 10_000], [300_000, 100_000], [7_500, 500],
-    [98_000, 1_000], [250_000, 25_000], [640_000, -20_000], [1_000_000, -100_000],
-    [55_500, -500], [83_000, 2_000], [199_000, 1_000], [400_000, -50_000],
-  ];
+  const specs: Array<[number, number]> = [];
+  for (let start = 7_500; start <= 960_000; start += 23_117) {
+    for (const step of [500, 1_000, 2_500, 5_000, 10_000, 25_000, 100_000]) {
+      if (start - 3 * step < 0) continue;            // a falling run must stay positive
+      specs.push([start, step], [start, -step]);
+    }
+  }
   for (const [start, step] of specs) {
     const terms = [start, start + step, start + 2 * step];
     const next  = start + 3 * step;
@@ -87,11 +91,12 @@ function* sequences(): Generator<PracticeItem> {
 function* readTheLine(): Generator<PracticeItem> {
   // Only the two ends are labelled; the child works out the size of one step,
   // exactly the book's "השלמת מספרים על ישר המספרים על פי מספרים שמסומנים עליו".
-  const lines: Array<[number, number, number]> = [
-    [300_000, 400_000, 7], [0, 100_000, 4], [500_000, 600_000, 3],
-    [20_000, 30_000, 6], [700_000, 800_000, 9], [0, 1_000_000, 8],
-    [40_000, 50_000, 2], [150_000, 160_000, 5],
-  ];
+  const lines: Array<[number, number, number]> = [];
+  for (const span of [10_000, 100_000, 1_000_000]) {
+    for (let min = 0; min + span <= 1_000_000; min += span) {
+      for (const k of [2, 3, 4, 6, 7, 9]) lines.push([min, min + span, k]);
+    }
+  }
   for (const [min, max, k] of lines) {
     const step  = (max - min) / 10;
     const value = min + k * step;
@@ -137,11 +142,10 @@ export function truncateTo(n: number, unit: number): number {
 }
 
 function* rounding(): Generator<PracticeItem> {
-  const numbers = [
-    4_738, 4_762, 3_970, 12_345, 12_355, 58_149, 58_650, 99_950,
-    247_381, 247_819, 365_500, 604_082, 719_463, 849_999, 95_050, 7_415,
-  ];
-  for (const n of numbers) {
+  // Swept across the whole grade-4 range. The interesting cases — a 5 on the
+  // boundary, a run of 9s that carries — now turn up by themselves instead of
+  // being hand-picked, and far more often.
+  for (let n = 3_218; n <= 949_999; n += 8_431) {
     for (const p of PLACES) {
       if (p.unit >= n) continue;                     // nothing to round
       const correct = roundTo(n, p.unit);

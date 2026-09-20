@@ -87,7 +87,7 @@ function difficultyFor(a: number): number {
  */
 function numberTuples(): [number, number, number, number][] {
   const out: [number, number, number, number][] = [];
-  for (let a = 26; a <= 98; a += 3) {
+  for (let a = 24; a <= 120; a += 2) {
     const variants: [number, number, number][] = [
       [4 + (a % 9),  5 + (a % 7),  3 + (a % 5)],
       [6 + (a % 11), 4 + (a % 6),  5 + (a % 8)],
@@ -110,7 +110,7 @@ function* enumerateNamed(): Generator<PracticeItem> {
     const pronoun = actor.gender === 'f' ? 'היא' : 'הוא';
     const possessive = actor.gender === 'f' ? 'לה' : 'לו';
 
-    for (let oi = 0; oi < OBJECTS.length; oi += 3) {
+    for (let oi = 0; oi < OBJECTS.length; oi += 1) {
       const entry = OBJECTS[oi];
       const obj   = entry.noun;
       const chain = CHAINS[(i + oi) % CHAINS.length];

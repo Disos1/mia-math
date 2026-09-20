@@ -83,50 +83,52 @@ function* multByTens(): Generator<PracticeItem> {
 const ML = 'MULT_DIV_LINK';
 
 function* multDivLink(): Generator<PracticeItem> {
-  const facts: Array<[number, number]> = [
-    [7, 8], [6, 9], [8, 4], [7, 6], [9, 9], [6, 8], [7, 9], [8, 8], [4, 9], [6, 7],
-  ];
-  for (const [a, b] of facts) {
-    yield buildItem({
-      itemId: `G_ML_INV_${a}_${b}`, skillCode: ML,
-      question: `ידוע ש-${a} × ${b} = ${a * b}. כמה זה ${a * b} ÷ ${b}?`,
-      correct: a, signature: a * b, signatureCode: null, distractors: [],
-      cpaLayer: 'abstract', difficulty: 1, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: 'כפל וחילוק הם פעולות הפוכות.' },
-        { text: `אם ${a} × ${b} = ${a * b}, אז ${a * b} ÷ ${b} מחזיר אותנו ל-${a}.`, answer: a },
-      ],
-    });
+  for (let a = 3; a <= 9; a++) {
+    for (let b = 3; b <= 12; b++) {
+      yield buildItem({
+        itemId: `G_ML_INV_${a}_${b}`, skillCode: ML,
+        question: `ידוע ש-${a} × ${b} = ${a * b}. כמה זה ${a * b} ÷ ${b}?`,
+        correct: a, signature: a * b, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 1, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: 'כפל וחילוק הם פעולות הפוכות.' },
+          { text: `אם ${a} × ${b} = ${a * b}, אז ${a * b} ÷ ${b} מחזיר אותנו ל-${a}.`, answer: a },
+        ],
+      });
 
-    yield buildItem({
-      itemId: `G_ML_MISS_${a}_${b}`, skillCode: ML,
-      question: `? × ${b} = ${a * b}. מה הגורם החסר?`,
-      correct: a, signature: a * b, signatureCode: null, distractors: [],
-      cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: 'גורם חסר מוצאים בעזרת חילוק.' },
-        { text: `${a * b} ÷ ${b} = ?`, answer: a },
-      ],
-    });
+      yield buildItem({
+        itemId: `G_ML_MISS_${a}_${b}`, skillCode: ML,
+        question: `? × ${b} = ${a * b}. מה הגורם החסר?`,
+        correct: a, signature: a * b, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: 'גורם חסר מוצאים בעזרת חילוק.' },
+          { text: `${a * b} ÷ ${b} = ?`, answer: a },
+        ],
+      });
+    }
   }
 
-  // Brackets change the answer — the same lesson as in the numbers booklet.
-  const bracketed: Array<[number, number, number]> = [
-    [20, 2, 5], [36, 3, 2], [48, 4, 2], [60, 5, 3], [24, 2, 6], [72, 6, 2], [40, 4, 5], [90, 3, 3],
-  ];
-  for (const [a, b, c] of bracketed) {
-    yield buildItem({
-      itemId: `G_ML_PAR_${a}_${b}_${c}`, skillCode: ML,
-      question: `כמה זה ${a} ÷ (${b} × ${c})?`,
-      correct: a / (b * c),
-      signature: (a / b) * c, signatureCode: 'ERR_ORDER_OPS',
-      distractors: [], cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: 'קודם מה שבתוך הסוגריים.' },
-        { text: `${b} × ${c} = ?`, answer: b * c },
-        { text: `${a} ÷ ${b * c} = ?`, answer: a / (b * c) },
-      ],
-    });
+  // Brackets change the answer — swept over triples that divide exactly.
+  for (let b = 2; b <= 9; b++) {
+    for (let c = 2; c <= 9; c++) {
+      for (let q = 2; q <= 9; q++) {
+        const a = b * c * q;
+        if (a > 400 || (a / b) * c === a / (b * c)) continue;
+        yield buildItem({
+          itemId: `G_ML_PAR_${a}_${b}_${c}`, skillCode: ML,
+          question: `כמה זה ${a} ÷ (${b} × ${c})?`,
+          correct: q,
+          signature: (a / b) * c, signatureCode: 'ERR_ORDER_OPS',
+          distractors: [], cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+          steps: [
+            { text: 'קודם מה שבתוך הסוגריים.' },
+            { text: `${b} × ${c} = ?`, answer: b * c },
+            { text: `${a} ÷ ${b * c} = ?`, answer: q },
+          ],
+        });
+      }
+    }
   }
 }
 
@@ -135,23 +137,20 @@ function* multDivLink(): Generator<PracticeItem> {
 const MV = 'ARITH_MULT_VERTICAL';
 
 function* multVertical(): Generator<PracticeItem> {
-  // Two digits × one digit.
-  for (const a of [23, 34, 46, 57, 68, 72, 85, 94, 128, 236]) {
-    for (const b of [3, 4, 6, 7, 8]) {
-      // Multiplies each digit separately and writes the results side by side.
-      // Only claimed for two-digit numbers: on three digits the fake answer runs
-      // past what the keypad can hold, and where there is no carry it happens to
-      // equal the right answer (23 × 3 → "69"), which would mark her correct
-      // answer as a misconception.
-      const naive = a < 100 ? digitwise(a, b) : null;
+  // Two digits × one digit — swept, skipping any with nothing to carry.
+  for (let a = 13; a <= 98; a += 3) {
+    for (let b = 3; b <= 9; b++) {
+      if ((a % 10) * b < 10 && Math.floor(a / 10) * b < 10) continue;
+      const naive  = digitwise(a, b);
+      const usable = naive !== a * b && String(naive).length <= String(a * b).length + 1;
       yield buildItem({
         itemId: `G_MV_ONE_${a}_${b}`, skillCode: MV,
         question: `כמה זה ${a} × ${b}?`,
         correct: a * b,
-        signature: naive !== null && naive !== a * b ? naive : null,
-        signatureCode: naive !== null && naive !== a * b ? 'ERR_MULT_PLACEHOLDER' : null,
+        signature: usable ? naive : null,
+        signatureCode: usable ? 'ERR_MULT_PLACEHOLDER' : null,
         distractors: [], cpaLayer: 'abstract',
-        difficulty: a > 99 ? 3 : 2, answerMode: 'keypad', rng: () => 0.5,
+        difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
         steps: [
           { text: 'כופלים ספרה-ספרה מימין לשמאל, והנשא עובר הלאה.' },
           { text: `${a} × ${b} = ?`, answer: a * b },
@@ -161,16 +160,17 @@ function* multVertical(): Generator<PracticeItem> {
   }
 
   // Two digits × two digits — where the place-holder zero lives.
-  for (const a of [23, 34, 45, 56, 67, 72, 84, 96]) {
-    for (const b of [12, 14, 21, 23, 32]) {
+  for (let a = 23; a <= 97; a += 7) {
+    for (let b = 12; b <= 39; b += 3) {
       const tens = Math.floor(b / 10), ones = b % 10;
+      if (ones === 0) continue;                 // whole tens belong to MULT_BY_TENS
+      const naive = a * ones + a * tens;
       yield buildItem({
         itemId: `G_MV_TWO_${a}_${b}`, skillCode: MV,
         question: `כמה זה ${a} × ${b}?`,
         correct: a * b,
-        // The classic: second row written without its place-holder zero.
-        signature: a * ones + a * tens !== a * b ? a * ones + a * tens : null,
-        signatureCode: a * ones + a * tens !== a * b ? 'ERR_MULT_PLACEHOLDER' : null,
+        signature: naive !== a * b ? naive : null,
+        signatureCode: naive !== a * b ? 'ERR_MULT_PLACEHOLDER' : null,
         distractors: [], cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
         steps: [
           { text: `קודם כופלים באחדות: ${a} × ${ones} = ?`, answer: a * ones },
@@ -193,29 +193,28 @@ function digitwise(a: number, b: number): number {
 const D1 = 'DIV_ONE_DIGIT';
 
 function* divOneDigit(): Generator<PracticeItem> {
-  const cases: Array<[number, number]> = [
-    [87, 4], [96, 5], [78, 3], [65, 4], [92, 6], [59, 7], [84, 5], [73, 6],
-    [128, 4], [155, 6], [243, 5], [176, 7], [219, 4], [368, 8], [147, 3], [205, 6],
-  ];
-  for (const [n, d] of cases) {
-    const q = Math.floor(n / d), r = n % d;
-    yield buildItem({
-      itemId: `G_D1_Q_${n}_${d}`, skillCode: D1,
-      question: `${n} ÷ ${d} — כמה יוצא (בלי השארית)?`,
-      correct: q, signature: null, signatureCode: null, distractors: [],
-      cpaLayer: 'abstract', difficulty: n > 99 ? 3 : 2, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: `כמה פעמים נכנס ${d} בתוך ${n}?` },
-        { text: `${d} × ${q} = ${d * q}, וזה הכי קרוב מתחת ל-${n}.`, answer: q },
-      ],
-    });
+  for (let n = 27; n <= 420; n += 11) {
+    for (let d = 3; d <= 9; d += 2) {
+      const q = Math.floor(n / d), r = n % d;
 
-    if (r > 0) {
+      yield buildItem({
+        itemId: `G_D1_Q_${n}_${d}`, skillCode: D1,
+        question: `${n} ÷ ${d} — כמה יוצא (בלי השארית)?`,
+        correct: q, signature: null, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: n > 99 ? 3 : 2, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: `כמה פעמים נכנס ${d} בתוך ${n}?` },
+          { text: `${d} × ${q} = ${d * q}, וזה הכי קרוב מתחת ל-${n}.`, answer: q },
+        ],
+      });
+
+      if (r === 0) continue;
+
       yield buildItem({
         itemId: `G_D1_R_${n}_${d}`, skillCode: D1,
         question: `${n} ÷ ${d} — מה השארית?`,
         correct: r,
-        signature: d - r, signatureCode: null, distractors: [],
+        signature: d - r !== r ? d - r : null, signatureCode: null, distractors: [],
         cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
         steps: [
           { text: `${d} × ${q} = ${d * q}.` },
@@ -224,11 +223,12 @@ function* divOneDigit(): Generator<PracticeItem> {
         ],
       });
 
+      if (n % 3 !== 0) continue;                 // keep the three kinds balanced
       yield buildItem({
         itemId: `G_D1_FULL_${n}_${d}`, skillCode: D1,
         question: `כמה זה ${n} ÷ ${d}?`,
         correct: `${q} שארית ${r}`,
-        signature: `${q} שארית ${d - r}`, signatureCode: null,
+        signature: d - r !== r ? `${q} שארית ${d - r}` : null, signatureCode: null,
         distractors: [`${q + 1} שארית ${r}`], exactOptions: true,
         cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
         steps: [
@@ -245,37 +245,43 @@ function* divOneDigit(): Generator<PracticeItem> {
 const DL = 'ARITH_DIV_LONG';
 
 function* divLong(): Generator<PracticeItem> {
-  const cases: Array<[number, number]> = [
-    [4_536, 4], [1_284, 6], [2_415, 5], [3_672, 8], [5_124, 7], [8_136, 9],
-    [1_950, 3], [6_048, 6], [2_744, 4], [7_290, 5], [9_216, 8], [3_504, 6],
-  ];
-  for (const [n, d] of cases) {
-    const q = Math.floor(n / d), r = n % d;
-    yield buildItem({
-      itemId: `G_DL_${n}_${d}`, skillCode: DL,
-      question: r === 0 ? `כמה זה ${fmt(n)} ÷ ${d}?` : `${fmt(n)} ÷ ${d} — כמה יוצא (בלי השארית)?`,
-      correct: q, signature: null, signatureCode: null, distractors: [],
-      cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: 'בחילוק ארוך מתקדמים ספרה-ספרה משמאל לימין.' },
-        { text: 'בכל שלב: כמה פעמים נכנס המחלק, כותבים למעלה, ומורידים את הספרה הבאה.' },
-        { text: `${fmt(n)} ÷ ${d} = ?`, answer: q },
-      ],
-    });
+  for (let n = 1_128; n <= 9_800; n += 311) {
+    for (const d of [3, 4, 6, 7, 8, 9]) {
+      const q = Math.floor(n / d), r = n % d;
+      yield buildItem({
+        itemId: `G_DL_${n}_${d}`, skillCode: DL,
+        question: r === 0
+          ? `כמה זה ${fmt(n)} ÷ ${d}?`
+          : `${fmt(n)} ÷ ${d} — כמה יוצא (בלי השארית)?`,
+        correct: q, signature: null, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: 'בחילוק ארוך מתקדמים ספרה-ספרה משמאל לימין.' },
+          { text: 'בכל שלב: כמה פעמים נכנס המחלק, כותבים למעלה, ומורידים את הספרה הבאה.' },
+          { text: `${fmt(n)} ÷ ${d} = ?`, answer: q },
+        ],
+      });
+    }
   }
 
   // Whole-ten divisors — the only two-digit divisors grade 4 meets.
-  for (const [q, d] of [[7, 20], [12, 30], [9, 40], [15, 50], [8, 60], [11, 70], [6, 80], [13, 90]]) {
-    yield buildItem({
-      itemId: `G_DL_TEN_${q * d}_${d}`, skillCode: DL,
-      question: `כמה זה ${fmt(q * d)} ÷ ${d}?`,
-      correct: q, signature: q * 10, signatureCode: 'ERR_ZERO_COUNT', distractors: [],
-      cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: 'מוחקים אפס משני המספרים.' },
-        { text: `${q * d / 10} ÷ ${d / 10} = ?`, answer: q },
-      ],
-    });
+  for (let q = 4; q <= 19; q++) {
+    for (const d of [20, 30, 40, 50, 60, 70, 80, 90]) {
+      const naive  = q * 10;
+      const usable = String(naive).length <= String(q).length + 1;
+      yield buildItem({
+        itemId: `G_DL_TEN_${q * d}_${d}`, skillCode: DL,
+        question: `כמה זה ${fmt(q * d)} ÷ ${d}?`,
+        correct: q,
+        signature: usable ? naive : null,
+        signatureCode: usable ? 'ERR_ZERO_COUNT' : null,
+        distractors: [], cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: 'מוחקים אפס משני המספרים.' },
+          { text: `${q * d / 10} ÷ ${d / 10} = ?`, answer: q },
+        ],
+      });
+    }
   }
 }
 
@@ -295,8 +301,9 @@ const RULES: Record<number, string> = {
 const digitSum = (n: number) => String(n).split('').reduce((s, d) => s + Number(d), 0);
 
 function* divisibility(): Generator<PracticeItem> {
-  const numbers = [342, 455, 630, 728, 819, 1_230, 2_475, 3_186, 4_050, 5_544, 693, 870];
-  for (const n of numbers) {
+  // Swept: every rule against numbers spread across the range, so each rule
+  // meets both its yes and its no cases many times over.
+  for (let n = 102; n <= 5_400; n += 137) {
     for (const d of [2, 3, 5, 6, 9, 10]) {
       const yes = n % d === 0;
       yield buildItem({
@@ -336,8 +343,7 @@ function factorise(n: number): string {
 }
 
 function* primes(): Generator<PracticeItem> {
-  const nums = [7, 9, 11, 12, 15, 17, 18, 21, 23, 25, 28, 29, 31, 33, 36, 37, 41, 45, 49, 51];
-  for (const n of nums) {
+  for (let n = 5; n <= 100; n++) {
     const isPrime = divisorsOf(n).length === 2;
     yield buildItem({
       itemId: `G_PR_IS_${n}`, skillCode: PR,
@@ -354,7 +360,8 @@ function* primes(): Generator<PracticeItem> {
     });
   }
 
-  for (const n of [12, 18, 20, 24, 28, 30, 36, 45, 50, 60]) {
+  for (let n = 12; n <= 96; n += 2) {
+    if (divisorsOf(n).length === 2) continue;      // a prime has nothing to factorise
     yield buildItem({
       itemId: `G_PR_COUNT_${n}`, skillCode: PR,
       question: `כמה מחלקים יש ל-${n}?`,

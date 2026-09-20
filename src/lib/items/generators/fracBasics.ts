@@ -36,7 +36,7 @@ const PW = 'FRAC_PART_WHOLE';
 function* partWholeShaded(): Generator<PracticeItem> {
   // "What part of the circle is shaded?" — shaded k of n.
   // Signature: k/(n−k), the shaded-to-unshaded ratio instead of shaded-to-whole.
-  for (const n of [3, 4, 5, 6, 8, 10]) {
+  for (const n of [3, 4, 5, 6, 7, 8, 9, 10, 12]) {
     for (let k = 1; k < n; k++) {
       if (k === n - k) continue;          // k/(n−k) would be 1 — not diagnostic
       const correct = frac(k, n);
@@ -65,7 +65,7 @@ function* partWholeShaded(): Generator<PracticeItem> {
 
 function* partWholeNaming(): Generator<PracticeItem> {
   // "A whole was cut into 8 equal parts — what is each part called?"
-  const denoms = [3, 4, 5, 6, 7, 8, 9, 10];
+  const denoms = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12];
   for (const d of denoms) {
     // Three nearest part-names: the confusable ones, and always a full set of four.
     const neighbours = denoms.filter(x => x !== d)
@@ -91,9 +91,8 @@ function* partWholeNaming(): Generator<PracticeItem> {
 
 function* partWholeRoles(): Generator<PracticeItem> {
   // "In 3/7, what is the denominator?" Signature: the numerator (roles swapped).
-  const pairs: Array<[number, number]> = [
-    [3, 7], [2, 9], [4, 5], [5, 8], [3, 10], [6, 7], [2, 5], [4, 9], [7, 8], [3, 4],
-  ];
+  const pairs: Array<[number, number]> = [];
+  for (let d = 3; d <= 12; d++) for (let n = 1; n < d; n++) pairs.push([n, d]);
   for (const [n, d] of pairs) {
     for (const ask of ['מכנה', 'מונה'] as const) {
       const correct = ask === 'מכנה' ? d : n;

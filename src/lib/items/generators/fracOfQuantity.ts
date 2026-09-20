@@ -19,6 +19,10 @@ const FRACTIONS: FracWord[] = [
   { d: 4, word: 'רבע'    },
   { d: 5, word: 'חמישית' },
   { d: 6, word: 'שישית'  },
+  { d: 7, word: 'שביעית' },
+  { d: 8, word: 'שמינית' },
+  { d: 9, word: 'תשיעית' },
+  { d: 10, word: 'עשירית' },
 ];
 
 function difficultyFor(d: number, q: number): number {
@@ -31,9 +35,9 @@ function difficultyFor(d: number, q: number): number {
 function* enumerate(): Generator<PracticeItem> {
   for (const { d, word } of FRACTIONS) {
     // q = d, 2d, 3d, ... up to 60
-    for (let k = 1; k <= 12; k++) {
+    for (let k = 1; k <= 20; k++) {
       const q = d * k;
-      if (q > 60) break;
+      if (q > 120) break;
       if (q < d) continue; // need at least one piece
       const correct = q / d;
       const sig     = q * d;        // multiply-instead-of-divide misconception

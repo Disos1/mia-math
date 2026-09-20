@@ -49,8 +49,9 @@ function digitAt(n: number, pow: number): number {
 // Signature ERR_DIGIT_FOR_VALUE: answering the digit itself.
 
 function* enumerateDigitValue(): Generator<PracticeItem> {
-  const numbers = [472615, 385291, 405070, 604082, 918473, 250938, 736104, 489517];
-  for (const n of numbers) {
+  // Swept across six-digit numbers; the zero-digit guard below still skips the
+  // probes that are not diagnostic, so the rule does the choosing, not a list.
+  for (let n = 102_345; n <= 987_654; n += 18_397) {
     for (const place of [4, 3, 5, 2]) {
       const d = digitAt(n, place);
       if (d === 0) continue;                 // zero-value probes are T3's job

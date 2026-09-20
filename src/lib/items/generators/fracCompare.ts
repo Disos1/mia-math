@@ -37,7 +37,9 @@ function difficultyFor(m: number, n: number): number {
 }
 
 function* enumerate(): Generator<PracticeItem> {
-  const denoms = [2, 3, 4, 5, 6, 8, 10];
+  // Every denominator to 12: glyph() falls back to "1/d" where no single
+  // character exists, so widening the range costs nothing in rendering.
+  const denoms = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   for (const m of denoms) {
     for (const n of denoms) {
       if (m >= n) continue;
@@ -73,6 +75,27 @@ function* enumerate(): Generator<PracticeItem> {
         difficulty:    Math.min(5, diff + 1), // abstract is one notch harder
         rng:           () => 0.5,
       });
+
+      // The same pair, asked the other way round. Without this she can answer
+      // every item by picking the bigger-looking fraction, whatever is asked.
+      yield buildItem({
+        itemId:        `G_FRAC_CMP_${m}_${n}_SMALL`,
+        skillCode:     SKILL,
+        question:      `איזה שבר קטן יותר?`,
+        correct:       signatureG,          // 1/n with the bigger denominator
+        signature:     correctG,            // picking the bigger fraction anyway
+        signatureCode: 'ERR_FRACTION_BIAS',
+        distractors:   ['שווים'],
+        exactOptions:  true,
+        cpaLayer:      'abstract',
+        difficulty:    diff,
+        rng:           () => 0.5,
+        steps: [
+          { text: 'ככל שמחלקים ליותר חלקים, כל חלק קטן יותר.' },
+          { text: `לכן הקטן יותר הוא ${signatureG}.` },
+        ],
+      });
+
     }
   }
 }

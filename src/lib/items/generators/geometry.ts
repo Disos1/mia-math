@@ -29,7 +29,11 @@ const LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח'];
 
 export const POLYGON_NAMES: Record<number, string> = {
   3: 'משולש', 4: 'מרובע', 5: 'מחומש', 6: 'משושה', 7: 'משובע', 8: 'מתומן',
+  9: 'מתושע', 10: 'מעושר',
 };
+
+/** Every polygon the grade-4 booklet names. */
+const POLY_SIDES = [3, 4, 5, 6, 7, 8, 9, 10];
 
 // ─── Shape helpers ───────────────────────────────────────────────────────────
 
@@ -91,9 +95,9 @@ export function sideName(labels: string[], i: number): string {
 const PG = 'GEOM_POLYGONS';
 
 function* polygonNaming(): Generator<PracticeItem> {
-  for (const n of [3, 4, 5, 6, 7, 8]) {
-    for (const deg of [0, 20]) {
-      const others = [3, 4, 5, 6, 7, 8].filter(x => x !== n)
+  for (const n of POLY_SIDES) {
+    for (const deg of [0, 20, 45, 70, 115, 160]) {
+      const others = POLY_SIDES.filter(x => x !== n)
         .sort((a, b) => Math.abs(a - n) - Math.abs(b - n) || a - b).slice(0, 3);
       yield buildItem({
         itemId:        `G_PG_NAME_${n}_${deg}`,
@@ -115,7 +119,8 @@ function* polygonNaming(): Generator<PracticeItem> {
 
 function* sidesAndVertices(): Generator<PracticeItem> {
   // Name → count, no picture: does she know what the name means?
-  for (const n of [5, 6, 7, 8]) {
+  // Named: no drawing, she has to know what the word means.
+  for (const n of POLY_SIDES) {
     for (const what of ['צלעות', 'קדקודים'] as const) {
       yield buildItem({
         itemId:        `G_PG_COUNT_${n}_${what === 'צלעות' ? 'S' : 'V'}`,
@@ -130,13 +135,34 @@ function* sidesAndVertices(): Generator<PracticeItem> {
       });
     }
   }
+
+  // Drawn: counting off a figure, and a different rotation is a different
+  // question — a tilted heptagon is not the same task as an upright one.
+  for (const n of POLY_SIDES) {
+    for (const deg of [0, 35, 80, 125]) {
+      for (const what of ['צלעות', 'קדקודים'] as const) {
+        yield buildItem({
+          itemId:        `G_PG_DRAWN_${n}_${deg}_${what === 'צלעות' ? 'S' : 'V'}`,
+          skillCode:     PG,
+          question:      `כמה ${what} יש למצולע שבתמונה?`,
+          correct:       n, signature: null, signatureCode: null, distractors: [],
+          visual:        { type: 'polygon', points: rotateAndFit(regularPolygon(n), deg), labels: LETTERS.slice(0, n) },
+          cpaLayer:      'abstract', difficulty: n >= 8 ? 2 : 1, answerMode: 'keypad', rng: () => 0.5,
+          steps: [
+            { text: 'סופרים סביב הצורה, ומתחילים במקום קבוע כדי לא לספור פעמיים.' },
+            { text: `כמה ${what} ספרת?`, answer: n },
+          ],
+        });
+      }
+    }
+  }
 }
 
 function* diagonalsFromVertex(): Generator<PracticeItem> {
   // From one vertex you can reach every other vertex except itself and its two
   // neighbours (those are sides): n − 3. Joining to all others gives n − 1 —
   // the sides counted as diagonals.
-  for (const n of [4, 5, 6, 7, 8]) {
+  for (const n of POLY_SIDES.filter(x => x >= 4)) {
     for (const pictorial of [false, true]) {
       yield buildItem({
         itemId:        `G_PG_DIAG_${n}${pictorial ? '_P' : ''}`,

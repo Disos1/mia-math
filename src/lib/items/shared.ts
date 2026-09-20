@@ -47,6 +47,16 @@ export interface BuildItemArgs {
  * fallbacks (correct ±k) until the array has 4 unique entries.
  */
 export function buildItem(a: BuildItemArgs): PracticeItem {
+  // A signature identical to the correct answer would mark her RIGHT answer as
+  // a misconception. Once generators sweep ranges instead of listing cases this
+  // collision is inevitable (3/4 − 4/8: the "added across" answer really is
+  // 1/4), so it is dropped here rather than guarded at fifty call sites. The
+  // sweep test still fails if one ever reaches an item, and a second test keeps
+  // each misconception observable on enough items to be diagnosable.
+  if (a.signature !== null && a.signature !== undefined
+      && String(a.signature) === String(a.correct)) {
+    a = { ...a, signature: null, signatureCode: null };
+  }
   const opts: (string | number)[] = [a.correct];
   if (a.signature !== null && a.signature !== undefined) opts.push(a.signature);
   for (const d of a.distractors) {
