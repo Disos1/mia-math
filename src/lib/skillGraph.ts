@@ -181,6 +181,171 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     // the lesson. Polygon naming reaches her through the repair stream instead.
     prereqs: [],
   },
+  MULT_BY_TENS: {
+    skill: 'MULT_BY_TENS', grade: 4, strand: 'ARITH', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'ARITH_MULT_6_9', kind: 'fluency',
+        why: 'כפל בעשרות שלמות הוא עובדת כפל ועוד אפסים — העובדה חייבת להיות מיידית' },
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'האפסים הם ערך מקום: בלעדיו קל לאבד אחד מהם' },
+    ],
+  },
+  MULT_DIV_LINK: {
+    skill: 'MULT_DIV_LINK', grade: 4, strand: 'ARITH', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'ARITH_MULT_6_9', kind: 'fluency',
+        why: 'גורם חסר נמצא ישירות מעובדת הכפל' },
+    ],
+  },
+  DIV_ONE_DIGIT: {
+    skill: 'DIV_ONE_DIGIT', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'MULT_DIV_LINK', kind: 'accuracy',
+        why: 'חילוק עם שארית נשען על "כמה פעמים נכנס" — כלומר על הקשר לכפל' },
+      { skill: 'ARITH_MULT_6_9', kind: 'fluency',
+        why: 'בכל שלב של החילוק מחפשים עובדת כפל מתאימה' },
+    ],
+  },
+  NUM_DIVISIBILITY: {
+    skill: 'NUM_DIVISIBILITY', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'DIV_ONE_DIGIT', kind: 'accuracy',
+        why: 'סימני התחלקות הם קיצור דרך לחילוק — קודם צריך להבין מה הם מקצרים' },
+    ],
+  },
+  NUM_PRIMES: {
+    skill: 'NUM_PRIMES', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'NUM_DIVISIBILITY', kind: 'accuracy',
+        why: 'כדי לדעת אם מספר ראשוני בודקים במי הוא מתחלק' },
+    ],
+  },
+  NUM_ADD_SUB_LINK: {
+    skill: 'NUM_ADD_SUB_LINK', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'ARITH_ADD_SUB_LARGE', kind: 'accuracy',
+        why: 'כדי לראות את הקשר בין חיבור לחיסור צריך קודם לדעת לחשב אותם' },
+    ],
+  },
+  NUM_ORDER_OPS: {
+    skill: 'NUM_ORDER_OPS', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'ARITH_ADD_SUB_LARGE', kind: 'accuracy',
+        why: 'סדר פעולות הוא שאלה של מה קודם — אבל כל צעד הוא חיבור או חיסור' },
+    ],
+  },
+  NUM_WORD_LARGE: {
+    skill: 'NUM_WORD_LARGE', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'ARITH_ADD_SUB_LARGE', kind: 'accuracy',
+        why: 'בבעיה מילולית עם מספרים גדולים, החישוב עצמו חייב להיות בטוח' },
+      { skill: 'ARITH_WORD_2STEP', kind: 'accuracy',
+        why: 'קודם מבינים מה השאלה מבקשת, ורק אז מחשבים' },
+    ],
+  },
+  NUM_NEGATIVE: {
+    skill: 'NUM_NEGATIVE', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'NUM_ORDER_LINE', kind: 'accuracy',
+        why: 'מספרים שליליים נקראים על ישר המספרים — משמאל לאפס' },
+    ],
+  },
+  DATA_DIAGRAMS: {
+    // Reading a chart needs no algebra; gating it would only keep her out.
+    skill: 'DATA_DIAGRAMS', grade: 4, strand: 'DATA', taughtFrom: 'jan',
+    prereqs: [],
+  },
+  DATA_CHANCE: {
+    skill: 'DATA_CHANCE', grade: 4, strand: 'DATA', taughtFrom: 'jan',
+    prereqs: [],
+  },
+  NUM_GEMATRIA: {
+    skill: 'NUM_GEMATRIA', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'spring',
+    prereqs: [],
+  },
+  GEOM_RECT_SQUARE: {
+    skill: 'GEOM_RECT_SQUARE', grade: 4, strand: 'GEOM', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'GEOM_PARALLEL_PERP', kind: 'accuracy',
+        why: 'מלבן מוגדר בדיוק לפי צלעות מקבילות וזוויות ישרות' },
+    ],
+  },
+  GEOM_TRIANGLES: {
+    skill: 'GEOM_TRIANGLES', grade: 4, strand: 'GEOM', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'GEOM_POLYGONS', kind: 'accuracy',
+        why: 'כדי למיין משולשים צריך לקרוא צלעות וזוויות של מצולע' },
+    ],
+  },
+  GEOM_PERIMETER: {
+    skill: 'GEOM_PERIMETER', grade: 4, strand: 'GEOM', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'GEOM_RECT_SQUARE', kind: 'accuracy',
+        why: 'חישוב היקף מלבן נשען על כך שצלעות נגדיות שוות' },
+    ],
+  },
+  GEOM_AREA: {
+    skill: 'GEOM_AREA', grade: 4, strand: 'GEOM', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'GEOM_PERIMETER', kind: 'accuracy',
+        why: 'קודם מבדילים בין "מסביב" (היקף) לבין "בפנים" (שטח)' },
+      { skill: 'ARITH_MULT_6_9', kind: 'fluency',
+        why: 'שטח הוא כפל — בלי לוח הכפל החישוב נתקע' },
+    ],
+  },
+  GEOM_SYMMETRY: {
+    skill: 'GEOM_SYMMETRY', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_RECT_SQUARE', kind: 'accuracy',
+        why: 'צירי הסימטריה נספרים לפי תכונות הצורה' },
+    ],
+  },
+  GEOM_SOLIDS: {
+    skill: 'GEOM_SOLIDS', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_AREA', kind: 'accuracy',
+        why: 'נפח נבנה משכבות של שטח — קודם צריך שטח' },
+    ],
+  },
+  FRAC_COMPLETE_WHOLE: {
+    skill: 'FRAC_COMPLETE_WHOLE', grade: 4, strand: 'FRAC', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'FRAC_PART_WHOLE', kind: 'accuracy',
+        why: 'כדי לדעת כמה חסר לשלם צריך לדעת מכמה חלקים השלם מורכב' },
+    ],
+  },
+  FRAC_IMPROPER: {
+    skill: 'FRAC_IMPROPER', grade: 4, strand: 'FRAC', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'FRAC_COMPLETE_WHOLE', kind: 'accuracy',
+        why: 'שבר גדול מ-1 הוא שלם שהושלם ועוד חלקים — קודם מרכיבים שלם' },
+    ],
+  },
+  FRAC_ADD_SUB_SAME: {
+    skill: 'FRAC_ADD_SUB_SAME', grade: 4, strand: 'FRAC', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'FRAC_PART_WHOLE', kind: 'accuracy',
+        why: 'מחברים חלקים מאותו גודל — צריך לקרוא נכון מונה ומכנה' },
+    ],
+  },
+  FRAC_MIXED_ADD_SUB: {
+    skill: 'FRAC_MIXED_ADD_SUB', grade: 4, strand: 'FRAC', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'FRAC_ADD_SUB_SAME', kind: 'accuracy',
+        why: 'במספר מעורב מחברים את החלקים בדיוק כמו בשברים רגילים' },
+      { skill: 'FRAC_IMPROPER', kind: 'accuracy',
+        why: 'כשהחלקים מצטברים לשלם צריך לדעת להמיר אותם' },
+    ],
+  },
+  FRAC_ADD_SUB_DIFF: {
+    skill: 'FRAC_ADD_SUB_DIFF', grade: 4, strand: 'FRAC', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'FRAC_EQUIVALENT', kind: 'accuracy',
+        why: 'כדי לחבר חצי ורבע צריך קודם לכתוב את החצי כרבעים' },
+      { skill: 'FRAC_ADD_SUB_SAME', kind: 'accuracy',
+        why: 'אחרי שהמכנים שווים זה חיבור רגיל' },
+    ],
+  },
   FRAC_EQUIVALENT: {
     // שמות שונים לשבר — late January in the book (pp. 111–120), not October.
     skill: 'FRAC_EQUIVALENT', grade: 4, strand: 'FRAC', taughtFrom: 'jan',

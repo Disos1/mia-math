@@ -1,0 +1,16 @@
+{
+  "name": "מיה — משחקים עם מספרים",
+  "short_name": "מיה",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/mia-math/",
+  "scope": "/mia-math/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF3E9",
+  "theme_color": "#FF9B7A",
+  "icons": [
+    { "src": "/mia-math/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/mia-math/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -7,9 +7,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { PracticeAttempt, MasteryMap, CPALayer } from '../types';
+import type { PracticeAttempt, MasteryMap, MasteryRecord, CPALayer } from '../types';
 import {
   applyAttemptToMastery, applyProbeResult, appendToLedger, windowAccuracy,
+  mergeMasteryMaps,
 } from './masteryTracker';
 import type { AttemptLedger } from './masteryTracker';
 import { RETENTION_DEMOTION_ACCURACY } from '../constants/config';
@@ -215,5 +216,36 @@ describe('ledger semantics', () => {
       lg = appendToLedger(lg, SKILL, { c: true, l: 'abstract', d: '2026-07-13' });
     }
     expect(lg[SKILL]).toHaveLength(10);
+  });
+});
+
+// ─── Two devices ─────────────────────────────────────────────────────────────
+
+describe('mergeMasteryMaps', () => {
+  const rec = (skill: string, items: number, at: string): MasteryRecord => ({
+    profileId: 'p', skillCode: skill, status: 'בתהליך', firstAttemptAccuracy: 0.7,
+    itemCount: items, sessionCount: 2, lastPracticedAt: at,
+    needsRetentionProbe: false, retentionProbeDueAt: null,
+  });
+
+  it('keeps practice this device has that the cloud has not seen', () => {
+    // Phone, offline: 40 items. Cloud still shows the tablet's 20.
+    const local  = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 40, '2026-09-20T10:00:00.000Z') };
+    const remote = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 20, '2026-09-18T10:00:00.000Z') };
+    expect(mergeMasteryMaps(local, remote).FRAC_PART_WHOLE.itemCount).toBe(40);
+  });
+
+  it('takes the cloud copy when the other device is further along', () => {
+    const local  = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 12, '2026-09-19T10:00:00.000Z') };
+    const remote = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 30, '2026-09-20T10:00:00.000Z') };
+    expect(mergeMasteryMaps(local, remote).FRAC_PART_WHOLE.itemCount).toBe(30);
+  });
+
+  it('keeps skills either side has alone', () => {
+    const merged = mergeMasteryMaps(
+      { A: rec('A', 5, '2026-09-20T10:00:00.000Z') },
+      { B: rec('B', 5, '2026-09-20T10:00:00.000Z') },
+    );
+    expect(Object.keys(merged).sort()).toEqual(['A', 'B']);
   });
 });

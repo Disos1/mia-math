@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord, GapProfile } from '../../types';
 import { HASHBACHA_4, STRANDS, unitsOf } from './hashbacha4';
 import {
-  teachingWeek, estimateUnit, curriculumFrontier, standingVsClass, MAX_UNITS_AHEAD,
+  teachingWeek, estimateUnit, curriculumFrontier, standingVsClass,
   type ClassPosition,
 } from './classPosition';
 import { SKILLS_WITH_PRACTICE } from '../items';
@@ -122,8 +122,13 @@ describe('frontier for Mia on 2026-09-19', () => {
     expect(target('numbers')).toMatchObject({ skill: 'NUM_ORDER_LINE', aheadBy: 1 });
   });
 
-  it('never runs further ahead than the cap', () => {
-    for (const t of f.targets) expect(t.aheadBy).toBeLessThanOrEqual(MAX_UNITS_AHEAD);
+  it('runs as far ahead as her mastery allows — the class is not a ceiling', () => {
+    // She has mastered every numbers unit the app can teach, so her target is
+    // the next thing she can actually learn, however far past the class it sits.
+    const far = { ...MIA_SEP19, NUM_ORDER_LINE: r('NUM_ORDER_LINE', 'שליטה', 1, 20) };
+    const t   = curriculumFrontier(positionAt(NOW), far).targets.find(x => x.strand === 'numbers');
+    expect(t).toMatchObject({ skill: 'NUM_ROUNDING' });
+    expect(t!.aheadBy).toBeGreaterThan(1);
   });
 
   it('treats units the class has passed as repair, not new material', () => {
@@ -150,7 +155,9 @@ describe('frontier for Mia on 2026-09-19', () => {
     // Class moved on to fraction-of-quantity. "Compare" = unit fractions (mastered)
     // + same denominator (never given). That is unchecked, not a gap.
     const later = { ...positionAt(NOW), units: { ...positionAt(NOW).units, fractions: 'fractions.of_quantity' } };
-    expect(standingVsClass(later, MIA_SEP19).fractions).toMatchObject({ gaps: 0, unchecked: 2 });
+    const st = standingVsClass(later, MIA_SEP19).fractions;
+    expect(st.gaps).toBe(0);                       // the claim under test
+    expect(st.unchecked).toBeGreaterThanOrEqual(2); // grows as more units are built
   });
 
   it('calls it a real gap only once she has practised it', () => {

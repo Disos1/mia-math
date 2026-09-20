@@ -18,6 +18,7 @@
 
 import { supabase, SUPABASE_CONFIGURED } from './supabase';
 import type { Profile, MasteryMap, SessionRecord, PracticeAttempt } from '../types';
+import type { StoredClassPosition } from './curriculum/classPosition';
 
 // ─── Module-level auth state ──────────────────────────────────────────────────
 
@@ -93,6 +94,36 @@ export async function pullProfile(authUserId: string): Promise<Profile | null> {
     sessionsCompleted:     data.sessions_completed,
     createdAt:             data.created_at,
   };
+}
+
+// ─── Class position (where the class is in the textbook) ─────────────────────
+//
+// Lives on the profile row so the parent answers "where is the class?" once and
+// it reaches every device she practises on — tablet at home, phone anywhere.
+
+async function _pushClassPosition(profileId: string, position: StoredClassPosition): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ class_position: position })
+    .eq('profile_id', profileId);
+  if (error) throw error;
+}
+
+/** Fire-and-forget. No-op offline or signed out — localStorage still holds it. */
+export function syncClassPosition(profileId: string, position: StoredClassPosition): void {
+  if (!SUPABASE_CONFIGURED || !_authUserId) return;
+  fire('classPosition', _pushClassPosition(profileId, position));
+}
+
+export async function pullClassPosition(profileId: string): Promise<StoredClassPosition | null> {
+  if (!SUPABASE_CONFIGURED) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('class_position')
+    .eq('profile_id', profileId)
+    .maybeSingle();
+  if (error) { console.warn('[sync] pullClassPosition error:', error.message); return null; }
+  return (data?.class_position as StoredClassPosition | null) ?? null;
 }
 
 // ─── Mastery map ──────────────────────────────────────────────────────────────

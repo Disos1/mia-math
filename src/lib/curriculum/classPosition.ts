@@ -13,7 +13,7 @@
  *
  * "Exceeding the pace" is implemented as pre-teaching: the new-material target
  * is the class's CURRENT unit until she has mastered it, then the NEXT one, up
- * to MAX_UNITS_AHEAD. Class then becomes her second exposure rather than her
+ * as far as her mastery takes her. Class then becomes her second exposure rather than her
  * first. Units the class has already passed that she has NOT mastered are not
  * new material — they go to the repair stream, so a gap behind the class never
  * stops her from keeping up with this week's lesson.
@@ -23,6 +23,7 @@ import type { MasteryMap } from '../../types';
 import { isMastered } from '../masteryTracker';
 import { isUnlocked } from '../skillGraph';
 import { SKILLS_WITH_PRACTICE } from '../items';
+import { syncClassPosition } from '../sync';
 import {
   STRANDS, unitsOf, unitById, indexInStrand,
   type StrandId, type CurriculumUnit,
@@ -44,8 +45,16 @@ const BREAKS: Array<[string, string]> = [
   ['2027-04-13', '2027-04-29'],   // Passover (approx.)
 ];
 
-/** How many units past the class's current one new material may reach. */
-export const MAX_UNITS_AHEAD = 2;
+/**
+ * New material is NOT capped relative to the class (Dima, 2026-09-20: "if she
+ * masters a topic, move to the next one without waiting for the class").
+ *
+ * The only gates left are real ones: the skill must be unlocked in the
+ * prerequisite graph, and the app must have items for it. The class position
+ * still decides what counts as REPAIR (units the class has passed that she has
+ * not mastered) and what she is told — "🚀 לפני הכיתה" needs to know where the
+ * class is to be true.
+ */
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -85,6 +94,13 @@ export function estimateUnit(strand: StrandId, nowIso: string): CurriculumUnit {
 
 const KEY = (profileId: string) => `mia_class_position::${profileId}`;
 
+/** What is stored — only the parent's answers; estimates are recomputed. */
+export interface StoredClassPosition {
+  units:  Partial<Record<StrandId, string>>;
+  source: Partial<Record<StrandId, 'parent' | 'estimate'>>;
+  setAt?: string;
+}
+
 function readStored(profileId: string): ClassPosition | null {
   try {
     const raw = localStorage.getItem(KEY(profileId));
@@ -115,11 +131,32 @@ export function saveClassUnit(profileId: string, strand: StrandId, unitId: strin
   stored.units[strand]  = unitId;
   stored.source[strand] = 'parent';
   stored.setAt = new Date().toISOString();
+  writeStored(profileId, stored);
+  syncClassPosition(profileId, stored);   // fire-and-forget; no-op signed out
+}
+
+function writeStored(profileId: string, stored: StoredClassPosition): void {
   try {
     localStorage.setItem(KEY(profileId), JSON.stringify(stored));
   } catch {
     // Storage disabled — the estimate keeps working; nothing to crash over.
   }
+}
+
+/**
+ * Adopt the position stored in the cloud (called on sign-in).
+ *
+ * The newer `setAt` wins, so setting it on the phone does not get overwritten
+ * by a stale copy on the tablet.
+ */
+export function hydrateClassPosition(profileId: string, remote: StoredClassPosition | null): void {
+  if (!remote) return;
+  const local = readStored(profileId);
+  if (local?.setAt && remote.setAt && local.setAt > remote.setAt) {
+    syncClassPosition(profileId, local);   // local is newer — push it up instead
+    return;
+  }
+  writeStored(profileId, remote);
 }
 
 // ─── Frontier ─────────────────────────────────────────────────────────────────
@@ -192,9 +229,11 @@ export function curriculumFrontier(
       }
     }
 
-    // Target: first unmastered, unlocked skill from the class unit onward.
+    // Target: first unmastered, unlocked skill from the class unit onward —
+    // however far ahead that turns out to be. A unit the app cannot teach yet
+    // does not stop the walk; it steps over it to the next one she can do.
     search:
-    for (let i = classIdx; i < units.length && i <= classIdx + MAX_UNITS_AHEAD; i++) {
+    for (let i = classIdx; i < units.length; i++) {
       for (const skill of units[i].skills) {
         if (!buildable(skill) || isMastered(masteryMap, skill)) continue;
         if (!isUnlocked(skill, masteryMap, slowSkills)) continue;

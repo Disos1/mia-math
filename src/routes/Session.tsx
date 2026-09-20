@@ -53,6 +53,7 @@ import {
   saveLedger,
   appendAttempts,
   upsertSessionRecord,
+  MIN_ITEMS_FOR_SESSION_COUNT,
 } from '../lib/sessionStore';
 import { loadRecentItemIds, appendRecentItemIds } from '../lib/items/recentItems';
 import { updateProfile } from '../lib/profile';
@@ -146,6 +147,12 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   // Cross-session CPA memory — start layers + struggle counters. Loaded once;
   // folded back in at finish()/visibilitychange.
   const cpaMemoryRef = useRef(loadCpaMemory(profile.profileId));
+  /** CPA memory as it was when this session began. Every persist recomputes the
+   *  session's effect FROM this baseline, so flushing twice (or twenty times,
+   *  once per answer) lands on the same result. Applying the update to the
+   *  already-updated memory used to increment `struggleSessions` again on every
+   *  background/foreground, quietly dropping her a CPA layer she never earned. */
+  const cpaBaselineRef = useRef(loadCpaMemory(profile.profileId));
 
   // Compose the plan once per session
   const plan = useMemo<SessionPlan>(
@@ -271,44 +278,82 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       s.attempts += 1;
       if (a.correct) s.correct += 1;
     }
-    cpaMemoryRef.current = updateCpaMemoryAfterSession(cpaMemoryRef.current, endLayers, skillStats);
+    cpaMemoryRef.current = updateCpaMemoryAfterSession(cpaBaselineRef.current, endLayers, skillStats);
     saveCpaMemory(profile.profileId, cpaMemoryRef.current);
   };
 
-  // When the tab is hidden (app backgrounded / tab switched / browser closed),
-  // flush whatever progress exists so the parent dashboard stays current.
-  //
-  // The `finishedRef` guard is load-bearing. finish() writes the record with a
-  // real completedAt; this handler writes the SAME sessionId with completedAt:
-  // null. Closing the app on the end card therefore fired after finish() and
-  // downgraded a completed session back to "partial" — which is exactly what
-  // Mia saw: she answered every question, and the dashboard still called it
-  // partial. A finished session must never be re-drafted.
+  /** Attempts already written to the store — so a flush appends only new ones. */
+  const flushedRef = useRef(0);
+  /** True once this session has been counted in profile.sessionsCompleted. */
+  const countedRef = useRef(false);
+
+  /**
+   * Write everything this session has earned so far.
+   *
+   * Called after EVERY answer, not only at the end. Mia often runs out of time
+   * mid-session, and progress used to live in memory until finish() ran: her
+   * records showed sessions with 20 questions answered and zero attempts
+   * stored, and whole days (27 Jul, 1 Aug, 28 Aug) where every session recorded
+   * 0 answered. Those were real practice that the dashboard and the daily email
+   * both reported as "did not practise" — she said she had, and she was right.
+   *
+   * The old code hung everything on `visibilitychange`, which iOS Safari does
+   * not reliably fire when a tab is closed. Nothing may depend on catching the
+   * exit: the only safe moment to save an answer is when it is given.
+   */
+  const flushProgress = (completed: boolean): void => {
+    const attempts = attemptsRef.current;
+    const fresh    = attempts.slice(flushedRef.current);
+    if (fresh.length > 0) {
+      appendAttempts(profile.profileId, fresh);
+      appendRecentItemIds(profile.profileId, fresh.map(a => a.itemId));
+      flushedRef.current = attempts.length;
+    }
+
+    const { attempted, correct } = tallyAttempts(attempts);
+    saveMasteryMap(profile.profileId, masteryRef.current);
+    saveLedger(profile.profileId, ledgerRef.current);
+    persistCpaMemory();
+    upsertSessionRecord(profile.profileId, {
+      sessionId:        plan.sessionId,
+      profileId:        profile.profileId,
+      mode:             plan.mode,
+      startedAt:        startedAtRef.current,
+      completedAt:      completed ? new Date().toISOString() : null,
+      itemsAttempted:   attempted,
+      itemsCorrect:     correct,
+      primarySkillCode: plan.primarySkillCode,
+      maxCombo:         maxComboRef.current,
+    });
+
+    // A session she genuinely worked in counts, finished or not — otherwise a
+    // child who never has time to finish stays on session 0 forever, and the
+    // composer keeps handing her the same strand.
+    if (!countedRef.current && attempted >= MIN_ITEMS_FOR_SESSION_COUNT) {
+      countedRef.current = true;
+      try {
+        updateProfile({ sessionsCompleted: profile.sessionsCompleted + 1 });
+      } catch {
+        // Profile may have been cleared (parent reset mid-session) — ignore.
+      }
+    }
+  };
+
+  // Belt and braces for the moments a flush might still be pending: both events
+  // are registered because no single one fires on every platform.
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState !== 'hidden') return;
+    const onHide = () => {
       if (finishedRef.current) return;
-      const attempts = attemptsRef.current;
-      if (attempts.length === 0) return;
-      const { attempted, correct } = tallyAttempts(attempts);
-      upsertSessionRecord(profile.profileId, {
-        sessionId:        plan.sessionId,
-        profileId:        profile.profileId,
-        mode:             plan.mode,
-        startedAt:        startedAtRef.current,
-        completedAt:      null,
-        itemsAttempted:   attempted,
-        itemsCorrect:     correct,
-        primarySkillCode: plan.primarySkillCode,
-        maxCombo:         maxComboRef.current,
-      });
-      saveMasteryMap(profile.profileId, masteryRef.current);
-      saveLedger(profile.profileId, ledgerRef.current);
-      appendRecentItemIds(profile.profileId, attempts.map(a => a.itemId));
-      persistCpaMemory();
+      if (attemptsRef.current.length === 0) return;
+      flushProgress(false);
     };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    const onVisibility = () => { if (document.visibilityState === 'hidden') onHide(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onHide);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // refs are stable, no deps needed
 
@@ -402,6 +447,10 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       comboRef.current = 0;
       setCombo(0);
     }
+
+    // Persist immediately: this answer is hers whether or not she reaches the
+    // end of the session.
+    flushProgress(false);
 
     if (correct) {
       setFeedback({ kind: 'correct' });
@@ -544,33 +593,9 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
 
   const finish = () => {
     finishedRef.current = true;
-    // Use the ref so we always have the full list even if the last setAttempts
-    // hasn't flushed through React's scheduler yet.
-    const allAttempts            = attemptsRef.current;
-    const { attempted, correct } = tallyAttempts(allAttempts);
-
-    appendAttempts(profile.profileId, allAttempts);
-    saveMasteryMap(profile.profileId, masteryRef.current);
-    saveLedger(profile.profileId, ledgerRef.current);
-    appendRecentItemIds(profile.profileId, allAttempts.map(a => a.itemId));
-    persistCpaMemory();
-    upsertSessionRecord(profile.profileId, {
-      sessionId:        plan.sessionId,
-      profileId:        profile.profileId,
-      mode:             plan.mode,
-      startedAt:        startedAtRef.current,
-      completedAt:      new Date().toISOString(),
-      itemsAttempted:   attempted,
-      itemsCorrect:     correct,
-      primarySkillCode: plan.primarySkillCode,
-      maxCombo:         maxComboRef.current,
-    });
-
-    try {
-      updateProfile({ sessionsCompleted: profile.sessionsCompleted + 1 });
-    } catch {
-      // Profile may have been cleared (e.g., parent reset mid-session) — safe to ignore.
-    }
+    // Refs, not state: the last setAttempts may not have flushed through
+    // React's scheduler yet.
+    flushProgress(true);
     setScreen('end');
   };
 

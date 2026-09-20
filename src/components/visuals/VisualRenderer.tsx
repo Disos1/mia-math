@@ -19,6 +19,7 @@ import { BaseTenBlocks }   from './BaseTenBlocks';
 import { BarModel }        from './BarModel';
 import { NumberLine }      from './NumberLine';
 import { AnalogClock }     from './AnalogClock';
+import { BarChart } from './BarChart';
 import { PolygonShape }    from './PolygonShape';
 
 interface Props {
@@ -82,6 +83,9 @@ export function VisualRenderer({ visual }: Props) {
           labelValues={visual.labelValues}
         />
       );
+    case 'bar_chart':
+      return <BarChart title={visual.title} categories={visual.categories} values={visual.values} unit={visual.unit} />;
+
     case 'polygon':
       return (
         <PolygonShape

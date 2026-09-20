@@ -99,6 +99,13 @@ export function saveLedger(profileId: string, ledger: AttemptLedger): void {
   write(KEY_LEDGER(profileId), ledger);
 }
 
+/**
+ * Answers needed before a session counts as practice in profile.sessionsCompleted.
+ * Partial sessions count: Mia often runs out of time, and a child who never
+ * reaches the end card must still move through the app's rotation.
+ */
+export const MIN_ITEMS_FOR_SESSION_COUNT = 5;
+
 // ─── Session records ────────────────────────────────────────────────────────
 
 export function loadSessionRecords(profileId: string): SessionRecord[] {

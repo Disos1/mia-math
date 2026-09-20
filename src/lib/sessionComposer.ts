@@ -182,6 +182,11 @@ function selectTracks(args: {
   return { currentGrade, blockers };
 }
 
+/** Below this accuracy, a skill she has really practised counts as failing. */
+const REPAIR_WEAK_ACCURACY = 0.8;
+/** Enough attempts that the accuracy means something. */
+const REPAIR_MIN_ITEMS     = 10;
+
 export function composeSession(args: ComposeArgs): SessionPlan {
   const rng       = args.rng       ?? Math.random;
   const recentIds = args.recentIds ?? new Set<string>();
@@ -280,7 +285,32 @@ export function composeSession(args: ComposeArgs): SessionPlan {
 
   // Repair order: graph blockers (gate upcoming grade-level work), weak skills
   // the class is about to need, gaps behind the class, then her other open gaps.
-  const allBlockers   = [...tracks.blockers, ...upcomingGaps, ...behindGaps];
+  // Repair order is by URGENCY, not by where a skill happens to sit in the graph.
+  // With the whole book built, graph blockers alone number in the dozens, and
+  // ordering by them pushed fraction-of-a-quantity — 30% after 323 questions —
+  // out of the rotation entirely. What she is actually failing comes first.
+  //
+  //   0  fluency blocker: a fact computed instead of recalled breaks every
+  //      written algorithm built on top of it, and new material cannot fix it
+  //   1  practised and failing: worst accuracy first
+  //   2  everything else (graph blockers, units the class has passed)
+  const slow = args.slowSkills ?? new Set<string>();
+  const urgency = (skill: string): number => {
+    if (slow.has(skill)) return 0;
+    const r = args.masteryMap[skill];
+    if (r && r.itemCount >= REPAIR_MIN_ITEMS && r.firstAttemptAccuracy < REPAIR_WEAK_ACCURACY) return 1;
+    return 2;
+  };
+  const allBlockers   = [...tracks.blockers, ...upcomingGaps, ...behindGaps]
+    .sort((a, b) => {
+      const d = urgency(a.skill) - urgency(b.skill);
+      if (d !== 0) return d;
+      if (urgency(a.skill) === 1) {   // weakest first within the failing tier
+        return (args.masteryMap[a.skill]?.firstAttemptAccuracy ?? 1)
+             - (args.masteryMap[b.skill]?.firstAttemptAccuracy ?? 1);
+      }
+      return 0;
+    });
   const blockerSkills = allBlockers.map(b => b.skill);
   const prereqPool    = [...new Set([...blockerSkills, ...focusPool])]
     .filter(s => !currentGrade.includes(s));

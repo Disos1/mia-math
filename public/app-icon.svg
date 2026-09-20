@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- App icon: her fox on the app's warm background. Maskable-safe — the fox
+       sits inside the middle 80%, so Android's circle crop never cuts it. -->
+  <rect width="512" height="512" rx="112" fill="#FFF3E9"/>
+  <circle cx="256" cy="256" r="150" fill="#FF9B7A"/>
+  <text x="256" y="256" font-size="170" text-anchor="middle" dominant-baseline="central">🦊</text>
+  <text x="256" y="430" font-size="58" font-weight="700" text-anchor="middle"
+        font-family="Heebo, Arial, sans-serif" fill="#2D3047" direction="rtl">מיה</text>
+</svg>

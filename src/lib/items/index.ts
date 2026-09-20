@@ -30,6 +30,22 @@ import { generate as genPlaceValueMil } from './generators/placeValueMillion';
 import { generatePartWhole, generateCompareSame } from './generators/fracBasics';
 import { generateOrderLine, generateRounding }   from './generators/numbersOrderRound';
 import { generatePolygons, generateParallelPerp } from './generators/geometry';
+import {
+  generateCompleteWhole, generateImproper, generateAddSubSame,
+  generateMixedAddSub, generateEquivalent, generateAddSubDiff,
+} from './generators/fracAdvanced';
+import {
+  generateRectSquare, generateTriangles, generatePerimeter,
+  generateArea, generateSymmetry, generateSolids,
+} from './generators/geometryShapes';
+import {
+  generateAddSubLarge, generateAddSubLink, generateOrderOps, generateWordLarge,
+  generateNegatives, generateDiagrams, generateChance, generateGematria,
+} from './generators/numbersOps';
+import {
+  generateMultByTens, generateMultDivLink, generateMultVertical,
+  generateDivOneDigit, generateDivLong, generateDivisibility, generatePrimes,
+} from './generators/multDiv';
 
 type GenFn = (opts: GenerateOpts) => PracticeItem[];
 
@@ -51,6 +67,37 @@ const REGISTRY: Record<string, GenFn> = {
   GEOM_POLYGONS:          generatePolygons,
   GEOM_PARALLEL_PERP:     generateParallelPerp,
   MEAS_TIME_CROSS_HOUR:   genTimeCrossHour,
+  // Fractions booklet, rest of the year
+  FRAC_COMPLETE_WHOLE:    generateCompleteWhole,
+  FRAC_IMPROPER:          generateImproper,
+  FRAC_ADD_SUB_SAME:      generateAddSubSame,
+  FRAC_MIXED_ADD_SUB:     generateMixedAddSub,
+  FRAC_EQUIVALENT:        generateEquivalent,
+  FRAC_ADD_SUB_DIFF:      generateAddSubDiff,
+  // Geometry booklet, rest of the year
+  GEOM_RECT_SQUARE:       generateRectSquare,
+  GEOM_TRIANGLES:         generateTriangles,
+  GEOM_PERIMETER:         generatePerimeter,
+  GEOM_AREA:              generateArea,
+  GEOM_SYMMETRY:          generateSymmetry,
+  GEOM_SOLIDS:            generateSolids,
+  // Numbers booklet, rest of the year
+  ARITH_ADD_SUB_LARGE:    generateAddSubLarge,
+  NUM_ADD_SUB_LINK:       generateAddSubLink,
+  NUM_ORDER_OPS:          generateOrderOps,
+  NUM_WORD_LARGE:         generateWordLarge,
+  NUM_NEGATIVE:           generateNegatives,
+  DATA_DIAGRAMS:          generateDiagrams,
+  DATA_CHANCE:            generateChance,
+  NUM_GEMATRIA:           generateGematria,
+  // Multiplication & division booklet — January onwards
+  MULT_BY_TENS:           generateMultByTens,
+  MULT_DIV_LINK:          generateMultDivLink,
+  ARITH_MULT_VERTICAL:    generateMultVertical,
+  DIV_ONE_DIGIT:          generateDivOneDigit,
+  ARITH_DIV_LONG:         generateDivLong,
+  NUM_DIVISIBILITY:       generateDivisibility,
+  NUM_PRIMES:             generatePrimes,
 };
 
 /** All skill codes for which a generator exists. */

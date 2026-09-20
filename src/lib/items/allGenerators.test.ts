@@ -110,7 +110,11 @@ describe('two-way questions offer exactly the two things asked about', () => {
         for (const o of it.options) {
           const s = String(o);
           if (!/\d/.test(s) || /[<>=]/.test(s)) continue;   // words / full expressions
-          expect(inQuestion.has(s), `${skill} ${it.itemId}: option "${s}" is not in "${it.question}"`).toBe(true);
+          // Every number offered must come from the question. An option may be a
+          // phrase ("6 על 4"), so check the numbers inside it, not the whole string.
+          for (const num of s.match(/[\d,]*\d(\/\d+)?/g) ?? []) {
+            expect(inQuestion.has(num), `${skill} ${it.itemId}: option "${s}" offers ${num}, which is not in "${it.question}"`).toBe(true);
+          }
         }
       }
     }

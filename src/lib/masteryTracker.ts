@@ -303,6 +303,29 @@ export function ensureProbeSchedules(masteryMap: MasteryMap, nowIso: string): Ma
 // ─── Seeding from gap profile ─────────────────────────────────────────────────
 
 /**
+ * Merge two copies of the mastery map — hers on this device and hers in the cloud.
+ *
+ * Needed once she practises on more than one device (tablet at home, phone out).
+ * Sign-in used to overwrite local with remote, which silently threw away
+ * anything practised while signed out or offline.
+ *
+ * Per skill, the copy with more items wins: itemCount only ever grows, so more
+ * items means it has seen everything the other has, and more. Ties go to the one
+ * practised most recently.
+ */
+export function mergeMasteryMaps(local: MasteryMap, remote: MasteryMap): MasteryMap {
+  const out: MasteryMap = { ...local };
+  for (const [skill, r] of Object.entries(remote)) {
+    const l = out[skill];
+    if (!l) { out[skill] = r; continue; }
+    if (r.itemCount > l.itemCount) { out[skill] = r; continue; }
+    if (r.itemCount === l.itemCount
+        && (r.lastPracticedAt ?? '') > (l.lastPracticedAt ?? '')) out[skill] = r;
+  }
+  return out;
+}
+
+/**
  * Build the initial mastery map from the diagnostic results.
  *
  * Run exactly once, right after the diagnostic completes. Seeds every

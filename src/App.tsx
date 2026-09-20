@@ -5,8 +5,10 @@ import { AVATAR_BY_ID } from './constants/avatars';
 import { ENTRY_ITEMS } from './constants/diagnosticItems';
 import { computePhase1Signals, selectVerificationItems, classifyResults } from './lib/diagnosticEngine';
 import { buildGapProfile } from './lib/gapProfile';
+import { mergeMasteryMaps } from './lib/masteryTracker';
+import { hydrateClassPosition } from './lib/curriculum/classPosition';
 import { supabase, SUPABASE_CONFIGURED } from './lib/supabase';
-import { initSync, clearSync, pullProfile, pullMasteryMap, pullSessionRecords, migrateLocalToRemote, migrateSessionRecords, deleteRemoteProfile } from './lib/sync';
+import { initSync, clearSync, pullProfile, pullMasteryMap, pullSessionRecords, pullClassPosition, migrateLocalToRemote, migrateSessionRecords, deleteRemoteProfile } from './lib/sync';
 import type { Profile, Avatar, DiagnosticAttempt, SessionMode, DiagnosticItem as DiagnosticItemType } from './types';
 
 import { SignIn }             from './routes/SignIn';
@@ -90,11 +92,20 @@ export default function App() {
       // Remote profile exists — hydrate localStorage and navigate
       saveProfile(remote);
       setProfile(remote);
-      const [remoteMastery, remoteSessions] = await Promise.all([
+      const [remoteMastery, remoteSessions, remoteClassPosition] = await Promise.all([
         pullMasteryMap(remote.profileId),
         pullSessionRecords(remote.profileId),
+        pullClassPosition(remote.profileId),
       ]);
-      if (remoteMastery) saveMasteryMap(remote.profileId, remoteMastery);
+      // Merge, never overwrite: this device may hold practice the cloud has not
+      // seen yet (signed out, offline, or a session that never synced).
+      if (remoteMastery) {
+        saveMasteryMap(
+          remote.profileId,
+          mergeMasteryMaps(loadMasteryMap(remote.profileId), remoteMastery),
+        );
+      }
+      hydrateClassPosition(remote.profileId, remoteClassPosition);
       const localSessions = loadSessionRecords(remote.profileId);
       const remoteList    = remoteSessions ?? [];
       if (remoteList.length > 0 && localSessions.length === 0) {

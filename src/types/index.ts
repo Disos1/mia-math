@@ -69,7 +69,12 @@ export type ErrorSignatureCode =
   | 'ERR_NUM_DEN_SWAP'       // gives the numerator when asked for the denominator
   | 'ERR_ROUND_TRUNCATE'     // rounds by chopping (4,768 → 4,760 instead of 4,770)
   | 'ERR_DIAGONAL_SIDES'     // counts sides as diagonals: n−1 from a vertex, not n−3
-  | 'ERR_PARALLEL_PERP_SWAP';// asked for the parallel side, gives the perpendicular one
+  | 'ERR_PARALLEL_PERP_SWAP' // asked for the parallel side, gives the perpendicular one
+  | 'ERR_ADD_DENOMINATORS'   // adds across the bar (3/8 + 2/8 = 5/16) — validated catalogue
+  | 'ERR_PERIM_AREA_SWAP'    // perimeter↔area formula swap — validated catalogue
+  | 'ERR_ORDER_OPS'          // ignores the brackets and works left to right
+  | 'ERR_ZERO_COUNT'         // loses a zero when multiplying/dividing by whole tens
+  | 'ERR_MULT_PLACEHOLDER';  // column multiplication without the place-holder zero
 
 export type SignatureConfidence = 'confirmed' | 'suspected' | 'ruled_out';
 
@@ -107,6 +112,8 @@ export type ItemVisual =
       shadedA?: number; shadedB?: number;
       /** Hide circle B entirely — for "what part is shaded?" items with a single shape. */
       single?: boolean }
+  /** Bar chart for the דיאגרמות unit — the chart is the question. */
+  | { type: 'bar_chart';        title?: string; categories: string[]; values: number[]; unit?: string }
   /** One circle split into N parts with K highlighted — used for "¼ of 20" type questions. */
   | { type: 'fraction_bar';     parts: number; highlighted: number; total?: number }
   /** Analog clock; optional arc shows elapsed minutes sweeping forward from `time`. */
