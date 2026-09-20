@@ -7,6 +7,7 @@ import { loadSessionRecords } from '../lib/sessionStore';
 import { loadMasteryMap, loadLedger } from '../lib/sessionStore';
 import { auditMastery } from '../lib/masteryAudit';
 import { ClassAlignmentCard } from '../components/parent/ClassAlignmentCard';
+import { PracticeRhythmCard } from '../components/parent/PracticeRhythmCard';
 
 interface Props {
   profile: Profile | null;
@@ -194,6 +195,9 @@ export function Parent({ profile, onBack, onReset }: Props) {
                 </div>
               </div>
             )}
+
+            {/* ── Practice rhythm: did she get the time at all? ──────────── */}
+            <PracticeRhythmCard records={sessions} />
 
             {/* ── School alignment: where is the class, is she ahead? ────── */}
             <ClassAlignmentCard profileId={profile.profileId} masteryMap={masteryMap} />
