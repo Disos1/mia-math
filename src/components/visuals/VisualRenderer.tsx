@@ -20,6 +20,7 @@ import { BarModel }        from './BarModel';
 import { NumberLine }      from './NumberLine';
 import { AnalogClock }     from './AnalogClock';
 import { BarChart } from './BarChart';
+import { SequenceStrip } from './SequenceStrip';
 import { PolygonShape }    from './PolygonShape';
 
 interface Props {
@@ -83,6 +84,9 @@ export function VisualRenderer({ visual }: Props) {
           labelValues={visual.labelValues}
         />
       );
+    case 'sequence':
+      return <SequenceStrip terms={visual.terms} blankLabel={visual.blankLabel} />;
+
     case 'bar_chart':
       return <BarChart title={visual.title} categories={visual.categories} values={visual.values} unit={visual.unit} />;
 

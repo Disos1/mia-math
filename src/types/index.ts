@@ -112,6 +112,9 @@ export type ItemVisual =
       shadedA?: number; shadedB?: number;
       /** Hide circle B entirely — for "what part is shaded?" items with a single shape. */
       single?: boolean }
+  /** A number sequence as boxes — commas inside numbers must not double as
+   *  separators between them (seen on screen 2026-10-02). */
+  | { type: 'sequence';         terms: number[]; blankLabel?: string }
   /** Bar chart for the דיאגרמות unit — the chart is the question. */
   | { type: 'bar_chart';        title?: string; categories: string[]; values: number[]; unit?: string }
   /** One circle split into N parts with K highlighted — used for "¼ of 20" type questions. */

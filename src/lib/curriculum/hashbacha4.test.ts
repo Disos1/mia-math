@@ -166,6 +166,90 @@ describe('frontier for Mia on 2026-09-19', () => {
   });
 });
 
+// ─── Teaching order ──────────────────────────────────────────────────────────
+//
+// Dima, 2026-10-02: "you gave her questions with חילוק ארוך that she has not
+// studied yet… she also doesn't know yet חילוק עם שארית. Please align with the
+// order of the topics for the fourth grade in Israel."
+//
+// Two separate leaks caused it. The frontier walk stepped OVER a unit she could
+// not do yet and kept going (landing on negative numbers, nine units ahead),
+// and the blocker search ran over every grade-4 skill in the graph regardless
+// of the book, so spring units arrived dressed as repair.
+
+describe('the book\'s order is the order', () => {
+  // A child a few weeks in: strong facts and place value, early units mastered,
+  // still shaky on subtraction across zero — which is what gates the big
+  // addition unit, and so gates everything built on it.
+  const MID_YEAR: MasteryMap = {
+    ARITH_MULT_6_9:         r('ARITH_MULT_6_9', 'שליטה', 0.95, 950),
+    PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה', 0.92, 120),
+    NUM_ORDER_LINE:         r('NUM_ORDER_LINE', 'שליטה', 0.9, 60),
+    NUM_ROUNDING:           r('NUM_ROUNDING', 'שליטה', 0.88, 55),
+    FRAC_PART_WHOLE:        r('FRAC_PART_WHOLE', 'שליטה', 0.9, 40),
+    FRAC_COMPARE_UNIT:      r('FRAC_COMPARE_UNIT', 'שליטה', 1, 42),
+    FRAC_COMPARE_SAME:      r('FRAC_COMPARE_SAME', 'שליטה', 0.9, 35),
+    GEOM_POLYGONS:          r('GEOM_POLYGONS', 'שליטה', 0.9, 30),
+    GEOM_PARALLEL_PERP:     r('GEOM_PARALLEL_PERP', 'שליטה', 0.88, 35),
+    ARITH_SUB_REGROUP_ZERO: r('ARITH_SUB_REGROUP_ZERO', 'בתהליך', 0.75, 800),
+    FRAC_OF_QUANTITY:       r('FRAC_OF_QUANTITY', 'בתהליך', 0.35, 330),
+  };
+
+  /** Units the book teaches from January onwards. */
+  const LATER_IN_THE_YEAR = [
+    'ARITH_DIV_LONG', 'DIV_ONE_DIGIT', 'NUM_DIVISIBILITY', 'NUM_PRIMES',
+    'ARITH_MULT_VERTICAL', 'MULT_BY_TENS', 'MULT_DIV_LINK', 'NUM_NEGATIVE',
+    'NUM_GEMATRIA', 'GEOM_AREA', 'GEOM_SYMMETRY', 'GEOM_SOLIDS',
+  ];
+
+  const sessions = [0, 1, 2, 3, 4, 5].map(k => composeSession({
+    profileId: 'p', gapProfile: GAP, masteryMap: MID_YEAR, mode: 'quantity',
+    sessionsCompleted: k, rng: () => 0.5, now: NOW, targetGrade: 4,
+    classPosition: positionAt(NOW),
+  }));
+
+  it('never hands her a topic the book teaches months later — in any slot', () => {
+    for (const s of sessions) {
+      for (const p of s.plannedItems) {
+        expect(LATER_IN_THE_YEAR, `${p.sessionPhase}: ${p.item.skillCode}`)
+          .not.toContain(p.item.skillCode);
+      }
+    }
+  });
+
+  it('stops at the first unit she has not mastered, even when it is locked', () => {
+    // numbers.addition is locked behind subtraction across zero, so the numbers
+    // strand offers no new material — it does NOT skip ahead to a later unit.
+    const t = curriculumFrontier(positionAt(NOW), MID_YEAR).targets.find(x => x.strand === 'numbers');
+    expect(t).toBeUndefined();
+  });
+
+  it('works on what unblocks the next unit instead', () => {
+    const repaired = new Set(sessions.flatMap(s => s.plannedItems)
+      .filter(p => p.sessionPhase === 'blocked_practice').map(p => p.item.skillCode));
+    expect(repaired).toContain('ARITH_SUB_REGROUP_ZERO');
+  });
+
+  it('still moves the strands she IS ready for', () => {
+    const newMaterial = new Set(sessions.flatMap(s => s.plannedItems)
+      .filter(p => p.sessionPhase === 'new_material').map(p => p.item.skillCode));
+    expect(newMaterial).toContain('FRAC_COMPLETE_WHOLE');
+    expect(newMaterial).toContain('GEOM_RECT_SQUARE');
+  });
+
+  it('opens the later units once the earlier ones are genuinely hers', () => {
+    // The order is a sequence, not a calendar: master what comes before and the
+    // next unit opens, however far ahead of the class that is.
+    const far: MasteryMap = { ...MID_YEAR,
+      ARITH_SUB_REGROUP_ZERO: r('ARITH_SUB_REGROUP_ZERO', 'שליטה', 0.95, 820),
+      ARITH_ADD_SUB_LARGE:    r('ARITH_ADD_SUB_LARGE', 'שליטה', 0.9, 80),
+    };
+    const t = curriculumFrontier(positionAt(NOW), far).targets.find(x => x.strand === 'numbers');
+    expect(t?.skill).toBe('NUM_ADD_SUB_LINK');     // the next unit, not a jump
+    expect(t!.aheadBy).toBeGreaterThan(1);
+  });
+});
+
 // ─── What actually reaches her ───────────────────────────────────────────────
 
 describe('composed sessions for Mia (book-aligned)', () => {

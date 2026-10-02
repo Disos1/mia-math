@@ -76,8 +76,12 @@ function* sequences(): Generator<PracticeItem> {
     if (next < 0 || next > 1_000_000) continue;
     yield buildItem({
       itemId: `G_OL_SEQ_${start}_${step}`, skillCode: OL,
-      question:   `המשיכי את הסדרה: ${terms.map(fmt).join(', ')}, ___`,
+      // The terms live in the strip, not in the sentence: printed as text, the
+      // commas between terms and the commas inside the numbers are the same
+      // character, and "747,244, 757,244, 767,244" reads as six numbers.
+      question:   'המשיכי את הסדרה. איזה מספר בא אחרי?',
       correct:    next, signature: null, signatureCode: null, distractors: [],
+      visual:     { type: 'sequence', terms },
       cpaLayer:   'abstract', difficulty: Math.abs(step) % 1000 === 0 ? 2 : 3,
       answerMode: 'keypad', rng: () => 0.5,
       steps: [

@@ -229,17 +229,29 @@ export function curriculumFrontier(
       }
     }
 
-    // Target: first unmastered, unlocked skill from the class unit onward —
-    // however far ahead that turns out to be. A unit the app cannot teach yet
-    // does not stop the walk; it steps over it to the next one she can do.
+    // Target: the first unit from the class unit onward that she has not
+    // mastered — and the walk STOPS there, locked or not.
+    //
+    // It used to step over a locked unit and keep going, which is how a child
+    // in week 2 of the numbers booklet was handed negative numbers (week 11),
+    // and, through the repair stream, long division (week 29). Grade-4 topics
+    // are taught in an order for a reason: each one is built from the last.
+    // If the next unit is locked, the strand has no new material this session
+    // and its blocker becomes repair — which is exactly the work that opens it.
+    //
+    // A unit the app cannot teach AT ALL (no generator yet) is the one thing
+    // that may be stepped over: that is our gap, not hers.
     search:
     for (let i = classIdx; i < units.length; i++) {
-      for (const skill of units[i].skills) {
-        if (!buildable(skill) || isMastered(masteryMap, skill)) continue;
-        if (!isUnlocked(skill, masteryMap, slowSkills)) continue;
-        targets.push({ strand, unit: units[i], skill, aheadBy: i - classIdx });
-        break search;
+      const teachable = units[i].skills.filter(buildable);
+      if (teachable.length === 0) continue;                       // not built yet
+      const open = teachable.filter(s => !isMastered(masteryMap, s));
+      if (open.length === 0) continue;                            // she has this unit
+      const ready = open.filter(s => isUnlocked(s, masteryMap, slowSkills));
+      if (ready.length > 0) {
+        targets.push({ strand, unit: units[i], skill: ready[0], aheadBy: i - classIdx });
       }
+      break search;                                               // stop either way
     }
   }
 
@@ -250,6 +262,41 @@ export function curriculumFrontier(
   upcoming.sort((a, b) =>
     (masteryMap[a.skill]?.firstAttemptAccuracy ?? 0) - (masteryMap[b.skill]?.firstAttemptAccuracy ?? 0));
   return { targets, behind, upcoming };
+}
+
+/**
+ * Where a skill sits in the book: its strand and the index of the EARLIEST unit
+ * that teaches it. Grade-3 catch-up skills are not in the book and return null —
+ * repair below grade level is always allowed, whatever week it is.
+ */
+export function skillUnitIndex(skill: string): { strand: StrandId; index: number } | null {
+  for (const strand of STRANDS) {
+    const i = unitsOf(strand).findIndex(u => u.skills.includes(skill));
+    if (i >= 0) return { strand, index: i };
+  }
+  return null;
+}
+
+/**
+ * The furthest unit she may be given work from, per strand: her frontier unit.
+ * Anything past it is material the book has not reached — not new material, and
+ * not repair either, because you cannot repair what was never taught.
+ */
+export function teachableHorizon(
+  position:   ClassPosition,
+  masteryMap: MasteryMap,
+  slowSkills: ReadonlySet<string> = new Set(),
+): Record<StrandId, number> {
+  const frontier = curriculumFrontier(position, masteryMap, slowSkills);
+  const out = {} as Record<StrandId, number>;
+  for (const strand of STRANDS) {
+    const units    = unitsOf(strand);
+    const classIdx = Math.max(0, indexInStrand(position.units[strand] ?? units[0].id));
+    const target   = frontier.targets.find(t => t.strand === strand);
+    const targetIdx = target ? indexInStrand(target.unit.id) : classIdx;
+    out[strand] = Math.max(classIdx, targetIdx);
+  }
+  return out;
 }
 
 /**

@@ -1060,14 +1060,24 @@ function EndSession({ plan, itemsAttempted, itemsCorrect, maxCombo, gender, name
 // partial result herself. She always exits a failure by PRODUCING the correct
 // answer with her own fingers — an errorless-learning exit, not a reveal.
 
+/** Thousands separators, so the ladder writes a number the way the question
+ *  did: she was shown "10,000" in the question and "10000" as the answer. */
+function fmtNum(n: number | string | undefined): string {
+  if (n === undefined || n === null) return '';
+  const v = typeof n === 'string' ? Number(n) : n;
+  return Number.isFinite(v) && Math.abs(v) >= 1000 ? v.toLocaleString('en-US') : String(n);
+}
+
 /** Teach-mode rendering of a step: "כמה זה 13 − 8?" → "13 − 8 = 5". */
 function teachLine(text: string, answer?: number): string {
   if (answer === undefined) return text;
+  const a = fmtNum(answer);
   const m = text.match(/כמה זה (.+)\?/);
-  return m ? `${m[1]} = ${answer}` : `${text} ${answer}`;
+  return m ? `${m[1]} = ${a}` : `${text} ${a}`;
 }
 
-function StepLadder({ item, gender, onDone }: {
+/** Exported for its render test — the ladder is what she reads after a miss. */
+export function StepLadder({ item, gender, onDone }: {
   item:   PracticeItem;
   gender: Gender;
   onDone: () => void;
@@ -1109,6 +1119,12 @@ function StepLadder({ item, gender, onDone }: {
             <MathText>{item.question}</MathText>
           </div>
 
+          {/* The figure belongs here too. The ladder used to show only the
+              question text, which worked while every question carried its own
+              numbers — a sequence drawn as boxes would have left her solving
+              "continue the sequence" with no sequence on screen. */}
+          <VisualRenderer visual={item.visual} />
+
           {/* Completed steps stay visible so the solution accumulates */}
           {steps.slice(0, idx).map((s, i) => (
             <div key={i} className="flex gap-2 items-start text-sm text-gray-500 mb-1.5">
@@ -1131,10 +1147,10 @@ function StepLadder({ item, gender, onDone }: {
           {wrongValue !== null && step.answer !== undefined && (
             <div className="text-center fade-in">
               <div className="text-2xl font-bold mb-1 line-through" style={{ color: '#DC2626' }}>
-                <MathText>{String(wrongValue)}</MathText>
+                <MathText>{fmtNum(wrongValue)}</MathText>
               </div>
               <div className="text-xl font-bold mb-4" style={{ color: '#16A34A' }}>
-                {t('session.step_correct_is', { ...g, answer: step.answer })}
+                {t('session.step_correct_is', { ...g, answer: fmtNum(step.answer) })}
               </div>
               <button
                 onClick={next}

@@ -36,8 +36,10 @@ import type {
 import { getItemPool, SKILLS_WITH_PRACTICE } from './items';
 import { masteredSkills, skillsInProgress, probesDue } from './masteryTracker';
 import { startLayerFor, isStruggling } from './cpaMemory';
-import { skillsAtGrade, isUnlocked, findBlocker, type Grade } from './skillGraph';
-import { curriculumFrontier, type ClassPosition } from './curriculum/classPosition';
+import { skillsAtGrade, isUnlocked, findBlocker, type Grade, SKILL_GRAPH } from './skillGraph';
+import {
+  curriculumFrontier, teachableHorizon, skillUnitIndex, type ClassPosition,
+} from './curriculum/classPosition';
 
 // ─── Targets ──────────────────────────────────────────────────────────────────
 
@@ -311,9 +313,30 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       }
       return 0;
     });
+  // Nothing from later in the book may be practised yet — not as new material
+  // and not as repair. The blocker search runs over every grade-4 skill in the
+  // graph, so without this a child in week 2 was given division with a
+  // remainder and divisibility rules (spring units) as "repair", for topics she
+  // had never been taught. Skills outside the book (grade-3 catch-up) are
+  // always allowed: repair below grade level is the point.
+  const horizon = frontier && args.classPosition
+    ? teachableHorizon(args.classPosition, args.masteryMap, slowSkills)
+    : null;
+  const pastHorizon = (skill: string): boolean => {
+    if (!horizon) return false;
+    // Catch-up below her grade is always allowed, wherever the grade-4 book
+    // happens to revisit it. Fraction-of-a-quantity is a grade-3 skill sitting
+    // in a November unit: she has practised it for 330 questions and sits at
+    // 30%, and the horizon must not shield it from repair.
+    if ((SKILL_GRAPH[skill]?.grade ?? 99) < targetGrade) return false;
+    const at = skillUnitIndex(skill);
+    return at !== null && at.index > horizon[at.strand];
+  };
+
   const blockerSkills = allBlockers.map(b => b.skill);
   const prereqPool    = [...new Set([...blockerSkills, ...focusPool])]
-    .filter(s => !currentGrade.includes(s));
+    .filter(s => !currentGrade.includes(s))
+    .filter(s => !pastHorizon(s));
   const whyFor        = new Map(allBlockers.map(b => [b.skill, b] as const));
 
   // The share adapts on the prerequisites actually being worked, not just the
