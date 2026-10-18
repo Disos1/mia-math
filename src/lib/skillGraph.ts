@@ -134,6 +134,27 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     // the missing floor beneath ARITH_SUB_REGROUP_ZERO (her worst skill).
     prereqs: [],
   },
+  NUM_DIGIT_CARDS: {
+    skill: 'NUM_DIGIT_CARDS', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'sept',
+    prereqs: [
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'כדי לבנות את המספר הגדול ביותר צריך לדעת כמה שווה כל מקום' },
+    ],
+  },
+  NUM_COMPARE: {
+    skill: 'NUM_COMPARE', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'sept',
+    prereqs: [
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'משווים מספרים גדולים לפי ערך המקום — מהספרה השמאלית' },
+    ],
+  },
+  NUM_ADD_LARGE: {
+    skill: 'NUM_ADD_LARGE', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'בחיבור במאונך כל ספרה עומדת מתחת לספרה באותו מקום' },
+    ],
+  },
   ARITH_ADD_SUB_LARGE: {
     skill: 'ARITH_ADD_SUB_LARGE', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
     prereqs: [
@@ -181,13 +202,102 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     // the lesson. Polygon naming reaches her through the repair stream instead.
     prereqs: [],
   },
+  MULT_BY_10_100_1000: {
+    skill: 'MULT_BY_10_100_1000', grade: 4, strand: 'ARITH', taughtFrom: 'sept',
+    prereqs: [
+      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
+        why: 'כפל ב-10 מזיז כל ספרה מקום אחד — זה ערך המקום' },
+    ],
+  },
+  DIV_TENS_BY_DIGIT: {
+    skill: 'DIV_TENS_BY_DIGIT', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'MULT_BY_TENS', kind: 'accuracy',
+        why: 'חילוק עשרות שלמות הוא הכפל בעשרות קרוא לאחור' },
+      { skill: 'ARITH_MULT_6_9', kind: 'fluency',
+        why: '2,400 ÷ 6 נשען על עובדת הכפל 6 × 4' },
+    ],
+  },
+  DIV_BY_TENS: {
+    skill: 'DIV_BY_TENS', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'DIV_TENS_BY_DIGIT', kind: 'accuracy',
+        why: 'חילוק בעשרות שלמות מתחיל מחילוק עשרות במספר חד-ספרתי' },
+    ],
+  },
+  NUM_ORDER_OPS_MULT: {
+    skill: 'NUM_ORDER_OPS_MULT', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'MULT_DIV_LINK', kind: 'accuracy',
+        why: 'סדר פעולות עם כפל וחילוק דורש לשלוט בשתי הפעולות' },
+    ],
+  },
+  NUM_ZERO_ONE: {
+    skill: 'NUM_ZERO_ONE', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [],
+  },
+  MULT_TWO_DIGIT: {
+    skill: 'MULT_TWO_DIGIT', grade: 4, strand: 'ARITH', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'MULT_BY_TENS', kind: 'accuracy',
+        why: '23 × 14 מתפרק ל-23 × 10 ועוד 23 × 4 — כפל בעשרות הוא הצעד הראשון' },
+    ],
+  },
+  MULT_VERTICAL_3BY2: {
+    skill: 'MULT_VERTICAL_3BY2', grade: 4, strand: 'ARITH', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'ARITH_MULT_VERTICAL', kind: 'accuracy',
+        why: 'קודם כפל דו-ספרתי במאונך, אחר כך תלת-ספרתי' },
+    ],
+  },
+  MULT_PROPERTIES: {
+    skill: 'MULT_PROPERTIES', grade: 4, strand: 'ARITH', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'MULT_TWO_DIGIT', kind: 'accuracy',
+        why: 'משווים מכפלות לפי הגורמים — צריך להכיר כפל בגורם דו-ספרתי' },
+    ],
+  },
+  NUM_POWERS: {
+    skill: 'NUM_POWERS', grade: 4, strand: 'ARITH', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'ARITH_MULT_6_9', kind: 'fluency',
+        why: 'חזקה היא כפל חוזר — עובדות הכפל חייבות להיות מיידיות' },
+    ],
+  },
+  DIV_LONG_B: {
+    skill: 'DIV_LONG_B', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'ARITH_DIV_LONG', kind: 'accuracy',
+        why: 'חילוק ארוך (ב) ממשיך את (א) למקרה שהספרה הראשונה קטנה מהמחלק' },
+    ],
+  },
+  NUM_DIV_3_9: {
+    skill: 'NUM_DIV_3_9', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
+    prereqs: [],
+  },
+  NUM_DIV_6: {
+    skill: 'NUM_DIV_6', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'NUM_DIV_3_9', kind: 'accuracy',
+        why: 'התחלקות ב-6 היא התחלקות ב-2 וגם ב-3' },
+    ],
+  },
+  NUM_FACTORISE: {
+    skill: 'NUM_FACTORISE', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'NUM_PRIMES', kind: 'accuracy',
+        why: 'מפרקים לגורמים ראשוניים — צריך לזהות מי ראשוני' },
+      { skill: 'NUM_POWERS', kind: 'accuracy',
+        why: 'גורם שחוזר נכתב כחזקה' },
+    ],
+  },
   MULT_BY_TENS: {
     skill: 'MULT_BY_TENS', grade: 4, strand: 'ARITH', taughtFrom: 'jan',
     prereqs: [
       { skill: 'ARITH_MULT_6_9', kind: 'fluency',
         why: 'כפל בעשרות שלמות הוא עובדת כפל ועוד אפסים — העובדה חייבת להיות מיידית' },
-      { skill: 'PLACE_VALUE_TO_MILLION', kind: 'accuracy',
-        why: 'האפסים הם ערך מקום: בלעדיו קל לאבד אחד מהם' },
+      { skill: 'MULT_BY_10_100_1000', kind: 'accuracy',
+        why: '30 × 7 נשען על כפל ב-10: קודם 3 × 7, ואז פי 10' },
     ],
   },
   MULT_DIV_LINK: {
@@ -209,8 +319,10 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
   NUM_DIVISIBILITY: {
     skill: 'NUM_DIVISIBILITY', grade: 4, strand: 'ARITH', taughtFrom: 'spring',
     prereqs: [
-      { skill: 'DIV_ONE_DIGIT', kind: 'accuracy',
-        why: 'סימני התחלקות הם קיצור דרך לחילוק — קודם צריך להבין מה הם מקצרים' },
+      { skill: 'NUM_DIV_6', kind: 'accuracy',
+        why: 'עוד על סימני התחלקות ממשיך מהסימנים של 3, 6 ו-9' },
+      { skill: 'ARITH_DIV_LONG', kind: 'accuracy',
+        why: 'כאן שואלים על שארית — והשארית נלמדת בחילוק הארוך' },
     ],
   },
   NUM_PRIMES: {
@@ -225,6 +337,13 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     prereqs: [
       { skill: 'ARITH_ADD_SUB_LARGE', kind: 'accuracy',
         why: 'כדי לראות את הקשר בין חיבור לחיסור צריך קודם לדעת לחשב אותם' },
+    ],
+  },
+  NUM_CHANGE_EFFECT: {
+    skill: 'NUM_CHANGE_EFFECT', grade: 4, strand: 'ARITH', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'NUM_ADD_SUB_LINK', kind: 'accuracy',
+        why: 'מה קורה לתוצאה כשמשנים מספר — זה המשך ישיר של הקשר בין חיבור לחיסור' },
     ],
   },
   NUM_ORDER_OPS: {
@@ -259,6 +378,13 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     skill: 'DATA_CHANCE', grade: 4, strand: 'DATA', taughtFrom: 'jan',
     prereqs: [],
   },
+  DATA_CHANCE_COMPARE: {
+    skill: 'DATA_CHANCE_COMPARE', grade: 4, strand: 'DATA', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'DATA_CHANCE', kind: 'accuracy',
+        why: 'קודם יודעים מה ודאי, אפשרי ובלתי אפשרי — ורק אז משווים סיכויים' },
+    ],
+  },
   NUM_GEMATRIA: {
     skill: 'NUM_GEMATRIA', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'spring',
     prereqs: [],
@@ -278,17 +404,19 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     ],
   },
   GEOM_PERIMETER: {
-    skill: 'GEOM_PERIMETER', grade: 4, strand: 'GEOM', taughtFrom: 'jan',
+    // Topic 6: perimeter of any polygon — add the sides. The rectangle shortcut
+    // is topic 7 (GEOM_PERIMETER_RECT), which is where opposite sides matter.
+    skill: 'GEOM_PERIMETER', grade: 4, strand: 'GEOM', taughtFrom: 'oct',
     prereqs: [
-      { skill: 'GEOM_RECT_SQUARE', kind: 'accuracy',
-        why: 'חישוב היקף מלבן נשען על כך שצלעות נגדיות שוות' },
+      { skill: 'GEOM_POLYGONS', kind: 'accuracy',
+        why: 'היקף הוא סכום הצלעות — צריך לזהות את הצלעות של המצולע' },
     ],
   },
   GEOM_AREA: {
     skill: 'GEOM_AREA', grade: 4, strand: 'GEOM', taughtFrom: 'jan',
     prereqs: [
-      { skill: 'GEOM_PERIMETER', kind: 'accuracy',
-        why: 'קודם מבדילים בין "מסביב" (היקף) לבין "בפנים" (שטח)' },
+      { skill: 'GEOM_AREA_GRID', kind: 'accuracy',
+        why: 'שטח מלבן הוא ספירת המשבצות — בשורות, בעזרת כפל' },
       { skill: 'ARITH_MULT_6_9', kind: 'fluency',
         why: 'שטח הוא כפל — בלי לוח הכפל החישוב נתקע' },
     ],
@@ -301,11 +429,114 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     ],
   },
   GEOM_SOLIDS: {
+    // Topic 14: faces, edges, vertices and nets. Volume is its own topics now.
     skill: 'GEOM_SOLIDS', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
     prereqs: [
-      { skill: 'GEOM_AREA', kind: 'accuracy',
-        why: 'נפח נבנה משכבות של שטח — קודם צריך שטח' },
+      { skill: 'GEOM_RECT_SQUARE', kind: 'accuracy',
+        why: 'פאות התיבה הן מלבנים — צריך להכיר את המלבן' },
     ],
+  },
+  MEAS_LENGTH_MM: {
+    skill: 'MEAS_LENGTH_MM', grade: 4, strand: 'MEAS', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'MEAS_UNIT_CONVERT_CM', kind: 'accuracy',
+        why: 'מילימטרים הם עוד צעד באותה המרה — קודם סנטימטרים ומטרים' },
+    ],
+  },
+  GEOM_PERIMETER_RECT: {
+    skill: 'GEOM_PERIMETER_RECT', grade: 4, strand: 'GEOM', taughtFrom: 'oct',
+    prereqs: [
+      { skill: 'GEOM_PERIMETER', kind: 'accuracy',
+        why: 'היקף מלבן הוא היקף מצולע — עם קיצור דרך' },
+      { skill: 'GEOM_RECT_SQUARE', kind: 'accuracy',
+        why: 'הקיצור נשען על כך שבמלבן צלעות נגדיות שוות' },
+    ],
+  },
+  GEOM_AREA_GRID: {
+    skill: 'GEOM_AREA_GRID', grade: 4, strand: 'GEOM', taughtFrom: 'jan',
+    prereqs: [],
+  },
+  GEOM_AREA_M2: {
+    skill: 'GEOM_AREA_M2', grade: 4, strand: 'GEOM', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'GEOM_AREA', kind: 'accuracy',
+        why: 'שטח במ"ר מחושב כמו בסמ"ר — רק ביחידה גדולה יותר' },
+    ],
+  },
+  GEOM_PERIM_AREA: {
+    skill: 'GEOM_PERIM_AREA', grade: 4, strand: 'GEOM', taughtFrom: 'jan',
+    prereqs: [
+      { skill: 'GEOM_AREA', kind: 'accuracy',
+        why: 'משווים שטחים — צריך לדעת לחשב שטח' },
+      { skill: 'GEOM_PERIMETER_RECT', kind: 'accuracy',
+        why: 'ומשווים היקפים — צריך לדעת לחשב היקף מלבן' },
+    ],
+  },
+  GEOM_SYMMETRY_ROT: {
+    skill: 'GEOM_SYMMETRY_ROT', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_SYMMETRY', kind: 'accuracy',
+        why: 'קודם סימטרייה שיקופית, ואז סיבובית' },
+    ],
+  },
+  GEOM_SURFACE_AREA: {
+    skill: 'GEOM_SURFACE_AREA', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_SOLIDS', kind: 'accuracy',
+        why: 'שטח פנים הוא סכום הפאות — צריך להכיר את פאות התיבה' },
+      { skill: 'GEOM_AREA', kind: 'accuracy',
+        why: 'וכל פאה היא מלבן שמחשבים את שטחו' },
+    ],
+  },
+  GEOM_BOX_DIAGONALS: {
+    skill: 'GEOM_BOX_DIAGONALS', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_SOLIDS', kind: 'accuracy',
+        why: 'סופרים אלכסונים לפי הפאות והקודקודים של התיבה' },
+    ],
+  },
+  GEOM_VOLUME_CUBES: {
+    skill: 'GEOM_VOLUME_CUBES', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_SOLIDS', kind: 'accuracy',
+        why: 'נפח בונים בתוך תיבה — צריך להכיר את התיבה' },
+    ],
+  },
+  GEOM_VOLUME: {
+    skill: 'GEOM_VOLUME', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_VOLUME_CUBES', kind: 'accuracy',
+        why: 'הנוסחה היא קיצור של ספירת הקוביות בשכבות' },
+      { skill: 'GEOM_AREA', kind: 'accuracy',
+        why: 'שכבה אחת היא שטח הבסיס' },
+    ],
+  },
+  GEOM_VOLUME_UNITS: {
+    skill: 'GEOM_VOLUME_UNITS', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_VOLUME', kind: 'accuracy',
+        why: 'ליטר הוא קובייה של 10 ס"מ — צריך לדעת לחשב נפח' },
+    ],
+  },
+  GEOM_SURFACE_VOLUME: {
+    skill: 'GEOM_SURFACE_VOLUME', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_SURFACE_AREA', kind: 'accuracy',
+        why: 'משווים שטחי פנים' },
+      { skill: 'GEOM_VOLUME', kind: 'accuracy',
+        why: 'ומשווים גם את הנפחים של התיבות' },
+    ],
+  },
+  GEOM_WEIGHT_VOLUME: {
+    skill: 'GEOM_WEIGHT_VOLUME', grade: 4, strand: 'GEOM', taughtFrom: 'spring',
+    prereqs: [
+      { skill: 'GEOM_VOLUME_UNITS', kind: 'accuracy',
+        why: 'ליטר מים שוקל קילוגרם — צריך לדעת מה זה ליטר' },
+    ],
+  },
+  MEAS_CALENDAR: {
+    skill: 'MEAS_CALENDAR', grade: 4, strand: 'MEAS', taughtFrom: 'spring',
+    prereqs: [],
   },
   FRAC_COMPLETE_WHOLE: {
     skill: 'FRAC_COMPLETE_WHOLE', grade: 4, strand: 'FRAC', taughtFrom: 'oct',

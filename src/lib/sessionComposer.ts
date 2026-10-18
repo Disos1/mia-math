@@ -260,7 +260,8 @@ export function composeSession(args: ComposeArgs): SessionPlan {
 
   const bookTargets = frontier
     ? [0, 1, 2].flatMap(tier => rotate(
-        frontier.targets.filter(t => Math.min(t.aheadBy, 2) === tier),
+        // Catching up (negative) ranks with the class: both are this week's job.
+        frontier.targets.filter(t => Math.max(0, Math.min(t.aheadBy, 2)) === tier),
         args.sessionsCompleted))
     : [];
   const currentGrade = frontier
@@ -303,16 +304,17 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     if (r && r.itemCount >= REPAIR_MIN_ITEMS && r.firstAttemptAccuracy < REPAIR_WEAK_ACCURACY) return 1;
     return 2;
   };
+  const byUrgency = (a: string, b: string): number => {
+    const d = urgency(a) - urgency(b);
+    if (d !== 0) return d;
+    if (urgency(a) === 1) {   // weakest first within the failing tier
+      return (args.masteryMap[a]?.firstAttemptAccuracy ?? 1)
+           - (args.masteryMap[b]?.firstAttemptAccuracy ?? 1);
+    }
+    return 0;
+  };
   const allBlockers   = [...tracks.blockers, ...upcomingGaps, ...behindGaps]
-    .sort((a, b) => {
-      const d = urgency(a.skill) - urgency(b.skill);
-      if (d !== 0) return d;
-      if (urgency(a.skill) === 1) {   // weakest first within the failing tier
-        return (args.masteryMap[a.skill]?.firstAttemptAccuracy ?? 1)
-             - (args.masteryMap[b.skill]?.firstAttemptAccuracy ?? 1);
-      }
-      return 0;
-    });
+    .sort((a, b) => byUrgency(a.skill, b.skill));
   // Nothing from later in the book may be practised yet — not as new material
   // and not as repair. The blocker search runs over every grade-4 skill in the
   // graph, so without this a child in week 2 was given division with a
@@ -334,9 +336,14 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   };
 
   const blockerSkills = allBlockers.map(b => b.skill);
+  // The urgency order applies to the WHOLE pool, not just the graph blockers:
+  // her open gaps from the diagnostic join after dozens of blockers, and with
+  // the fractions book not started in class, fraction-of-a-quantity (grade 3,
+  // 30%) arrives only that way — unsorted, it never reached a session.
   const prereqPool    = [...new Set([...blockerSkills, ...focusPool])]
     .filter(s => !currentGrade.includes(s))
-    .filter(s => !pastHorizon(s));
+    .filter(s => !pastHorizon(s))
+    .sort(byUrgency);
   const whyFor        = new Map(allBlockers.map(b => [b.skill, b] as const));
 
   // The share adapts on the prerequisites actually being worked, not just the

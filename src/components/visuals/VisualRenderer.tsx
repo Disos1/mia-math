@@ -22,6 +22,8 @@ import { AnalogClock }     from './AnalogClock';
 import { BarChart } from './BarChart';
 import { SequenceStrip } from './SequenceStrip';
 import { PolygonShape }    from './PolygonShape';
+import { GridShape }       from './GridShape';
+import { BoxShape }        from './BoxShape';
 
 interface Props {
   visual: ItemVisual | null | undefined;
@@ -31,6 +33,12 @@ export function VisualRenderer({ visual }: Props) {
   if (!visual) return null;
 
   switch (visual.type) {
+    case 'grid_shape':
+      return <GridShape cols={visual.cols} rows={visual.rows} cells={visual.cells} polys={visual.polys}
+                        axis={visual.axis} cellLabels={visual.cellLabels} />;
+    case 'box':
+      return <BoxShape l={visual.l} w={visual.w} h={visual.h} cubes={visual.cubes}
+                       dims={visual.dims} diagonals={visual.diagonals} />;
     case 'fraction_circles':
       return (
         <FractionCircles
@@ -88,7 +96,8 @@ export function VisualRenderer({ visual }: Props) {
       return <SequenceStrip terms={visual.terms} blankLabel={visual.blankLabel} />;
 
     case 'bar_chart':
-      return <BarChart title={visual.title} categories={visual.categories} values={visual.values} unit={visual.unit} />;
+      return <BarChart title={visual.title} categories={visual.categories} values={visual.values}
+                   values2={visual.values2} legend={visual.legend} unit={visual.unit} />;
 
     case 'polygon':
       return (
@@ -97,6 +106,8 @@ export function VisualRenderer({ visual }: Props) {
           labels={visual.labels}
           diagonalsFrom={visual.diagonalsFrom}
           highlightSides={visual.highlightSides}
+          rightAngleAt={visual.rightAngleAt}
+          sideLabels={visual.sideLabels}
         />
       );
     case 'analog_clock':

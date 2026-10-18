@@ -31,7 +31,7 @@ const neg = (n: number) => (n < 0 ? `−${Math.abs(n)}` : `${n}`);
 const AL = 'ARITH_ADD_SUB_LARGE';
 
 /** True when adding these two carries at least once — otherwise it teaches nothing. */
-function carries(a: number, b: number): boolean {
+export function carries(a: number, b: number): boolean {
   let x = a, y = b;
   while (x > 0 || y > 0) {
     if ((x % 10) + (y % 10) >= 10) return true;
@@ -54,26 +54,12 @@ function borrowsThroughZero(a: number, b: number): boolean {
   return false;
 }
 
+/**
+ * Topic 8, חיסור בתחום ה-1,000,000. The code keeps its old name for the data
+ * already stored under it; addition moved to NUM_ADD_LARGE (topic 7) when the
+ * books' contents showed they are two separate topics.
+ */
 function* addSubLarge(): Generator<PracticeItem> {
-  // Swept, not listed: every pair in range that actually exercises the skill.
-  // The two predicates above are the whole reason the old version hand-picked
-  // numbers — as rules they select far more cases than a person would list.
-  for (let a = 3_150; a <= 620_000; a += 24_137) {
-    for (let b = 1_420; b <= 330_000; b += 28_311) {
-      if (a + b > 999_999 || !carries(a, b)) continue;
-      yield buildItem({
-        itemId: `G_AL_ADD_${a}_${b}`, skillCode: AL,
-        question: `כמה זה ${fmt(a)} + ${fmt(b)}?`,
-        correct: a + b, signature: null, signatureCode: null, distractors: [],
-        cpaLayer: 'abstract', difficulty: a + b >= 100_000 ? 3 : 2, answerMode: 'keypad', rng: () => 0.5,
-        steps: [
-          { text: 'מחברים מימין לשמאל: אחדות, עשרות, מאות — וכל עשר עוברות הלאה.' },
-          { text: `${fmt(a)} + ${fmt(b)} = ?`, answer: a + b },
-        ],
-      });
-    }
-  }
-
   for (let a = 10_000; a <= 700_000; a += 17_137) {
     for (let b = 1_250; b < a && b <= 400_000; b += 26_711) {
       if (!borrowsThroughZero(a, b)) continue;
@@ -96,18 +82,21 @@ function* addSubLarge(): Generator<PracticeItem> {
     }
   }
 
-  // Missing addend — the same fact read the other way round.
-  for (let a = 4_500; a <= 540_000; a += 41_137) {
-    for (let b = 2_300; b <= 260_000; b += 47_311) {
-      if (a + b > 999_999 || !carries(a, b)) continue;
+  // Estimating a difference — round to thousands first.
+  for (let a = 45_300; a <= 960_000; a += 41_117) {
+    for (let b = 8_760; b < a && b <= 420_000; b += 47_311) {
+      const ra = Math.round(a / 1_000) * 1_000, rb = Math.round(b / 1_000) * 1_000;
+      const est = ra - rb;
+      if (est <= 10_000) continue;
       yield buildItem({
-        itemId: `G_AL_MISS_${a}_${b}`, skillCode: AL,
-        question: `${fmt(a)} + ? = ${fmt(a + b)}. מה המספר החסר?`,
-        correct: b, signature: null, signatureCode: null, distractors: [],
-        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        itemId: `G_AL_EST_${a}_${b}`, skillCode: AL,
+        question: `בערך כמה זה ${fmt(a)} − ${fmt(b)}? (עגלי לאלפים)`,
+        correct: fmt(est), signature: fmt(ra + rb), signatureCode: null,
+        distractors: [fmt(est + 10_000)], exactOptions: true,
+        cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
         steps: [
-          { text: 'כדי למצוא מחובר חסר — מחסרים מהסכום את המחובר הידוע.' },
-          { text: `${fmt(a + b)} − ${fmt(a)} = ?`, answer: b },
+          { text: `${fmt(a)} בערך ${fmt(ra)}, ו-${fmt(b)} בערך ${fmt(rb)}.` },
+          { text: `${fmt(ra)} − ${fmt(rb)} = ${fmt(est)}.` },
         ],
       });
     }
@@ -134,50 +123,44 @@ function* addSubLink(): Generator<PracticeItem> {
   for (let a = 2_500; a <= 240_000; a += 9_137) {
     for (let b = 1_200; b <= 90_000; b += 21_311) {
       if (a + b > 999_999) continue;
+      const c = a + b;
       yield buildItem({
         itemId: `G_LK_INV_${a}_${b}`, skillCode: LK,
-        question: `ידוע ש-${fmt(a)} + ${fmt(b)} = ${fmt(a + b)}. כמה זה ${fmt(a + b)} − ${fmt(b)}?`,
-        correct: a, signature: a + b, signatureCode: null, distractors: [],
+        question: `ידוע ש-${fmt(a)} + ${fmt(b)} = ${fmt(c)}. כמה זה ${fmt(c)} − ${fmt(b)}?`,
+        correct: a, signature: c, signatureCode: null, distractors: [],
         cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
         steps: [
-          { text: 'חיבור וחיסור הם פעולות הפוכות — אפשר לקרוא את אותו תרגיל לאחור.' },
-          { text: 'אם מחברים ואז מחסרים את אותו מספר, חוזרים למספר ההתחלתי.', answer: a },
+          { text: 'שלושת המספרים יוצרים משפחה: אם מחברים ואז מחסרים את אותו מספר, חוזרים להתחלה.' },
+          { text: 'אז התוצאה היא?', answer: a },
         ],
       });
-    }
-  }
 
-  // What happens to the answer when one number moves — the unit's real idea.
-  for (const d of [10, 100, 1_000, 10_000]) {
-    for (let a = 3_400; a <= 180_000; a += 23_137) {
-      for (let b = 2_100; b <= 70_000; b += 31_311) {
-        if (a + b > 999_999 || b >= a) continue;
-        yield buildItem({
-          itemId: `G_LK_ADDUP_${a}_${b}_${d}`, skillCode: LK,
-          question: `בתרגיל ${fmt(a)} + ${fmt(b)} הגדילו את המחובר הראשון ב-${fmt(d)}. מה קורה לסכום?`,
-          correct: `גדל ב-${fmt(d)}`,
-          signature: 'לא משתנה', signatureCode: null,
-          distractors: [`קטן ב-${fmt(d)}`, `גדל ב-${fmt(d * 2)}`], exactOptions: true,
-          cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
-          steps: [
-            { text: 'הסכום הוא כמה יש בסך הכול.' },
-            { text: `אם הוספנו ${fmt(d)} לאחד המחוברים, בסך הכול יש ${fmt(d)} יותר.` },
-          ],
-        });
+      // Missing minuend: ? − b = a.
+      yield buildItem({
+        itemId: `G_LK_MINUEND_${a}_${b}`, skillCode: LK,
+        question: `? − ${fmt(b)} = ${fmt(a)}. מהו המחוסר?`,
+        correct: c, signature: a - b > 0 ? a - b : null, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: 'מחוסר חסר מוצאים בחיבור: ההפרש ועוד המחסר.' },
+          { text: `${fmt(a)} + ${fmt(b)} = ?`, answer: c },
+        ],
+      });
 
-        yield buildItem({
-          itemId: `G_LK_SUBUP_${a}_${b}_${d}`, skillCode: LK,
-          question: `בתרגיל ${fmt(a)} − ${fmt(b)} הגדילו את המחסר ב-${fmt(d)}. מה קורה להפרש?`,
-          correct: `קטן ב-${fmt(d)}`,
-          signature: `גדל ב-${fmt(d)}`, signatureCode: null,
-          distractors: ['לא משתנה'], exactOptions: true,
-          cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
-          steps: [
-            { text: 'המחסר הוא מה שמורידים.' },
-            { text: `אם מורידים ${fmt(d)} יותר — נשאר ${fmt(d)} פחות.` },
-          ],
-        });
-      }
+      // Missing subtrahend: c − ? = a.
+      yield buildItem({
+        itemId: `G_LK_SUBTRAHEND_${a}_${b}`, skillCode: LK,
+        question: `${fmt(c)} − ? = ${fmt(a)}. מהו המחסר?`,
+        // Adding instead of subtracting — diagnosable only if she can type it
+        // (the pad allows one digit more than the answer).
+        correct: b, signature: String(c + a).length <= String(b).length + 1 ? c + a : null,
+        signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: 'מחסר חסר מוצאים בחיסור: המחוסר פחות ההפרש.' },
+          { text: `${fmt(c)} − ${fmt(a)} = ?`, answer: b },
+        ],
+      });
     }
   }
 }
@@ -470,7 +453,8 @@ function* diagrams(): Generator<PracticeItem> {
 
 const CH = 'DATA_CHANCE';
 
-function* chance(): Generator<PracticeItem> {
+/** Topic 15 — claims about the world stay hand-written. */
+function* chanceStatements(): Generator<PracticeItem> {
   const LABELS = ['ודאי', 'אפשרי', 'בלתי אפשרי'];
   // Statements are claims about the world, so they stay written by hand.
   const statements: Array<[string, string]> = [
@@ -483,7 +467,9 @@ function* chance(): Generator<PracticeItem> {
     ['מחר יירד גשם', 'אפשרי'],
     ['מטבע שמטילים ייפול על "עץ"', 'אפשרי'],
     ['בשבוע הבא יהיה יום שני', 'ודאי'],
-    ['בכיתה של 30 תלמידים יש שניים שנולדו באותו חודש', 'אפשרי'],
+    // (Not "two of 30 classmates share a birth month" — with 12 months that is
+    // CERTAIN, and the September version of this list called it possible.)
+    ['מחר יחגוג מישהו בכיתה יום הולדת', 'אפשרי'],
     ['מספר שמוסיפים לו 1 יישאר אותו מספר', 'בלתי אפשרי'],
     ['מוציאים קלף מחפיסה ומקבלים קלף אדום או שחור', 'ודאי'],
   ];
@@ -501,37 +487,6 @@ function* chance(): Generator<PracticeItem> {
     });
   }
 
-  // Which is likelier — counting, not guessing. Every mix in range.
-  for (let red = 1; red <= 12; red++) {
-    for (let blue = 1; blue <= 12; blue++) {
-      const same   = red === blue;
-      const answer = same ? 'סיכוי שווה' : red > blue ? 'אדום' : 'כחול';
-      yield buildItem({
-        itemId: `G_CH_BOX_${red}_${blue}`, skillCode: CH,
-        question: `בקופסה ${red} כדורים אדומים ו-${blue} כדורים כחולים. איזה צבע יש סיכוי גדול יותר להוציא?`,
-        correct: answer,
-        signature: same ? null : red > blue ? 'כחול' : 'אדום',
-        signatureCode: null,
-        distractors: same ? ['אדום', 'כחול'] : ['סיכוי שווה'], exactOptions: true,
-        cpaLayer: 'abstract', difficulty: same ? 3 : Math.abs(red - blue) <= 2 ? 2 : 1, rng: () => 0.5,
-        steps: [
-          { text: 'סופרים מכל צבע — ממה שיש יותר, הסיכוי גדול יותר.' },
-          { text: `אדום: ${red}, כחול: ${blue}.` },
-        ],
-      });
-
-      // How many of the box are red? Chance as a fraction of the whole.
-      if ((red + blue) % 2 === 0 && red + blue <= 20) {
-        yield buildItem({
-          itemId: `G_CH_COUNT_${red}_${blue}`, skillCode: CH,
-          question: `בקופסה ${red} כדורים אדומים ו-${blue} כדורים כחולים. כמה כדורים בקופסה בסך הכול?`,
-          correct: red + blue, signature: Math.abs(red - blue), signatureCode: null, distractors: [],
-          cpaLayer: 'abstract', difficulty: 1, answerMode: 'keypad', rng: () => 0.5,
-          steps: [{ text: 'הסיכוי נמדד מתוך כל הכדורים — אז קודם סופרים את כולם.', answer: red + blue }],
-        });
-      }
-    }
-  }
 }
 
 // ─── NUM_GEMATRIA ────────────────────────────────────────────────────────────
@@ -614,15 +569,241 @@ function* gematria(): Generator<PracticeItem> {
   }
 }
 
+
+// ─── Enrichments from the plan's skill lists (2026-10-18) ──────────────────
+
+/** Topic 11: only addition → order does not matter; choose a convenient one. */
+function* orderOpsSmart(): Generator<PracticeItem> {
+  for (const [x, y] of [[250, 750], [480, 520], [1_300, 700], [2_450, 550], [6_100, 3_900], [125, 875], [3_600, 6_400]]) {
+    for (let k = 137; k <= 9_999; k += 613) {
+      yield buildItem({
+        itemId: `G_OP_SMART_${x}_${k}_${y}`, skillCode: OP,
+        question: `חשבי בדרך נוחה: ${fmt(x)} + ${fmt(k)} + ${fmt(y)}`,
+        correct: x + k + y, signature: null, signatureCode: null, distractors: [],
+        cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: 'כשיש רק חיבור, אפשר לחבר בכל סדר (חוק החילוף וחוק הקיבוץ).' },
+          { text: `קודם ${fmt(x)} + ${fmt(y)} = ?`, answer: x + y },
+          { text: `ואז ${fmt(x + y)} + ${fmt(k)} = ?`, answer: x + k + y },
+        ],
+      });
+    }
+  }
+}
+
+/** Topic 12: word problems that need a weight-unit conversion first. */
+const WEIGHT_TEMPLATES: Array<{
+  id: string; ask: (a: number, b: number) => string; solve: (a: number, b: number) => number;
+  steps: (a: number, b: number) => Array<{ text: string; answer?: number }>;
+}> = [
+  {
+    id: 'kg_g',
+    ask: (kg, g) => `בשקית ${kg} ק"ג קמח, ובשקית אחרת ${fmt(g)} גרם. כמה גרם קמח יש בשתי השקיות יחד?`,
+    solve: (kg, g) => kg * 1_000 + g,
+    steps: (kg, g) => [
+      { text: '1 ק"ג = 1,000 גרם. קודם ממירים לאותה יחידה.' },
+      { text: `${kg} ק"ג = ? גרם`, answer: kg * 1_000 },
+      { text: `${fmt(kg * 1_000)} + ${fmt(g)} = ?`, answer: kg * 1_000 + g },
+    ],
+  },
+  {
+    id: 'ton_kg',
+    ask: (t, kg) => `משאית העמיסה ${t} טון חול, ופרקה ${fmt(kg)} ק"ג. כמה ק"ג חול נשארו במשאית?`,
+    solve: (t, kg) => t * 1_000 - kg,
+    steps: (t, kg) => [
+      { text: '1 טון = 1,000 ק"ג. קודם ממירים לאותה יחידה.' },
+      { text: `${t} טון = ? ק"ג`, answer: t * 1_000 },
+      { text: `${fmt(t * 1_000)} − ${fmt(kg)} = ?`, answer: t * 1_000 - kg },
+    ],
+  },
+];
+
+function* wordWeight(): Generator<PracticeItem> {
+  for (const t of WEIGHT_TEMPLATES) {
+    for (let a = 2; a <= 40; a += 2) {
+      for (let b = 150; b <= 990; b += 120) {
+        const answer = t.solve(a, b);
+        if (answer <= 0) continue;
+        const naive = t.id === 'kg_g' ? a + b : a - b;      // no conversion at all
+        yield buildItem({
+          itemId: `G_WL_${t.id}_${a}_${b}`, skillCode: WL,
+          question: t.ask(a, b),
+          correct: answer,
+          signature: naive > 0 && naive !== answer ? naive : null,
+          signatureCode: naive > 0 && naive !== answer ? 'ERR_UNIT_MISMATCH' : null,
+          distractors: [], cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+          steps: t.steps(a, b),
+        });
+      }
+    }
+  }
+}
+
+/** Topic 13: opposite numbers sit at the same distance from zero. */
+function* negativesMore(): Generator<PracticeItem> {
+  for (let n = 1; n <= 60; n++) {
+    yield buildItem({
+      itemId: `G_NG_OPP_${n}`, skillCode: NG,
+      question: `איזה מספר שלילי נמצא באותו מרחק מ-0 כמו ${n}?`,
+      correct: neg(-n), signature: String(n), signatureCode: null,
+      distractors: [neg(-(n + 1))], exactOptions: true,
+      cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+      steps: [{ text: `${n} נמצא ${n} צעדים מימין ל-0. המספר שנמצא ${n} צעדים משמאל ל-0 הוא ${neg(-n)}.` }],
+    });
+  }
+  for (let depth = 10; depth <= 400; depth += 15) {
+    yield buildItem({
+      itemId: `G_NG_SEA_${depth}`, skillCode: NG,
+      question: `נקודה נמצאת ${depth} מטר מתחת לפני הים. איך כותבים את הגובה שלה?`,
+      correct: `${neg(-depth)} מטר`, signature: `${depth} מטר`, signatureCode: null,
+      distractors: [`${neg(-(depth + 10))} מטר`], exactOptions: true,
+      cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+      steps: [{ text: 'פני הים הם 0. מתחת לפני הים — מספר שלילי.' }],
+    });
+  }
+}
+
+/** Topic 15: certain / possible / impossible — generated from a box's contents. */
+function* chanceGenerated(): Generator<PracticeItem> {
+  const LABELS = ['ודאי', 'אפשרי', 'בלתי אפשרי'];
+  for (let red = 0; red <= 9; red++) {
+    for (let blue = 0; blue <= 9; blue++) {
+      if (red + blue === 0) continue;
+      for (const [colour, count] of [['אדום', red], ['כחול', blue], ['ירוק', 0]] as const) {
+        const label = count === 0 ? 'בלתי אפשרי' : count === red + blue ? 'ודאי' : 'אפשרי';
+        if (colour === 'ירוק' && (red + blue) % 3 !== 0) continue;   // balance the pool
+        yield buildItem({
+          itemId: `G_CH_GEN_${red}_${blue}_${colour}`, skillCode: CH,
+          question: `בקופסה ${red} כדורים אדומים ו-${blue} כדורים כחולים. מוציאים כדור אחד. שיצא כדור ${colour} — זה ודאי, אפשרי או בלתי אפשרי?`,
+          correct: label, signature: null, signatureCode: null,
+          distractors: LABELS.filter(l => l !== label), exactOptions: true,
+          cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+          steps: [
+            { text: 'אם כל הכדורים בצבע הזה — ודאי. אם אין אף אחד — בלתי אפשרי. אחרת — אפשרי.' },
+            { text: `כדורים ${colour === 'אדום' ? 'אדומים' : colour === 'כחול' ? 'כחולים' : 'ירוקים'} בקופסה: ${count}. לכן: ${label}.` },
+          ],
+        });
+      }
+    }
+  }
+}
+
+/** Topic 17: gematria of words, comparing words, and sequences. */
+const WORDS = ['אבא', 'אמא', 'גן', 'דג', 'בית', 'ספר', 'שלום', 'חלב', 'לחם', 'ים', 'יד', 'עץ', 'כוכב', 'שמש', 'ירח', 'מים', 'טוב', 'אור', 'חג', 'כיתה'];
+const FINAL: Record<string, string> = { 'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ' };
+export function wordValue(w: string): number {
+  return w.split('').reduce((s, ch) => s + (LETTER_VALUE.find(([l]) => l === (FINAL[ch] ?? ch))?.[1] ?? 0), 0);
+}
+
+function* gematriaWords(): Generator<PracticeItem> {
+  for (const w of WORDS) {
+    const v = wordValue(w);
+    yield buildItem({
+      itemId: `G_GM_WORD_${w}`, skillCode: GM,
+      question: `מה הערך הגימטרי של המילה "${w}"?`,
+      correct: v, signature: null, signatureCode: null, distractors: [],
+      cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+      steps: [
+        { text: `מחברים את ערכי האותיות: ${w.split('').map(ch => `${ch}=${LETTER_VALUE.find(([l]) => l === (FINAL[ch] ?? ch))?.[1]}`).join(', ')}.` },
+        { text: 'כמה יוצא?', answer: v },
+      ],
+    });
+  }
+  for (let i = 0; i < WORDS.length; i++) {
+    for (let j = i + 1; j < WORDS.length; j++) {
+      const a = WORDS[i], b = WORDS[j];
+      if (wordValue(a) === wordValue(b)) continue;
+      const bigger = wordValue(a) > wordValue(b) ? a : b;
+      yield buildItem({
+        itemId: `G_GM_CMP_${a}_${b}`, skillCode: GM,
+        question: `לאיזו מילה ערך גימטרי גדול יותר: "${a}" או "${b}"?`,
+        correct: bigger, signature: null, signatureCode: null,
+        distractors: [bigger === a ? b : a], exactOptions: true,
+        cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+        steps: [{ text: `"${a}" = ${wordValue(a)}, ו-"${b}" = ${wordValue(b)}.` }],
+      });
+    }
+  }
+}
+
+
+/** Topic 14: charts whose data are in thousands, and double bar charts. */
+const BIG_THEMES: Array<{ id: string; title: string; unit: string; cats: string[]; scale: number }> = [
+  { id: 'visitors', title: 'מבקרים בפארק בכל חודש', unit: 'מבקרים', cats: ['מרץ', 'אפריל', 'מאי', 'יוני'], scale: 1_000 },
+  { id: 'cars',     title: 'מכוניות שעברו בכביש',   unit: 'מכוניות', cats: ['ראשון', 'שני', 'שלישי'],      scale: 10_000 },
+  { id: 'people',   title: 'תושבים בערים',          unit: 'תושבים', cats: ['עיר א', 'עיר ב', 'עיר ג', 'עיר ד'], scale: 100_000 },
+];
+
+function* diagramsMore(): Generator<PracticeItem> {
+  for (const theme of BIG_THEMES) {
+    for (let seed = 0; seed < 8; seed++) {
+      const base = theme.cats.map((_, i) => 2 + i * 2);
+      const vals = theme.cats.map((_, i) => (base[(i + seed) % base.length] + (seed % 3)) * theme.scale);
+      const visual = { type: 'bar_chart' as const, title: theme.title, categories: theme.cats, values: vals, unit: theme.unit };
+      const maxI = vals.indexOf(Math.max(...vals)), minI = vals.indexOf(Math.min(...vals));
+      for (let i = 0; i < theme.cats.length; i++) {
+        yield buildItem({
+          itemId: `G_DG_BIG_${theme.id}_${seed}_${i}`, skillCode: DG,
+          question: `לפי הדיאגרמה — כמה ${theme.unit} ב${theme.cats[i]}?`,
+          correct: vals[i], signature: vals[i] / theme.scale, signatureCode: null, distractors: [],
+          visual, cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+          steps: [{ text: `שימי לב לסרגל: הקווים מסומנים באלפים. העמודה של ${theme.cats[i]} מגיעה ל-${fmt(vals[i])}.`, answer: vals[i] }],
+        });
+      }
+      yield buildItem({
+        itemId: `G_DG_BIGDIFF_${theme.id}_${seed}`, skillCode: DG,
+        question: `לפי הדיאגרמה — בכמה ${theme.unit} יותר ב${theme.cats[maxI]} מאשר ב${theme.cats[minI]}?`,
+        correct: vals[maxI] - vals[minI], signature: vals[maxI] + vals[minI] <= 9_999_999 ? vals[maxI] + vals[minI] : null,
+        signatureCode: null, distractors: [],
+        visual, cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [{ text: `${fmt(vals[maxI])} − ${fmt(vals[minI])} = ?`, answer: vals[maxI] - vals[minI] }],
+      });
+    }
+  }
+
+  // Double bar chart: two series side by side.
+  const DOUBLE: Array<{ id: string; title: string; cats: string[]; legend: [string, string]; unit: string }> = [
+    { id: 'reading', title: 'ספרים שנקראו', cats: ['ספטמבר', 'אוקטובר', 'נובמבר'], legend: ['בנים', 'בנות'], unit: 'ספרים' },
+    { id: 'sport',   title: 'משתתפים בחוגים', cats: ['כדורגל', 'שחייה', 'ריקוד', 'שחמט'], legend: ['כיתה ד1', 'כיתה ד2'], unit: 'תלמידים' },
+  ];
+  for (const d of DOUBLE) {
+    for (let seed = 0; seed < 10; seed++) {
+      const a = d.cats.map((_, i) => 3 + ((i * 3 + seed) % 7));
+      const b = d.cats.map((_, i) => 2 + ((i * 5 + seed * 2) % 8));
+      const visual = { type: 'bar_chart' as const, title: d.title, categories: d.cats, values: a, values2: b, legend: d.legend, unit: d.unit };
+      for (let i = 0; i < d.cats.length; i++) {
+        if (a[i] === b[i]) continue;
+        const more = a[i] > b[i] ? d.legend[0] : d.legend[1];
+        yield buildItem({
+          itemId: `G_DG_DBL_${d.id}_${seed}_${i}`, skillCode: DG,
+          question: `לפי הדיאגרמה — ב${d.cats[i]}, למי יותר ${d.unit}: ל${d.legend[0]} או ל${d.legend[1]}?`,
+          correct: more, signature: more === d.legend[0] ? d.legend[1] : d.legend[0], signatureCode: null,
+          distractors: [], exactOptions: true,
+          visual, cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+          steps: [{ text: `בעמודות של ${d.cats[i]}: ${d.legend[0]} ${a[i]}, ${d.legend[1]} ${b[i]}.` }],
+        });
+        yield buildItem({
+          itemId: `G_DG_DBLSUM_${d.id}_${seed}_${i}`, skillCode: DG,
+          question: `לפי הדיאגרמה — כמה ${d.unit} בסך הכול ב${d.cats[i]} (בשתי הקבוצות יחד)?`,
+          correct: a[i] + b[i], signature: Math.max(a[i], b[i]), signatureCode: null, distractors: [],
+          visual, cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+          steps: [{ text: `${a[i]} + ${b[i]} = ?`, answer: a[i] + b[i] }],
+        });
+      }
+    }
+  }
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-const take = (gen: Generator<PracticeItem>, opts: GenerateOpts) => pickFromCombos([...gen], opts);
+const take = (gen: Iterable<PracticeItem>, opts: GenerateOpts) => pickFromCombos([...gen], opts);
+function* chain(...gens: Iterable<PracticeItem>[]): Generator<PracticeItem> { for (const g of gens) yield* g; }
 
 export const generateAddSubLarge = (o: GenerateOpts) => take(addSubLarge(), o);
 export const generateAddSubLink  = (o: GenerateOpts) => take(addSubLink(), o);
-export const generateOrderOps    = (o: GenerateOpts) => take(orderOps(), o);
-export const generateWordLarge   = (o: GenerateOpts) => take(wordLarge(), o);
-export const generateNegatives   = (o: GenerateOpts) => take(negatives(), o);
-export const generateDiagrams    = (o: GenerateOpts) => take(diagrams(), o);
-export const generateChance      = (o: GenerateOpts) => take(chance(), o);
-export const generateGematria    = (o: GenerateOpts) => take(gematria(), o);
+export const generateOrderOps    = (o: GenerateOpts) => take(chain(orderOps(), orderOpsSmart()), o);
+export const generateWordLarge   = (o: GenerateOpts) => take(chain(wordLarge(), wordWeight()), o);
+export const generateNegatives   = (o: GenerateOpts) => take(chain(negatives(), negativesMore()), o);
+export const generateDiagrams    = (o: GenerateOpts) => take(chain(diagrams(), diagramsMore()), o);
+export const generateChance      = (o: GenerateOpts) => take(chain(chanceStatements(), chanceGenerated()), o);
+export const generateGematria    = (o: GenerateOpts) => take(chain(gematria(), gematriaWords()), o);

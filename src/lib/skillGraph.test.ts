@@ -266,8 +266,8 @@ describe('unlocking', () => {
   it('reports what a skill unlocks, for the "you opened this" payoff', () => {
     // Everything that genuinely needs instant recall of a fact.
     expect(unlockedBy('ARITH_MULT_6_9').sort())
-      .toEqual(['ARITH_DIV_LONG', 'ARITH_MULT_VERTICAL', 'DIV_ONE_DIGIT',
-                'GEOM_AREA', 'MULT_BY_TENS', 'MULT_DIV_LINK']);
+      .toEqual(['ARITH_DIV_LONG', 'ARITH_MULT_VERTICAL', 'DIV_ONE_DIGIT', 'DIV_TENS_BY_DIGIT',
+                'GEOM_AREA', 'MULT_BY_TENS', 'MULT_DIV_LINK', 'NUM_POWERS']);
   });
 
   it('now needs only place value to open large add/sub — she cleared regroup-zero', () => {

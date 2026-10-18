@@ -16,12 +16,16 @@ interface Props {
   labels?:         string[];
   diagonalsFrom?:  number;
   highlightSides?: number[];
+  /** Vertices to mark with the small square that says "this angle is right". */
+  rightAngleAt?:   number[];
+  /** Text beside each side (side i joins vertex i to i+1) — lengths, or "?". */
+  sideLabels?:     string[];
 }
 
 const SIZE = 200;
 const PAD  = 26;
 
-export function PolygonShape({ points, labels, diagonalsFrom, highlightSides = [] }: Props) {
+export function PolygonShape({ points, labels, diagonalsFrom, highlightSides = [], rightAngleAt = [], sideLabels }: Props) {
   const scale = (SIZE - PAD * 2) / 100;
   const P = points.map(([x, y]) => [PAD + x * scale, PAD + y * scale] as const);
   const n = P.length;
@@ -67,6 +71,33 @@ export function PolygonShape({ points, labels, diagonalsFrom, highlightSides = [
           return (
             <line key={`d${j}`} x1={P[i][0]} y1={P[i][1]} x2={q[0]} y2={q[1]}
               stroke="#7C3AED" strokeWidth="2" strokeDasharray="5 4" />
+          );
+        })}
+
+        {/* Right-angle marks: a small square tucked into the corner, as in the book */}
+        {rightAngleAt.map(i => {
+          const p = P[i], a = P[(i + 1) % n], b = P[(i - 1 + n) % n];
+          const unit = (q: readonly [number, number]) => {
+            const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+            return [(q[0] - p[0]) / len, (q[1] - p[1]) / len] as const;
+          };
+          const [ux, uy] = unit(a), [vx, vy] = unit(b), k = 11;
+          const pts = [[p[0] + ux * k, p[1] + uy * k], [p[0] + (ux + vx) * k, p[1] + (uy + vy) * k], [p[0] + vx * k, p[1] + vy * k]];
+          return <polyline key={`r${i}`} points={pts.map(q => q.join(',')).join(' ')}
+                           fill="none" stroke="#2D3047" strokeWidth="1.5" />;
+        })}
+
+        {/* Side lengths, outside the shape at each side's midpoint */}
+        {sideLabels && P.map((p, i) => {
+          if (!sideLabels[i]) return null;
+          const q = P[(i + 1) % n];
+          const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+          const dx = mx - cx, dy = my - cy, len = Math.hypot(dx, dy) || 1;
+          return (
+            <text key={`s${i}`} x={mx + (dx / len) * 14} y={my + (dy / len) * 14 + 5} textAnchor="middle"
+              fontSize="14" fontWeight="700" fill="#7C3AED" style={{ direction: 'ltr' }}>
+              {sideLabels[i]}
+            </text>
           );
         })}
 

@@ -74,7 +74,11 @@ export type ErrorSignatureCode =
   | 'ERR_PERIM_AREA_SWAP'    // perimeter↔area formula swap — validated catalogue
   | 'ERR_ORDER_OPS'          // ignores the brackets and works left to right
   | 'ERR_ZERO_COUNT'         // loses a zero when multiplying/dividing by whole tens
-  | 'ERR_MULT_PLACEHOLDER';  // column multiplication without the place-holder zero
+  | 'ERR_MULT_PLACEHOLDER'   // column multiplication without the place-holder zero
+  | 'ERR_ZERO_IDENTITY'      // treats × 0 like × 1: 457 × 0 = 457
+  | 'ERR_CROSS_TERMS'        // 23 × 14 as 20 × 10 + 3 × 4 — the cross products dropped
+  | 'ERR_POWER_AS_PRODUCT'   // 2³ read as 2 × 3
+  | 'ERR_REMAINDER_IGNORED'; // dividend found as divisor × quotient, remainder left out
 
 export type SignatureConfidence = 'confirmed' | 'suspected' | 'ruled_out';
 
@@ -116,7 +120,9 @@ export type ItemVisual =
    *  separators between them (seen on screen 2026-10-02). */
   | { type: 'sequence';         terms: number[]; blankLabel?: string }
   /** Bar chart for the דיאגרמות unit — the chart is the question. */
-  | { type: 'bar_chart';        title?: string; categories: string[]; values: number[]; unit?: string }
+  | { type: 'bar_chart';        title?: string; categories: string[]; values: number[]; unit?: string;
+      /** Second series → a double bar chart, with legend names for both. */
+      values2?: number[]; legend?: [string, string] }
   /** One circle split into N parts with K highlighted — used for "¼ of 20" type questions. */
   | { type: 'fraction_bar';     parts: number; highlighted: number; total?: number }
   /** Analog clock; optional arc shows elapsed minutes sweeping forward from `time`. */
@@ -137,11 +143,21 @@ export type ItemVisual =
    * A polygon on a 0–100 canvas. Vertices are labelled with Hebrew letters
    * (א ב ג…), sides are named by their two vertex letters, as in the textbook.
    */
+  /** Squared paper: filled cells, half-square triangles, a symmetry axis, net letters. */
+  | { type: 'grid_shape';       cols: number; rows: number; cells?: Array<[number, number]>;
+      polys?: Array<Array<[number, number]>>; axis?: { x?: number; y?: number }; cellLabels?: string[] }
+  /** A box in oblique drawing; unit-cube lines, edge labels or diagonals optional. */
+  | { type: 'box';              l: number; w: number; h: number; cubes?: boolean;
+      dims?: { unit: string }; diagonals?: 'face' | 'space' }
   | { type: 'polygon';          points: Array<[number, number]>; labels?: string[];
       /** Draw every diagonal from this vertex index (pictorial layer for diagonal counting). */
       diagonalsFrom?: number;
       /** Side indices to emphasise; side i joins vertex i to vertex i+1. */
-      highlightSides?: number[] };
+      highlightSides?: number[];
+      /** Vertices marked with the right-angle square. */
+      rightAngleAt?: number[];
+      /** Text beside each side — lengths as in the textbook, or "?". */
+      sideLabels?: string[] };
 
 /** @deprecated Kept for backward compatibility. Use `ItemVisual` instead. */
 export type DiagnosticVisual = ItemVisual;

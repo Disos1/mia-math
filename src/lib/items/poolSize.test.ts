@@ -29,9 +29,9 @@ const BOUNDED: Record<string, { floor: number; why: string }> = {
     floor: 40,
     why: 'the 6–9 fact family is finite: 4 × 9 facts, plus their variants',
   },
-  GEOM_SYMMETRY: {
-    floor: 40,
-    why: 'lines of symmetry are a named-shape fact; regular polygons 3–12 plus the quadrilaterals is the whole grade-4 set',
+  GEOM_BOX_DIAGONALS: {
+    floor: 20,
+    why: 'every box has 12 face diagonals and 4 through the box; the topic varies what she must see (faces, a vertex, which segments), not the numbers',
   },
 };
 

@@ -20,7 +20,9 @@ import React from 'react';
  * and wraps each run in <bdi dir="ltr" style={{unicodeBidi:'isolate'}}>
  */
 
-const OPERAND = String.raw`(?:\d+(?:[.,]\d+)?|\?)`;
+/** A number may carry thousands groups ("1,000,000") and a power written as a
+ *  superscript ("2³", topic 12 of the mult/div book) — both stay inside it. */
+const OPERAND = String.raw`(?:\d+(?:[.,]\d+)*[⁰¹²³⁴⁵⁶⁷⁸⁹]*|\?)`;
 /** A mixed number: whole part, space, fraction — "2 1/3". Must isolate as ONE
  *  run, or RTL puts the whole number on the wrong side of its fraction. */
 const MIXED = String.raw`\d+\s+\d+\s*/\s*\d+`;

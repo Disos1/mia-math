@@ -17,7 +17,7 @@ import {
   STRANDS, STRAND_LABELS, unitsOf, unitById, type StrandId,
 } from '../../lib/curriculum/hashbacha4';
 import {
-  loadClassPosition, saveClassUnit, standingVsClass, type Standing,
+  loadClassPosition, saveClassUnit, standingVsClass, NOT_STARTED, type Standing,
 } from '../../lib/curriculum/classPosition';
 
 interface Props {
@@ -52,20 +52,22 @@ export function ClassAlignmentCard({ profileId, masteryMap }: Props) {
     <div className="bg-white card-shadow rounded-3xl p-5" style={{ borderTop: '4px solid #7C3AED' }}>
       <div className="text-sm font-bold text-[#2D3047]">📚 איפה הכיתה בספר?</div>
       <div className="text-xs text-gray-500 mt-1 mb-4 leading-relaxed">
-        ה.ש.ב.ח.ה ד׳ · האפליקציה מתרגלת את הנושא של הכיתה, וכשמיה שולטת בו היא ממשיכה לנושא הבא
-        בלי לחכות. המיקום כאן קובע מה נחשב "חזרה" ומתי מופיע "לפני הכיתה".
+        ה.ש.ב.ח.ה ד׳ · שלושת הספרים נלמדים במקביל. בכל ספר האפליקציה מתקדמת לפי סדר הנושאים
+        בספר, וכשמיה שולטת בנושא היא ממשיכה לבא אחריו בלי לחכות לכיתה. המיקום כאן קובע מה נחשב
+        "חזרה" ומתי מופיע "לפני הכיתה".
       </div>
 
       {STRANDS.map(strand => {
         const currentId = position.units[strand]!;
         const current   = unitById(currentId);
         const isEst     = position.source[strand] === 'estimate';
-        const lines     = standingLines(standing[strand]);
+        const notYet    = currentId === NOT_STARTED;
+        const lines     = notYet ? [] : standingLines(standing[strand]);
         return (
           <div key={strand} className="mb-4 last:mb-0">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-semibold text-[#2D3047]">{STRAND_LABELS[strand]}</span>
-              {isEst && <span className="text-[11px] text-amber-600">הערכה לפי תכנית ההוצאה — עדכנו</span>}
+              {isEst && !notYet && <span className="text-[11px] text-amber-600">הערכה — עדכנו לפי החוברת</span>}
             </div>
             <select
               value={currentId}
@@ -73,12 +75,18 @@ export function ClassAlignmentCard({ profileId, masteryMap }: Props) {
               className="w-full rounded-xl border border-gray-200 bg-[#FAFAFA] px-3 py-2 text-sm text-[#2D3047]"
               aria-label={`הנושא שהכיתה לומדת עכשיו ב${STRAND_LABELS[strand]}`}
             >
+              <option value={NOT_STARTED}>עוד לא התחילו את הספר הזה</option>
               {unitsOf(strand).map(u => (
                 <option key={u.id} value={u.id}>
-                  {u.title} (עמ׳ {u.pages[0]}–{u.pages[1]}){builtIn(u.skills) ? '' : ' · עוד לא באפליקציה'}
+                  נושא {u.topic} — {u.title} (עמ׳ {u.pages[0]}–{u.pages[1]}){builtIn(u.skills) ? '' : ' · עוד לא באפליקציה'}
                 </option>
               ))}
             </select>
+            {notYet && (
+              <div className="text-xs text-gray-500 mt-1.5">
+                ⏸️ האפליקציה לא מלמדת מהספר הזה חומר חדש עד שתבחרו נושא. חזרה על מה שכבר נלמד בכיתה ג׳ ממשיכה.
+              </div>
+            )}
             {lines.map(l => (
               <div key={l.text} className="text-xs font-semibold mt-1.5" style={{ color: l.color }}>{l.text}</div>
             ))}

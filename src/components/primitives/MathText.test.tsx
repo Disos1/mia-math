@@ -52,4 +52,18 @@ describe('MathText', () => {
   it('isolates a sum of fractions whole', () => {
     expect(isolates('כמה זה 3/8 + 2/8?')).toEqual(['3/8 + 2/8']);
   });
+
+  it('keeps a power inside its expression', () => {
+    // Topic 12 of the mult/div book writes powers as superscripts.
+    expect(isolates('כמה זה 2³ + 10?')).toEqual(['2³ + 10']);
+    expect(isolates('כמה זה 5 × 10²?')).toEqual(['5 × 10²']);
+  });
+
+  it('keeps every thousands group of a million in one operand', () => {
+    expect(isolates('כמה זה 1,000,000 − 1?')).toEqual(['1,000,000 − 1']);
+  });
+
+  it('keeps a missing addend in place', () => {
+    expect(isolates('86,774 + ? = 183,696. מה המחובר החסר?')).toEqual(['86,774 + ? = 183,696']);
+  });
 });

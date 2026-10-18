@@ -3,11 +3,15 @@
  *
  *   GEOM_RECT_SQUARE — מלבן וריבוע: properties, and the classification that
  *                      trips everyone up ("every square is a rectangle").
- *   GEOM_TRIANGLES   — משולשים: by sides, by angles, and the 180° rule.
- *   GEOM_PERIMETER   — היקף מצולע והיקף מלבן.
- *   GEOM_AREA        — שטח בסמ"ר, including area↔side both ways.
- *   GEOM_SYMMETRY    — סימטריה שיקופית וסיבובית.
- *   GEOM_SOLIDS      — תיבות ונפח: faces, edges, vertices, volume in סמ"ק.
+ *   GEOM_TRIANGLES   — משולשים: by sides, and by angles judged against a right
+ *                      angle in a drawing. NOT the 180° angle sum: that is
+ *                      grade 5, and the grade-4 book does not measure angles.
+ *   GEOM_PERIMETER   — היקף מצולע (topic 6). The rectangle is topic 7, in
+ *                      geometryBook.ts.
+ *   GEOM_AREA        — שטח מלבן בסמ"ר, including area↔side both ways.
+ *   GEOM_SYMMETRY    — סימטרייה שיקופית (topic 12); rotation is topic 13.
+ *   GEOM_SOLIDS      — תיבה: faces, edges, vertices, nets (topic 14). Volume
+ *                      has its own topics (17–20).
  *
  * Perimeter and area share one signature, ERR_PERIM_AREA_SWAP — applying the
  * other figure's formula. It is in the validated catalogue (formula swap), and
@@ -21,6 +25,7 @@ import type { PracticeItem } from '../../../types';
 type Pt = [number, number];
 import { buildItem, pickFromCombos, type GenerateOpts } from '../shared';
 import { regularPolygon, rotateAndFit } from './geometry';
+import { type Cell, bbox, fixedPolyominoes, foldCube, oppositeFace } from './gridUtils';
 
 const LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו'];
 
@@ -134,7 +139,7 @@ function* triangles(): Generator<PracticeItem> {
           distractors: sideNames.filter(n => n !== name), exactOptions: true,
           cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
           steps: [
-            { text: 'סופרים כמה צלעות שווות: שלוש — שווה-צלעות, שתיים — שווה-שוקיים, אף אחת — שונה-צלעות.' },
+            { text: 'סופרים כמה צלעות שוות: שלוש — שווה-צלעות, שתיים — שווה-שוקיים, אף אחת — שונה-צלעות.' },
             { text: `כאן: ${name}.` },
           ],
         });
@@ -142,46 +147,100 @@ function* triangles(): Generator<PracticeItem> {
     }
   }
 
-  // By angles — every triple that sums to 180.
-  for (let a = 20; a <= 130; a += 5) {
-    for (let b = 15; b <= 130; b += 5) {
-      const c = 180 - a - b;
-      if (c < 15 || c > 130 || a < b || b < c) continue;     // one ordering only
-      const name = Math.max(a, b, c) === 90 ? angleNames[0]
-                 : Math.max(a, b, c) > 90   ? angleNames[2]
-                 :                            angleNames[1];
-      yield buildItem({
-        itemId: `G_TR_ANGLES_${a}_${b}_${c}`, skillCode: TR,
-        question: `זוויות המשולש הן ${a}°, ${b}° ו-${c}°. איזה משולש זה?`,
-        correct: name, signature: null, signatureCode: null,
-        distractors: angleNames.filter(n => n !== name), exactOptions: true,
-        cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
-        steps: [
-          { text: 'זווית ישרה היא 90°. גדולה ממנה — קהה, קטנה ממנה — חדה.' },
-          { text: `הזווית הגדולה כאן היא ${Math.max(a, b, c)}°, ולכן זה ${name}.` },
-        ],
-      });
+  // By angles, from a DRAWING — the book's way: compare each angle with a right
+  // angle (the corner of a page). A right angle is marked with its small square;
+  // every other angle is built at least 15° away from right, so it is never a
+  // judgement call.
+  const angleAt = (P: Pt[], i: number) => {
+    const p = P[i], a = P[(i + 1) % 3], b = P[(i + 2) % 3];
+    const u = [a[0] - p[0], a[1] - p[1]], v = [b[0] - p[0], b[1] - p[1]];
+    return (Math.acos((u[0] * v[0] + u[1] * v[1]) / (Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1]))) * 180) / Math.PI;
+  };
+  for (let bx = 50; bx <= 100; bx += 10) {
+    // The apex swept left to right, plus the two places it makes a right angle.
+    const apexes = new Set([-30, -14, 2, 18, 34, 50, 66, 82, 98, 114, 130, 0, bx]);
+    for (const cx of apexes) {
+      for (const cy of [45, 70]) {
+        const P: Pt[] = [[0, 0], [bx, 0], [cx, cy]];
+        const ang = [0, 1, 2].map(i => angleAt(P, i));
+        const right = ang.findIndex(x => Math.abs(x - 90) < 0.5);
+        if (right < 0 && ang.some(x => Math.abs(x - 90) < 15)) continue;     // too close to call
+        if (ang.some(x => x < 12)) continue;                                  // a sliver, not a triangle
+        const max  = Math.max(...ang);
+        const name = right >= 0 ? angleNames[0] : max > 90 ? angleNames[2] : angleNames[1];
+        for (const deg of [0, 140]) {
+          yield buildItem({
+            itemId: `G_TR_DRAWN_${bx}_${cx}_${cy}_${deg}`, skillCode: TR,
+            question: 'איזה משולש זה לפי הזוויות שלו?',
+            correct: name, signature: null, signatureCode: null,
+            distractors: angleNames.filter(n => n !== name), exactOptions: true,
+            visual: { type: 'polygon', points: rotateAndFit(P, deg), labels: LETTERS.slice(0, 3),
+                      rightAngleAt: right >= 0 ? [right] : [] },
+            cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+            steps: [
+              { text: 'משווים כל זווית לזווית ישרה (כמו פינה של דף). הריבוע הקטן מסמן זווית ישרה.' },
+              { text: 'יש זווית ישרה — ישר-זווית. יש זווית גדולה מישרה — קהה-זווית. כל הזוויות קטנות מישרה — חד-זוויות.' },
+              { text: `כאן: ${name}.` },
+            ],
+          });
+        }
+      }
     }
   }
 
-  // The 180° rule.
-  for (let a = 20; a <= 130; a += 5) {
-    for (let b = 15; b + a <= 165; b += 10) {
-      const c = 180 - a - b;
-      yield buildItem({
-        itemId: `G_TR_SUM_${a}_${b}`, skillCode: TR,
-        question: `במשולש יש זוויות של ${a}° ו-${b}°. כמה מעלות הזווית השלישית?`,
-        correct: c,
-        signature: 360 - a - b,            // uses the quadrilateral's 360°
-        signatureCode: null, distractors: [],
-        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
-        steps: [
-          { text: 'סכום הזוויות בכל משולש הוא 180°.' },
-          { text: `${a} + ${b} = ?`, answer: a + b },
-          { text: `180 − ${a + b} = ?`, answer: c },
-        ],
-      });
+  // Both at once, drawn: an isosceles triangle can be right, acute or obtuse.
+  for (let half = 20; half <= 50; half += 5) {
+    for (const [h, kind] of [[half, 0], [half * 2 + 10, 1], [Math.round(half / 3), 2]] as const) {
+      if (h < 8) continue;
+      const P: Pt[] = [[0, h], [2 * half, h], [half, 0]];
+      const name = `${angleNames[kind]} ושווה-שוקיים`;
+      const wrong = [`${angleNames[(kind + 1) % 3]} ושווה-שוקיים`, `${angleNames[kind]} ושונה-צלעות`, `${angleNames[kind]} ושווה-צלעות`];
+      for (const deg of [0, 200]) {
+        yield buildItem({
+          itemId: `G_TR_BOTH_${half}_${kind}_${deg}`, skillCode: TR,
+          question: 'שתי הצלעות המסומנות בצבע שוות באורכן. איזה משולש זה?',
+          correct: name, signature: null, signatureCode: null, distractors: wrong, exactOptions: true,
+          visual: { type: 'polygon', points: rotateAndFit(P, deg), labels: LETTERS.slice(0, 3),
+                    highlightSides: [1, 2], rightAngleAt: kind === 0 ? [2] : [] },
+          cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+          steps: [
+            { text: 'לפי הצלעות: שתי צלעות שוות — שווה-שוקיים.' },
+            { text: `לפי הזווית שבין שתי הצלעות השוות: ${kind === 0 ? 'ישרה' : kind === 1 ? 'חדה' : 'קהה'}.` },
+            { text: `ביחד: ${name}.` },
+          ],
+        });
+      }
     }
+  }
+
+  // Classification claims — "every equilateral triangle is isosceles" is the
+  // one that matters, the same idea as "every square is a rectangle".
+  const claims: Array<[string, string]> = [
+    ['כל משולש שווה-צלעות הוא גם שווה-שוקיים', 'נכון'],
+    ['כל משולש שווה-שוקיים הוא גם שווה-צלעות', 'לא נכון'],
+    ['יש משולש ישר-זווית שהוא גם שווה-שוקיים', 'נכון'],
+    ['יש משולש ישר-זווית שהוא גם שווה-צלעות', 'לא נכון'],
+    ['יש משולש עם שתי זוויות ישרות', 'לא נכון'],
+    ['יש משולש עם שתי זוויות קהות', 'לא נכון'],
+    ['בכל משולש יש לפחות שתי זוויות חדות', 'נכון'],
+    ['במשולש שווה-צלעות כל הזוויות חדות', 'נכון'],
+    ['יש משולש קהה-זווית שהוא גם שווה-שוקיים', 'נכון'],
+    ['יש משולש שונה-צלעות שהוא ישר-זווית', 'נכון'],
+    ['במשולש שווה-שוקיים יש שתי זוויות שוות', 'נכון'],
+    ['במשולש שווה-צלעות כל הזוויות שוות', 'נכון'],
+  ];
+  for (const [i, [claim, answer]] of claims.entries()) {
+    yield buildItem({
+      itemId: `G_TR_CLAIM_${i}`, skillCode: TR,
+      question: `${claim} — נכון או לא נכון?`,
+      correct: answer, signature: null, signatureCode: null,
+      distractors: [answer === 'נכון' ? 'לא נכון' : 'נכון'], exactOptions: true,
+      cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+      steps: [
+        { text: 'שווה-צלעות הוא מקרה מיוחד של שווה-שוקיים — כמו שריבוע הוא מקרה מיוחד של מלבן.' },
+        { text: `לכן המשפט ${answer}.` },
+      ],
+    });
   }
 }
 
@@ -190,55 +249,7 @@ function* triangles(): Generator<PracticeItem> {
 const PE = 'GEOM_PERIMETER';
 
 function* perimeter(): Generator<PracticeItem> {
-  for (let w = 4; w <= 40; w += 2) {
-    for (let h = 3; h < w; h += 3) {
-      const p = 2 * (w + h), area = w * h;
-      yield buildItem({
-        itemId: `G_PE_RECT_${w}_${h}`, skillCode: PE,
-        question: `מלבן שאורכו ${w} ס"מ ורוחבו ${h} ס"מ. מה ההיקף שלו בס"מ?`,
-        correct: p,
-        signature: String(area).length <= String(p).length + 1 ? area : null,
-        signatureCode: String(area).length <= String(p).length + 1 ? 'ERR_PERIM_AREA_SWAP' : null,
-        distractors: [], cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
-        visual: { type: 'polygon', points: rect(100, Math.round((h / w) * 100)), labels: LETTERS.slice(0, 4) },
-        steps: [
-          { text: 'היקף = כמה דרך עוברים מסביב לצורה — מחברים את כל הצלעות.' },
-          { text: `במלבן שתי צלעות באורך ${w} ושתיים באורך ${h}: ${w} + ${h} = ?`, answer: w + h },
-          { text: `וכפול 2: ${w + h} × 2 = ?`, answer: p },
-        ],
-      });
-
-      // Backwards: perimeter given, find the missing side.
-      yield buildItem({
-        itemId: `G_PE_BACK_${w}_${h}`, skillCode: PE,
-        question: `היקף מלבן הוא ${p} ס"מ, ואורכו ${w} ס"מ. מה רוחבו בס"מ?`,
-        correct: h, signature: p - w, signatureCode: null, distractors: [],
-        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
-        steps: [
-          { text: `קודם מורידים את שני האורכים: ${p} − ${2 * w} = ?`, answer: 2 * h },
-          { text: `מה שנשאר הוא שני רוחבים: ${2 * h} ÷ 2 = ?`, answer: h },
-        ],
-      });
-    }
-  }
-
-  for (let side = 3; side <= 30; side++) {
-    const p = 4 * side, area = side * side;
-    yield buildItem({
-      itemId: `G_PE_SQ_${side}`, skillCode: PE,
-      question: `ריבוע שאורך צלעו ${side} ס"מ. מה ההיקף שלו בס"מ?`,
-      correct: p,
-      signature: area !== p && String(area).length <= String(p).length + 1 ? area : null,
-      signatureCode: area !== p && String(area).length <= String(p).length + 1 ? 'ERR_PERIM_AREA_SWAP' : null,
-      distractors: [], cpaLayer: 'abstract', difficulty: 1, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: 'בריבוע כל ארבע הצלעות שווות.' },
-        { text: `${side} × 4 = ?`, answer: p },
-      ],
-    });
-  }
-
-  // A polygon that is not a rectangle — perimeter is still "add the sides".
+  // A regular polygon: one side, many times.
   for (const n of [3, 5, 6, 8]) {
     for (let side = 3; side <= 20; side += 2) {
       yield buildItem({
@@ -248,11 +259,65 @@ function* perimeter(): Generator<PracticeItem> {
         visual: { type: 'polygon', points: regularPolygon(n), labels: LETTERS.slice(0, Math.min(n, LETTERS.length)) },
         cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
         steps: [
-          { text: 'במצולע משוכלל כל הצלעות שווות באורכן.' },
+          { text: 'במצולע משוכלל כל הצלעות שוות באורכן.' },
           { text: `${n} × ${side} = ?`, answer: n * side },
         ],
       });
     }
+  }
+
+  // An irregular polygon: add every side — the slip is to miss one.
+  const SHAPES: Array<{ n: number; pts: Pt[] }> = [
+    { n: 3, pts: [[0, 80], [100, 80], [35, 0]] },
+    { n: 4, pts: [[10, 0], [90, 15], [100, 80], [0, 70]] },
+    { n: 5, pts: [[50, 0], [100, 35], [80, 100], [15, 90], [0, 30]] },
+    { n: 6, pts: [[25, 0], [80, 5], [100, 50], [75, 100], [20, 90], [0, 45]] },
+  ];
+  for (const { n, pts } of SHAPES) {
+    for (let base = 3; base <= 12; base++) {
+      for (const step of [1, 2, 3]) {
+        const sides = Array.from({ length: n }, (_, i) => base + ((i * step * 3) % 7));
+        const p = sides.reduce((x, y) => x + y, 0);
+        const labels = LETTERS.slice(0, n);
+        // Lengths sit beside their sides, as in the book. Written into the
+        // question as "אב = 4, בג = 6" they reached her scrambled by RTL.
+        yield buildItem({
+          itemId: `G_PE_IRR_${n}_${base}_${step}`, skillCode: PE,
+          question: 'ליד כל צלע כתוב האורך שלה בס"מ. מה היקף המצולע בס"מ?',
+          correct: p, signature: p - sides[n - 1], signatureCode: null, distractors: [],
+          visual: { type: 'polygon', points: pts, labels, sideLabels: sides.map(String) },
+          cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+          steps: [
+            { text: `סופרים צלעות: ${n}. מחברים את כולן — עוברים מסביב עד שחוזרים לקודקוד ${labels[0]}.` },
+            { text: `${sides.join(' + ')} = ?`, answer: p },
+          ],
+        });
+        // Backwards: the perimeter is known, one side is missing.
+        const known = sides.slice(0, -1);
+        yield buildItem({
+          itemId: `G_PE_MISS_${n}_${base}_${step}`, skillCode: PE,
+          question: `היקף המצולע ${p} ס"מ. ליד כל צלע כתוב האורך שלה בס"מ. מה אורך הצלע שלידה כתוב סימן שאלה?`,
+          correct: sides[n - 1], signature: null, signatureCode: null, distractors: [],
+          visual: { type: 'polygon', points: pts, labels, highlightSides: [n - 1], sideLabels: [...known.map(String), '?'] },
+          cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+          steps: [
+            { text: `סכום הצלעות הידועות: ${known.join(' + ')} = ?`, answer: p - sides[n - 1] },
+            { text: `מה שחסר עד ההיקף: ${p} − ${p - sides[n - 1]} = ?`, answer: sides[n - 1] },
+          ],
+        });
+      }
+    }
+  }
+
+  // An equilateral triangle from its perimeter.
+  for (let side = 3; side <= 25; side++) {
+    yield buildItem({
+      itemId: `G_PE_EQTRI_${side}`, skillCode: PE,
+      question: `היקף משולש שווה-צלעות הוא ${side * 3} ס"מ. מה אורך כל צלע?`,
+      correct: side, signature: null, signatureCode: null, distractors: [],
+      cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+      steps: [{ text: 'שלוש צלעות שוות — מחלקים את ההיקף ל-3.' }, { text: `${side * 3} ÷ 3 = ?`, answer: side }],
+    });
   }
 }
 
@@ -306,28 +371,6 @@ function* area(): Generator<PracticeItem> {
     });
   }
 
-  // Same perimeter, different area — the point the book makes with tiles.
-  for (let half = 8; half <= 26; half += 2) {
-    for (let w1 = Math.ceil(half / 2); w1 < half - 1; w1++) {
-      const h1 = half - w1, w2 = w1 + 2, h2 = half - w2;
-      if (h2 < 1 || w1 * h1 === w2 * h2) continue;
-      const a1 = w1 * h1, a2 = w2 * h2;
-      const bigger  = a1 > a2 ? `${w1} על ${h1}` : `${w2} על ${h2}`;
-      const smaller = a1 > a2 ? `${w2} על ${h2}` : `${w1} על ${h1}`;
-      yield buildItem({
-        itemId: `G_AR_SAMEP_${w1}_${h1}_${w2}_${h2}`, skillCode: AR,
-        question: `לשני המלבנים אותו היקף. לאיזה מהם שטח גדול יותר: ${w1} על ${h1} או ${w2} על ${h2}?`,
-        correct: bigger, signature: smaller, signatureCode: null,
-        distractors: ['לשניהם אותו שטח'], exactOptions: true,
-        cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
-        steps: [
-          { text: `שטח ראשון: ${w1} × ${h1} = ${a1}.` },
-          { text: `שטח שני: ${w2} × ${h2} = ${a2}.` },
-          { text: 'אותו היקף לא אומר אותו שטח — ככל שהמלבן דומה יותר לריבוע, שטחו גדול יותר.' },
-        ],
-      });
-    }
-  }
 }
 
 // ─── GEOM_SYMMETRY ───────────────────────────────────────────────────────────
@@ -364,18 +407,51 @@ function* symmetry(): Generator<PracticeItem> {
     });
   }
 
-  for (const [name, n] of all) {
-    if (n === 0) continue;                       // no rotation to speak of
+  // On squared paper: is the dashed line a line of symmetry, and how many squares
+  // complete the picture. Patterns are swept from bit masks of the left half.
+  const W = 3, H = 4;
+  for (let mask = 7; mask < 1 << (W * H); mask += 37) {
+    const half: Cell[] = [];
+    for (let b = 0; b < W * H; b++) if (mask & (1 << b)) half.push([b % W, Math.floor(b / W)]);
+    if (half.length < 3 || half.length > 8) continue;
+    const mirror = half.map(([x, y]) => [2 * W - 1 - x, y] as Cell);
+    const full = [...half, ...mirror];
+    // A near-miss: one mirrored square shifted down a row (when it lands on an empty square).
+    const moved = mirror.map(c => c.join(','));
+    const victim = mirror.find(([x, y]) => y + 1 < H && !moved.includes(`${x},${y + 1}`));
+    const broken = victim ? [...half, ...mirror.filter(c => c !== victim), [victim[0], victim[1] + 1] as Cell] : null;
+
     yield buildItem({
-      itemId: `G_SY_ROT_${name}`, skillCode: SY,
-      question: `בסיבוב שלם, כמה פעמים ${name} נראה בדיוק כמו בהתחלה?`,
-      correct: n, signature: null, signatureCode: null, distractors: [],
-      cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
-      steps: [
-        { text: 'מסובבים את הצורה סיבוב שלם וסופרים כמה פעמים היא מתאימה לעצמה.' },
-        { text: `ב${name}: ${n} פעמים.`, answer: n },
-      ],
+      itemId: `G_SY_GRIDYES_${mask}`, skillCode: SY,
+      question: 'האם הקו המקווקו הוא ציר סימטריה של הצורה?',
+      correct: 'כן', signature: null, signatureCode: null, distractors: ['לא'], exactOptions: true,
+      visual: { type: 'grid_shape', cols: 2 * W, rows: H, cells: full, axis: { x: W } },
+      cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+      steps: [{ text: 'מקפלים בדמיון על הקו: כל משבצת צריכה ליפול על משבצת צבועה בצד השני, באותו מרחק מהקו.' }],
     });
+    if (broken) {
+      yield buildItem({
+        itemId: `G_SY_GRIDNO_${mask}`, skillCode: SY,
+        question: 'האם הקו המקווקו הוא ציר סימטריה של הצורה?',
+        correct: 'לא', signature: null, signatureCode: null, distractors: ['כן'], exactOptions: true,
+        visual: { type: 'grid_shape', cols: 2 * W, rows: H, cells: broken, axis: { x: W } },
+        cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+        steps: [{ text: 'מקפלים על הקו ובודקים משבצת-משבצת. יש משבצת אחת שלא נופלת על בת-זוג.' }],
+      });
+    }
+    // Complete the picture: some mirrored squares are missing.
+    const missing = mirror.filter((_, i) => (i + mask) % 2 === 0);
+    if (missing.length >= 1) {
+      yield buildItem({
+        itemId: `G_SY_GRIDADD_${mask}`, skillCode: SY,
+        question: 'כמה משבצות עוד צריך לצבוע כדי שהקו המקווקו יהיה ציר סימטריה של הצורה?',
+        correct: missing.length, signature: null, signatureCode: null, distractors: [],
+        visual: { type: 'grid_shape', cols: 2 * W, rows: H, cells: full.filter(c => !missing.includes(c)), axis: { x: W } },
+        cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [{ text: 'לכל משבצת בצד שמאל מחפשים את בת-הזוג שלה בצד ימין, באותה שורה ובאותו מרחק מהקו.' },
+                { text: 'סופרים את בנות-הזוג שחסרות:', answer: missing.length }],
+      });
+    }
   }
 
   // Which shape has exactly k axes? — the same fact, asked backwards.
@@ -413,36 +489,72 @@ function* solids(): Generator<PracticeItem> {
     });
   }
 
-  for (let l = 2; l <= 12; l++) {
-    for (let w = 2; w <= 8; w++) {
-      for (let h = 2; h <= 6; h += 2) {
-        if (l < w) continue;                     // one orientation per box
-        const v = l * w * h;
+  // How many faces of each size — reading a drawn box.
+  for (let l = 2; l <= 9; l++) {
+    for (let w = 2; w <= l; w++) {
+      for (let h = 2; h <= 7; h++) {
+        if ((l + w + h) % 3 !== 0) continue;
+        const kind = (a: number, b: number) => `${Math.max(a, b)}x${Math.min(a, b)}`;
+        const same = [kind(l, w), kind(l, h), kind(w, h)].filter(k => k === kind(l, w)).length * 2;
         yield buildItem({
-          itemId: `G_SO_VOL_${l}_${w}_${h}`, skillCode: SO,
-          question: `תיבה שאורכה ${l} ס"מ, רוחבה ${w} ס"מ וגובהה ${h} ס"מ. מה הנפח שלה בסמ"ק?`,
-          correct: v,
-          signature: l + w + h,                  // added the three edges
-          signatureCode: null, distractors: [],
-          cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+          itemId: `G_SO_FACES_${l}_${w}_${h}`, skillCode: SO,
+          question: `לכמה פאות בתיבה יש בדיוק אותו גודל כמו לפאה ${l} על ${w} ס"מ (כולל היא עצמה)?`,
+          correct: same, signature: same === 2 ? 1 : 2, signatureCode: null, distractors: [],
+          visual: { type: 'box', l, w, h, dims: { unit: 'ס"מ' } },
+          cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
           steps: [
-            { text: 'בשכבה התחתונה יש אורך × רוחב קוביות.' },
-            { text: `${l} × ${w} = ?`, answer: l * w },
-            { text: `ויש ${h} שכבות כאלה: ${l * w} × ${h} = ?`, answer: v },
+            { text: 'בתיבה הפאות באות בזוגות: כל פאה שווה לפאה שמולה.' },
+            { text: same === 2 ? 'כאן רק הפאה הזו והפאה שמולה.' : 'כאן יש עוד זוג פאות באותו גודל.', answer: same },
           ],
         });
-
-        if (h === 2) {
-          yield buildItem({
-            itemId: `G_SO_LAYER_${l}_${w}_${h}`, skillCode: SO,
-            question: `בונים תיבה ${l} על ${w} על ${h} מקוביות יחידה. כמה קוביות יש בשכבה אחת?`,
-            correct: l * w, signature: v, signatureCode: null, distractors: [],
-            cpaLayer: 'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
-            steps: [{ text: 'שכבה אחת היא מלבן של אורך על רוחב.' }, { text: `${l} × ${w} = ?`, answer: l * w }],
-          });
-        }
       }
     }
+  }
+
+  // Nets of a cube — found, not listed: every six-square shape is folded by
+  // rolling a cube across it (gridUtils.foldCube).
+  const hexes = fixedPolyominoes(6);
+  const nets = hexes.filter(c => foldCube(c));
+  const notNets = hexes.filter(c => !foldCube(c));
+  // As many shapes that fold as that do not, so "yes" is not the safe guess.
+  const chosenNo = notNets.filter((_, i) => i % Math.max(1, Math.floor(notNets.length / nets.length)) === 0).slice(0, nets.length);
+  for (const [i, cells] of [...nets.map(c => [c, true] as const), ...chosenNo.map(c => [c, false] as const)].entries()) {
+    const [shape, folds] = cells;
+    const { cols, rows } = bbox(shape);
+    yield buildItem({
+      itemId: `G_SO_NET_${folds ? 'Y' : 'N'}_${i}`, skillCode: SO,
+      question: 'האם אפשר לקפל את הפריסה הזו לקובייה?',
+      correct: folds ? 'כן' : 'לא', signature: null, signatureCode: null,
+      distractors: [folds ? 'לא' : 'כן'], exactOptions: true,
+      visual: { type: 'grid_shape', cols, rows, cells: shape },
+      cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+      steps: [
+        { text: 'מדמיינים: אחת המשבצות היא הבסיס, ומקפלים את השאר למעלה סביבה.' },
+        { text: folds ? 'כל משבצת נופלת על פאה אחרת — יוצאת קובייה.' : 'שתי משבצות נופלות על אותה פאה (או שנשאר חור) — אין קובייה.' },
+      ],
+    });
+  }
+  // Opposite faces on a net.
+  for (const [i, shape] of nets.entries()) {
+    if (i % 2 === 1) continue;
+    const faces = foldCube(shape)!;
+    const labels = LETTERS.slice(0, 6);
+    const ask = i % 6;
+    const opp = faces.findIndex(f => f === oppositeFace(faces[ask]));
+    const wrong = labels.filter((_, k) => k !== ask && k !== opp).slice(0, 3);
+    const { cols, rows } = bbox(shape);
+    yield buildItem({
+      itemId: `G_SO_OPP_${i}`, skillCode: SO,
+      question: `מקפלים את הפריסה לקובייה. איזו אות תהיה על הפאה שמול הפאה עם האות ${labels[ask]}?`,
+      correct: labels[opp], signature: null, signatureCode: null, distractors: wrong, exactOptions: true,
+      visual: { type: 'grid_shape', cols, rows, cells: shape, cellLabels: labels },
+      cpaLayer: 'abstract', difficulty: 3, rng: () => 0.5,
+      steps: [
+        { text: 'פאות נגדיות אף פעם לא נוגעות זו בזו בפריסה.' },
+        { text: 'בשורה של שלוש משבצות, הראשונה והשלישית נגדיות.' },
+        { text: `מול האות ${labels[ask]} תהיה האות ${labels[opp]}.` },
+      ],
+    });
   }
 }
 

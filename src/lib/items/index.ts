@@ -43,8 +43,17 @@ import {
   generateNegatives, generateDiagrams, generateChance, generateGematria,
 } from './generators/numbersOps';
 import {
-  generateMultByTens, generateMultDivLink, generateMultVertical,
-  generateDivOneDigit, generateDivLong, generateDivisibility, generatePrimes,
+  generateDigitCards, generateCompare, generateAddLarge, generateChangeEffect, generateChanceCompare,
+} from './generators/numbersBook';
+import {
+  generateLengthMm, generatePerimeterRect, generateAreaGrid, generateAreaM2, generatePerimArea, generateSymmetryRot, generateSurfaceArea, generateBoxDiagonals, generateVolumeCubes, generateVolume, generateVolumeUnits, generateSurfaceVolume, generateWeightVolume, generateCalendar,
+} from './generators/geometryBook';
+import {
+  generateMultBy10, generateMultByTens, generateDivTensByDigit, generateDivByTens,
+  generateMultDivLink, generateOrderOpsMult, generateZeroOne, generateMultTwoDigit,
+  generateMultVertical, generateMultVertical3, generateMultProperties, generatePowers,
+  generateDivOneDigit, generateDivLong, generateDivLongB, generateDiv39, generateDiv6,
+  generateDivisibility, generatePrimes, generateFactorise,
 } from './generators/multDiv';
 
 type GenFn = (opts: GenerateOpts) => PracticeItem[];
@@ -81,8 +90,28 @@ const REGISTRY: Record<string, GenFn> = {
   GEOM_AREA:              generateArea,
   GEOM_SYMMETRY:          generateSymmetry,
   GEOM_SOLIDS:            generateSolids,
+  // גאומטריה — the topics added 2026-10-18
+  MEAS_LENGTH_MM:         generateLengthMm,
+  GEOM_PERIMETER_RECT:    generatePerimeterRect,
+  GEOM_AREA_GRID:         generateAreaGrid,
+  GEOM_AREA_M2:           generateAreaM2,
+  GEOM_PERIM_AREA:        generatePerimArea,
+  GEOM_SYMMETRY_ROT:      generateSymmetryRot,
+  GEOM_SURFACE_AREA:      generateSurfaceArea,
+  GEOM_BOX_DIAGONALS:     generateBoxDiagonals,
+  GEOM_VOLUME_CUBES:      generateVolumeCubes,
+  GEOM_VOLUME:            generateVolume,
+  GEOM_VOLUME_UNITS:      generateVolumeUnits,
+  GEOM_SURFACE_VOLUME:    generateSurfaceVolume,
+  GEOM_WEIGHT_VOLUME:     generateWeightVolume,
+  MEAS_CALENDAR:          generateCalendar,
   // Numbers booklet, rest of the year
+  NUM_DIGIT_CARDS:        generateDigitCards,
+  NUM_COMPARE:            generateCompare,
+  NUM_ADD_LARGE:          generateAddLarge,
   ARITH_ADD_SUB_LARGE:    generateAddSubLarge,
+  NUM_CHANGE_EFFECT:      generateChangeEffect,
+  DATA_CHANCE_COMPARE:    generateChanceCompare,
   NUM_ADD_SUB_LINK:       generateAddSubLink,
   NUM_ORDER_OPS:          generateOrderOps,
   NUM_WORD_LARGE:         generateWordLarge,
@@ -90,14 +119,27 @@ const REGISTRY: Record<string, GenFn> = {
   DATA_DIAGRAMS:          generateDiagrams,
   DATA_CHANCE:            generateChance,
   NUM_GEMATRIA:           generateGematria,
-  // Multiplication & division booklet — January onwards
+  // כפל וחילוק — all 20 topics, in book order
+  MULT_BY_10_100_1000:    generateMultBy10,
   MULT_BY_TENS:           generateMultByTens,
+  DIV_TENS_BY_DIGIT:      generateDivTensByDigit,
+  DIV_BY_TENS:            generateDivByTens,
   MULT_DIV_LINK:          generateMultDivLink,
+  NUM_ORDER_OPS_MULT:     generateOrderOpsMult,
+  NUM_ZERO_ONE:           generateZeroOne,
+  MULT_TWO_DIGIT:         generateMultTwoDigit,
   ARITH_MULT_VERTICAL:    generateMultVertical,
+  MULT_VERTICAL_3BY2:     generateMultVertical3,
+  MULT_PROPERTIES:        generateMultProperties,
+  NUM_POWERS:             generatePowers,
   DIV_ONE_DIGIT:          generateDivOneDigit,
   ARITH_DIV_LONG:         generateDivLong,
+  DIV_LONG_B:             generateDivLongB,
+  NUM_DIV_3_9:            generateDiv39,
+  NUM_DIV_6:              generateDiv6,
   NUM_DIVISIBILITY:       generateDivisibility,
   NUM_PRIMES:             generatePrimes,
+  NUM_FACTORISE:          generateFactorise,
 };
 
 /** All skill codes for which a generator exists. */

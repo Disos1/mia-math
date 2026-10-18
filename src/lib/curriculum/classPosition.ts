@@ -25,6 +25,7 @@ import { isUnlocked } from '../skillGraph';
 import { SKILLS_WITH_PRACTICE } from '../items';
 import { syncClassPosition } from '../sync';
 import {
+  DORMANT_BY_DEFAULT,
   STRANDS, unitsOf, unitById, indexInStrand,
   type StrandId, type CurriculumUnit,
 } from './hashbacha4';
@@ -83,7 +84,19 @@ export interface ClassPosition {
   setAt?: string;
 }
 
-/** The unit the publisher's pacing puts the class on this week. */
+/**
+ * A strand the class has not started. Fractions is the case today: her school
+ * teaches numbers, multiplication & division and geometry in parallel, and the
+ * fractions book comes later. A not-started strand gets no new material and no
+ * repair from its own units — only grade-3 catch-up, which is always allowed.
+ */
+export const NOT_STARTED = 'not_started';
+
+export function isStarted(position: ClassPosition, strand: StrandId): boolean {
+  return position.units[strand] !== NOT_STARTED;
+}
+
+/** The unit the pacing estimate puts the class on this week. */
 export function estimateUnit(strand: StrandId, nowIso: string): CurriculumUnit {
   const week  = teachingWeek(nowIso);
   const units = unitsOf(strand);
@@ -116,8 +129,10 @@ export function loadClassPosition(profileId: string, nowIso = new Date().toISOSt
   const out: ClassPosition = { units: {}, source: {}, setAt: stored?.setAt };
   for (const s of STRANDS) {
     const id = stored?.units[s];
-    if (id && unitById(id)?.strand === s) {
+    if (id === NOT_STARTED || (id && unitById(id)?.strand === s)) {
       out.units[s] = id;  out.source[s] = 'parent';
+    } else if (DORMANT_BY_DEFAULT.has(s)) {
+      out.units[s] = NOT_STARTED;  out.source[s] = 'estimate';
     } else {
       out.units[s] = estimateUnit(s, nowIso).id;  out.source[s] = 'estimate';
     }
@@ -165,7 +180,8 @@ export interface FrontierTarget {
   strand:  StrandId;
   unit:    CurriculumUnit;
   skill:   string;
-  /** Units past the class's current one (0 = with the class, 1–2 = pre-teaching). */
+  /** Units past the class's current one (0 = with the class, 1–2 = pre-teaching,
+   *  negative = catching up on a unit the class has passed). */
   aheadBy: number;
 }
 
@@ -200,6 +216,7 @@ export function curriculumFrontier(
   const upcoming: BehindGap[]      = [];
 
   for (const strand of STRANDS) {
+    if (!isStarted(position, strand)) continue;     // the class has not begun this book
     const units    = unitsOf(strand);
     const classIdx = Math.max(0, indexInStrand(position.units[strand] ?? units[0].id));
 
@@ -253,6 +270,28 @@ export function curriculumFrontier(
       }
       break search;                                               // stop either way
     }
+
+    // Catching up, in the book's order. If nothing from the class unit onward
+    // is open to her, the strand would get no new material at all, and its
+    // passed units would wait in the repair queue behind her failing grade-3
+    // skills — which is how the whole mult/div book (taught in parallel since
+    // September, topic 3 locked behind topics 1–2) went unpractised. The next
+    // thing to learn is then the EARLIEST passed unit she has not mastered.
+    // Same stop rule: if that unit is locked, the strand waits on its blocker.
+    if (!targets.some(t => t.strand === strand)) {
+      for (let i = 0; i < classIdx; i++) {
+        const open = units[i].skills.filter(buildable).filter(s => !isMastered(masteryMap, s));
+        if (open.length === 0) continue;
+        const ready = open.filter(s => isUnlocked(s, masteryMap, slowSkills));
+        if (ready.length > 0) {
+          targets.push({ strand, unit: units[i], skill: ready[0], aheadBy: i - classIdx });
+          // It is new material now, so it must not also sit in the repair list.
+          const k = behind.findIndex(b => b.skill === ready[0]);
+          if (k >= 0) behind.splice(k, 1);
+        }
+        break;
+      }
+    }
   }
 
   // Priority: stay with the class before running ahead of it. Within a tier,
@@ -290,6 +329,7 @@ export function teachableHorizon(
   const frontier = curriculumFrontier(position, masteryMap, slowSkills);
   const out = {} as Record<StrandId, number>;
   for (const strand of STRANDS) {
+    if (!isStarted(position, strand)) { out[strand] = -1; continue; }
     const units    = unitsOf(strand);
     const classIdx = Math.max(0, indexInStrand(position.units[strand] ?? units[0].id));
     const target   = frontier.targets.find(t => t.strand === strand);
@@ -318,6 +358,7 @@ export function standingVsClass(
 ): Record<StrandId, Standing> {
   const out = {} as Record<StrandId, Standing>;
   for (const strand of STRANDS) {
+    if (!isStarted(position, strand)) { out[strand] = { ahead: 0, gaps: 0, unchecked: 0 }; continue; }
     const units    = unitsOf(strand);
     const classIdx = Math.max(0, indexInStrand(position.units[strand] ?? units[0].id));
     const built    = (u: CurriculumUnit) => u.skills.filter(buildable);
