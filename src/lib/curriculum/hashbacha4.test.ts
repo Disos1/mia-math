@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord, GapProfile } from '../../types';
 import { HASHBACHA_4, STRANDS, DORMANT_BY_DEFAULT, unitsOf, unitById } from './hashbacha4';
 import {
-  teachingWeek, estimateUnit, curriculumFrontier, standingVsClass, loadClassPosition,
+  teachingWeek, estimateUnit, curriculumFrontier, standingVsClass, loadClassPosition, extrapolateUnit,
   NOT_STARTED, type ClassPosition,
 } from './classPosition';
 import { SKILLS_WITH_PRACTICE, getItemPool } from '../items';
@@ -47,6 +47,12 @@ const GAP = {
 } as unknown as GapProfile;
 
 const NOW = '2026-09-19T12:00:00.000Z';
+
+/** The rest of numbers topic 1, for scenarios where she has it. */
+const TOPIC1: MasteryMap = {
+  NUM_READ_WRITE: r('NUM_READ_WRITE', 'שליטה', 0.9, 30),
+  DATA_DIAGRAMS:  r('DATA_DIAGRAMS',  'שליטה', 0.9, 30),
+};
 
 /** What loadClassPosition gives with nothing stored: the publisher's week for
  *  the three books she learns in parallel, fractions not started. */
@@ -141,9 +147,16 @@ describe('frontier for Mia on 2026-09-19', () => {
     expect(target('geometry')).toMatchObject({ skill: 'GEOM_PARALLEL_PERP', aheadBy: 0 });
   });
 
-  it('pre-teaches in numbers, in the book\'s order, because she already has place value', () => {
-    // Topics 1–2 are place value (mastered); topic 3 adds the digit cards.
-    expect(target('numbers')).toMatchObject({ skill: 'NUM_DIGIT_CARDS', aheadBy: 2 });
+  it('works with the class on numbers topic 1 — reading and writing numbers, which she has not shown', () => {
+    // Topic 1 is place value (mastered) plus reading/writing numbers and bar
+    // charts (added 2026-10-21 from the class's lesson log; never given to her).
+    expect(target('numbers')).toMatchObject({ skill: 'NUM_READ_WRITE', aheadBy: 0 });
+  });
+
+  it('pre-teaches in numbers, in the book\'s order, once topics 1–2 are hers', () => {
+    const more = { ...MIA_SEP19, ...TOPIC1 };
+    const t = curriculumFrontier(positionAt(NOW), more).targets.find(x => x.strand === 'numbers');
+    expect(t).toMatchObject({ skill: 'NUM_DIGIT_CARDS', aheadBy: 2 });
   });
 
   it('catches up on the mult/div book from its first topic, not as repair', () => {
@@ -161,7 +174,7 @@ describe('frontier for Mia on 2026-09-19', () => {
   });
 
   it('runs as far ahead as her mastery allows — the class is not a ceiling', () => {
-    const far = { ...MIA_SEP19,
+    const far = { ...MIA_SEP19, ...TOPIC1,
       NUM_DIGIT_CARDS: r('NUM_DIGIT_CARDS', 'שליטה', 1, 20),
       NUM_COMPARE:     r('NUM_COMPARE', 'שליטה', 1, 20),
     };
@@ -177,7 +190,8 @@ describe('frontier for Mia on 2026-09-19', () => {
 
   it('reports her standing honestly — ahead in numbers, unknown (not weak) elsewhere', () => {
     const st = standingVsClass(positionAt(NOW), MIA_SEP19);
-    expect(st.numbers.ahead).toBeGreaterThan(0);
+    expect(st.numbers.ahead).toBe(0);                    // topic 1 is not all hers yet
+    expect(standingVsClass(positionAt(NOW), { ...MIA_SEP19, ...TOPIC1 }).numbers.ahead).toBeGreaterThan(0);
     // Never given to her in the app: UNCHECKED, not a gap — she may know them
     // perfectly from class.
     expect(st.geometry).toMatchObject({ gaps: 0, unchecked: 1 });
@@ -225,6 +239,7 @@ describe('the book\'s order is the order', () => {
   const MID_YEAR: MasteryMap = {
     ARITH_MULT_6_9:         r('ARITH_MULT_6_9', 'שליטה', 0.95, 950),
     PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה', 0.92, 120),
+    ...TOPIC1,
     NUM_ORDER_LINE:         r('NUM_ORDER_LINE', 'שליטה', 0.9, 60),
     NUM_ROUNDING:           r('NUM_ROUNDING', 'שליטה', 0.88, 55),
     FRAC_PART_WHOLE:        r('FRAC_PART_WHOLE', 'שליטה', 0.9, 40),
@@ -313,7 +328,7 @@ describe('composed sessions for Mia (book-aligned)', () => {
   const allSkills = new Set(sessions.flatMap(s => s.plannedItems.map(p => p.item.skillCode)));
 
   it('reaches all three books across a few sessions', () => {
-    for (const s of ['MULT_BY_10_100_1000', 'GEOM_PARALLEL_PERP', 'NUM_DIGIT_CARDS']) {
+    for (const s of ['MULT_BY_10_100_1000', 'GEOM_PARALLEL_PERP', 'NUM_READ_WRITE']) {
       expect(allSkills, s).toContain(s);
     }
   });
@@ -332,10 +347,9 @@ describe('composed sessions for Mia (book-aligned)', () => {
     }
   });
 
-  it('marks pre-teaching items as ahead of the class — and only those', () => {
-    const ahead = sessions.flatMap(s => s.plannedItems).filter(p => p.ahead);
-    expect(ahead.length).toBeGreaterThan(0);
-    for (const p of ahead) expect(p.item.skillCode).toBe('NUM_DIGIT_CARDS');
+  it('marks nothing as ahead while every book is with or behind the class', () => {
+    // The ahead banner itself is tested in BlockBanners.test.tsx.
+    expect(sessions.flatMap(s => s.plannedItems).filter(p => p.ahead)).toEqual([]);
   });
 
   it('opens a never-practised skill with a worked example', () => {
@@ -346,7 +360,7 @@ describe('composed sessions for Mia (book-aligned)', () => {
   });
 
   it('gives new material only from her frontier in each book', () => {
-    const allowed = new Set(['MULT_BY_10_100_1000', 'GEOM_PARALLEL_PERP', 'NUM_DIGIT_CARDS']);
+    const allowed = new Set(['MULT_BY_10_100_1000', 'GEOM_PARALLEL_PERP', 'NUM_READ_WRITE']);
     for (const s of sessions) {
       for (const p of s.plannedItems.filter(x => x.sessionPhase === 'new_material')) {
         expect(allowed, p.item.skillCode).toContain(p.item.skillCode);
@@ -384,3 +398,39 @@ describe('teaching-order guards', () => {
     for (const t of textOf('GEOM_TRIANGLES')) expect(t).not.toMatch(/180/);
   });
 });
+
+// ─── Between the parent's updates ────────────────────────────────────────────
+//
+// Set from her school's lesson log on 2026-10-21: numbers topic 4, mult/div
+// topic 4, geometry topic 2. The log showed the class moving at roughly the
+// publisher's page rate, so the estimate advances at that pace — not faster.
+
+describe('extrapolating a saved position', () => {
+  const SET = '2026-10-21T18:00:00.000Z';
+  const at = (strand: 'numbers' | 'multdiv' | 'geometry', anchor: string, iso: string) =>
+    extrapolateUnit(strand, anchor, SET, iso).id;
+
+  it('stays where the parent put it on the day it was set', () => {
+    expect(at('numbers', 'numbers.compare', SET)).toBe('numbers.compare');
+  });
+
+  it('moves on at the book\'s pace, one book at a time', () => {
+    const week = '2026-10-29T12:00:00.000Z';
+    expect(at('numbers', 'numbers.compare', week)).toBe('numbers.order_line');       // 1-week topic
+    expect(at('multdiv', 'multdiv.div_by_tens', week)).toBe('multdiv.div_by_tens'); // 2-week topic
+    const twoWeeks = '2026-11-05T12:00:00.000Z';
+    expect(at('multdiv', 'multdiv.div_by_tens', twoWeeks)).toBe('multdiv.mult_div_link');
+    expect(at('geometry', 'geometry.parallel', twoWeeks)).toBe('geometry.rect_square');
+  });
+
+  it('does not advance through a school holiday', () => {
+    const before = '2026-12-06T00:00:00.000Z', after = '2026-12-13T00:00:00.000Z';
+    expect(extrapolateUnit('numbers', 'numbers.rounding', before, after).id).toBe('numbers.rounding');
+  });
+
+  it('never runs past the end of the book', () => {
+    const units = unitsOf('numbers');
+    expect(at('numbers', 'numbers.compare', '2027-09-01T00:00:00.000Z')).toBe(units[units.length - 1].id);
+  });
+});
+

@@ -1,14 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { loadProfile, createProfile, updateProfile, clearProfile, saveProfile, isRediagnosticDue, storeLocalOwner, loadLocalOwner } from './lib/profile';
-import { loadMasteryMap, saveMasteryMap, clearAllSessionData, loadSessionRecords, hydrateSessionRecords } from './lib/sessionStore';
+import { loadMasteryMap, saveMasteryMap, clearAllSessionData, loadSessionRecords, hydrateSessionRecords, loadLedger, saveLedger } from './lib/sessionStore';
 import { AVATAR_BY_ID } from './constants/avatars';
 import { ENTRY_ITEMS } from './constants/diagnosticItems';
 import { computePhase1Signals, selectVerificationItems, classifyResults } from './lib/diagnosticEngine';
 import { buildGapProfile } from './lib/gapProfile';
-import { mergeMasteryMaps } from './lib/masteryTracker';
+import { mergeMasteryMaps, ledgerFromAttempts, mergeLedgers, reconcileAccuracy } from './lib/masteryTracker';
 import { hydrateClassPosition } from './lib/curriculum/classPosition';
 import { supabase, SUPABASE_CONFIGURED } from './lib/supabase';
-import { initSync, clearSync, pullProfile, pullMasteryMap, pullSessionRecords, pullClassPosition, migrateLocalToRemote, migrateSessionRecords, deleteRemoteProfile } from './lib/sync';
+import { initSync, clearSync, pullProfile, pullMasteryMap, pullSessionRecords, pullClassPosition, pullAttemptRows, syncMasteryMap, migrateLocalToRemote, migrateSessionRecords, deleteRemoteProfile } from './lib/sync';
 import type { Profile, Avatar, DiagnosticAttempt, SessionMode, DiagnosticItem as DiagnosticItemType } from './types';
 
 import { SignIn }             from './routes/SignIn';
@@ -92,10 +92,11 @@ export default function App() {
       // Remote profile exists — hydrate localStorage and navigate
       saveProfile(remote);
       setProfile(remote);
-      const [remoteMastery, remoteSessions, remoteClassPosition] = await Promise.all([
+      const [remoteMastery, remoteSessions, remoteClassPosition, remoteAttempts] = await Promise.all([
         pullMasteryMap(remote.profileId),
         pullSessionRecords(remote.profileId),
         pullClassPosition(remote.profileId),
+        pullAttemptRows(remote.profileId),
       ]);
       // Merge, never overwrite: this device may hold practice the cloud has not
       // seen yet (signed out, offline, or a session that never synced).
@@ -104,6 +105,19 @@ export default function App() {
           remote.profileId,
           mergeMasteryMaps(loadMasteryMap(remote.profileId), remoteMastery),
         );
+      }
+      // One mastery window for both devices: rebuilt from every answer the
+      // cloud holds, then each record's accuracy is re-derived from it (this
+      // also repairs accuracies a device with an empty window had zeroed).
+      if (remoteAttempts) {
+        const ledger = mergeLedgers(loadLedger(remote.profileId), ledgerFromAttempts(remoteAttempts));
+        saveLedger(remote.profileId, ledger);
+        const before = loadMasteryMap(remote.profileId);
+        const after  = reconcileAccuracy(before, ledger);
+        if (Object.keys(after).some(k => after[k].firstAttemptAccuracy !== before[k].firstAttemptAccuracy)) {
+          saveMasteryMap(remote.profileId, after);
+          syncMasteryMap(after);
+        }
       }
       hydrateClassPosition(remote.profileId, remoteClassPosition);
       const localSessions = loadSessionRecords(remote.profileId);

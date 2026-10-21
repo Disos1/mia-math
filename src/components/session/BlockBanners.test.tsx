@@ -29,6 +29,10 @@ const MIA: MasteryMap = {
   FRAC_COMPARE_UNIT:      r('FRAC_COMPARE_UNIT',      'שליטה',  1.0,  42),
   FRAC_OF_QUANTITY:       r('FRAC_OF_QUANTITY',       'בתהליך', 0.3, 323),
   PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה',  0.9,  41),
+  // Numbers topic 1 also holds reading/writing numbers and bar charts; with
+  // those hers too, the numbers strand runs ahead — the case under test.
+  NUM_READ_WRITE:         r('NUM_READ_WRITE',         'שליטה',  0.9,  30),
+  DATA_DIAGRAMS:          r('DATA_DIAGRAMS',          'שליטה',  0.9,  30),
 };
 
 const GAP = {

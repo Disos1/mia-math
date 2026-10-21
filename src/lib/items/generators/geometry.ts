@@ -187,8 +187,57 @@ function* diagonalsFromVertex(): Generator<PracticeItem> {
   }
 }
 
+/**
+ * The rule behind the drawings, as the class stated it on 20/10: the number of
+ * diagonals from one vertex is the number of vertices minus 3 — and so a
+ * triangle has none. Asked both ways, for polygons too big to draw.
+ */
+function* diagonalRule(): Generator<PracticeItem> {
+  for (let n = 4; n <= 30; n++) {
+    yield buildItem({
+      itemId: `G_PG_RULE_${n}`, skillCode: PG,
+      question: `למצולע יש ${n} קדקודים. כמה אלכסונים יוצאים מקדקוד אחד שלו?`,
+      correct: n - 3, signature: n - 1, signatureCode: 'ERR_DIAGONAL_SIDES', distractors: [],
+      cpaLayer: 'abstract', difficulty: n > 10 ? 3 : 2, answerMode: 'keypad', rng: () => 0.5,
+      steps: [
+        { text: 'מקדקוד אחד אפשר להגיע לכל הקדקודים — חוץ ממנו עצמו ומשני השכנים שלו (אליהם מגיעים בצלע).' },
+        { text: `${n} − 3 = ?`, answer: n - 3 },
+      ],
+    });
+    yield buildItem({
+      itemId: `G_PG_RULEBACK_${n}`, skillCode: PG,
+      question: `מקדקוד אחד של מצולע יוצאים ${n - 3} אלכסונים. כמה קדקודים יש למצולע?`,
+      correct: n, signature: null, signatureCode: null, distractors: [],
+      cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+      steps: [
+        { text: 'מספר האלכסונים מקדקוד אחד קטן ב-3 ממספר הקדקודים.' },
+        { text: `${n - 3} + 3 = ?`, answer: n },
+      ],
+    });
+  }
+  const claims: Array<[string, string]> = [
+    ['במשולש אין אלכסונים', 'נכון'],
+    ['אלכסון מחבר שני קדקודים שכנים', 'לא נכון'],
+    ['אלכסון מחבר שני קדקודים שאינם שכנים', 'נכון'],
+    ['בכל מרובע יוצא מכל קדקוד אלכסון אחד', 'נכון'],
+    ['צלע של מצולע היא גם אלכסון שלו', 'לא נכון'],
+    ['ככל שיש למצולע יותר קדקודים, יוצאים מכל קדקוד יותר אלכסונים', 'נכון'],
+  ];
+  for (const [i, [claim, answer]] of claims.entries()) {
+    yield buildItem({
+      itemId: `G_PG_CLAIM_${i}`, skillCode: PG,
+      question: `${claim} — נכון או לא נכון?`,
+      correct: answer, signature: null, signatureCode: null,
+      distractors: [answer === 'נכון' ? 'לא נכון' : 'נכון'], exactOptions: true,
+      cpaLayer: 'abstract', difficulty: 2, rng: () => 0.5,
+      steps: [{ text: 'אלכסון הוא קטע שמחבר שני קדקודים שאינם שכנים. במשולש כל שני קדקודים שכנים — לכן אין בו אלכסונים.' },
+              { text: `לכן: ${answer}.` }],
+    });
+  }
+}
+
 export function generatePolygons(opts: GenerateOpts): PracticeItem[] {
-  return pickFromCombos([...polygonNaming(), ...sidesAndVertices(), ...diagonalsFromVertex()], opts);
+  return pickFromCombos([...polygonNaming(), ...sidesAndVertices(), ...diagonalsFromVertex(), ...diagonalRule()], opts);
 }
 
 // ─── GEOM_PARALLEL_PERP ──────────────────────────────────────────────────────

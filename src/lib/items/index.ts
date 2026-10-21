@@ -45,6 +45,7 @@ import {
 import {
   generateDigitCards, generateCompare, generateAddLarge, generateChangeEffect, generateChanceCompare,
 } from './generators/numbersBook';
+import { generateReadWrite } from './generators/numbersRead';
 import {
   generateLengthMm, generatePerimeterRect, generateAreaGrid, generateAreaM2, generatePerimArea, generateSymmetryRot, generateSurfaceArea, generateBoxDiagonals, generateVolumeCubes, generateVolume, generateVolumeUnits, generateSurfaceVolume, generateWeightVolume, generateCalendar,
 } from './generators/geometryBook';
@@ -106,6 +107,7 @@ const REGISTRY: Record<string, GenFn> = {
   GEOM_WEIGHT_VOLUME:     generateWeightVolume,
   MEAS_CALENDAR:          generateCalendar,
   // Numbers booklet, rest of the year
+  NUM_READ_WRITE:         generateReadWrite,
   NUM_DIGIT_CARDS:        generateDigitCards,
   NUM_COMPARE:            generateCompare,
   NUM_ADD_LARGE:          generateAddLarge,

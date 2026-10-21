@@ -62,6 +62,7 @@ const SKILL_NAMES: Record<string, string> = {
   GEOM_WEIGHT_VOLUME:     'הקשר בין משקל לנפח',
   MEAS_CALENDAR:          'לוח השנה וחישובי זמן',
   ARITH_ADD_SUB_LARGE:    'חיסור בתחום המיליון',
+  NUM_READ_WRITE:         'קריאה וכתיבה של מספרים עד מיליון',
   NUM_DIGIT_CARDS:        'בניית מספרים מכרטיסי ספרות',
   NUM_COMPARE:            'השוואת מספרים בתחום המיליון',
   NUM_ADD_LARGE:          'חיבור בתחום המיליון',

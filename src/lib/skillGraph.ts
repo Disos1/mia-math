@@ -134,6 +134,12 @@ export const SKILL_GRAPH: Record<string, SkillNode> = {
     // the missing floor beneath ARITH_SUB_REGROUP_ZERO (her worst skill).
     prereqs: [],
   },
+  NUM_READ_WRITE: {
+    // Numbers topics 1–2. No prerequisite inside the app: this IS where the
+    // booklet starts, and place value is learned alongside it.
+    skill: 'NUM_READ_WRITE', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'sept',
+    prereqs: [],
+  },
   NUM_DIGIT_CARDS: {
     skill: 'NUM_DIGIT_CARDS', grade: 4, strand: 'PLACE_VALUE', taughtFrom: 'sept',
     prereqs: [

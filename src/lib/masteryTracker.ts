@@ -94,6 +94,49 @@ function windowSpansDays(ledger: AttemptLedger, skillCode: string, minDays: numb
   return new Set(window.map(e => e.d)).size >= minDays;
 }
 
+// ─── One window across devices ───────────────────────────────────────────────
+//
+// The window lived only on the device that recorded it, so the phone judged
+// mastery from its own few answers and the tablet from its own. Every answer
+// is also saved to the cloud (session_attempts), so each device rebuilds the
+// window from there at start-up.
+
+export interface AttemptRow { skill_code: string; correct: boolean; cpa_layer: string; created_at: string }
+
+/** Abstract first attempts, oldest first → the last WINDOW per skill. */
+export function ledgerFromAttempts(rows: AttemptRow[]): AttemptLedger {
+  const out: AttemptLedger = {};
+  const sorted = [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  for (const r of sorted) {
+    out[r.skill_code] = appendToLedger(out, r.skill_code, {
+      c: r.correct, l: r.cpa_layer as CPALayer, d: toLocalDay(r.created_at),
+    })[r.skill_code] ?? [];
+  }
+  for (const k of Object.keys(out)) if (out[k].length === 0) delete out[k];
+  return out;
+}
+
+/** Per skill, the fuller window wins; on a tie this device's (it may be newer). */
+export function mergeLedgers(local: AttemptLedger, remote: AttemptLedger): AttemptLedger {
+  const out: AttemptLedger = { ...local };
+  for (const [skill, entries] of Object.entries(remote)) {
+    if ((out[skill]?.length ?? 0) < entries.length) out[skill] = entries;
+  }
+  return out;
+}
+
+/** Re-derive each record's accuracy from its window. Status is left alone:
+ *  graduating or demoting is for real answers, not for a sync. */
+export function reconcileAccuracy(map: MasteryMap, ledger: AttemptLedger): MasteryMap {
+  const out: MasteryMap = { ...map };
+  for (const [skill, rec] of Object.entries(map)) {
+    if (windowSize(ledger, skill) > 0) {
+      out[skill] = { ...rec, firstAttemptAccuracy: windowAccuracy(ledger, skill) };
+    }
+  }
+  return out;
+}
+
 // ─── Mastery update ────────────────────────────────────────────────────────────
 
 /**
@@ -147,8 +190,12 @@ export function applyAttemptToMastery(args: {
 
   const itemCount    = prior.itemCount + 1;
   const sessionCount = prior.sessionCount + (isNewSessionForSkill ? 1 : 0);
-  const accuracy     = windowAccuracy(ledger, attempt.skillCode);
   const size         = windowSize(ledger, attempt.skillCode);
+  // No abstract evidence in the window (a pictorial answer, or a device that
+  // has not seen this skill yet) says nothing about accuracy, so the record
+  // keeps what it had. Reporting 0 here wiped 30–90% histories to 0% on
+  // 2026-10-21 and turned them into "stuck" alerts in the parent's email.
+  const accuracy     = size > 0 ? windowAccuracy(ledger, attempt.skillCode) : prior.firstAttemptAccuracy;
 
   // Note: the ledger is abstract-only by construction (`appendToLedger` drops
   // non-abstract entries), so `accuracy` and `size` already describe abstract

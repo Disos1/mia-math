@@ -528,8 +528,23 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     // the graph blocker comes first, always — a slow fact that blocks long
     // multiplication must reach the repair stream, not wait its turn.
     const candidates = prereqPool.filter(s => s !== firstGap && s !== secondNew);
+    // Book-aligned: alternate what she is failing with topics the class has
+    // passed that she has not mastered. Rotating over the four most urgent
+    // alone meant four weak grade-3 skills held every slot, and a passed topic
+    // she never practised in the app (reading numbers in words, 2026-10-21)
+    // could never come up.
+    const bookGaps = new Set(behindGaps.map(b => b.skill));
+    const failing  = candidates.filter(s => urgency(s) <= 1);
+    const passed   = candidates.filter(s => urgency(s) > 1 && bookGaps.has(s));
+    const others   = candidates.filter(s => !failing.includes(s) && !passed.includes(s));
+    const mixed: string[] = [];
+    for (let i = 0; i < Math.max(failing.length, passed.length); i++) {
+      if (failing[i]) mixed.push(failing[i]);
+      if (passed[i])  mixed.push(passed[i]);
+    }
+    const window = [...mixed, ...others].slice(0, 6);
     const dualTrackPick = targetGrade > 3
-      ? (frontier ? rotate(candidates.slice(0, 4), args.sessionsCompleted)[0] : candidates[0])
+      ? (frontier ? rotate(window, args.sessionsCompleted)[0] : candidates[0])
       : undefined;
     const blockedSkill = dualTrackPick ?? secondGap ?? firstGap;
     if (blockedSkill) {

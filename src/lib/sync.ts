@@ -19,6 +19,7 @@
 import { supabase, SUPABASE_CONFIGURED } from './supabase';
 import type { Profile, MasteryMap, SessionRecord, PracticeAttempt } from '../types';
 import type { StoredClassPosition } from './curriculum/classPosition';
+import type { AttemptRow } from './masteryTracker';
 
 // ─── Module-level auth state ──────────────────────────────────────────────────
 
@@ -275,6 +276,22 @@ async function _pushSessionAttempts(attempts: PracticeAttempt[]): Promise<void> 
 export function syncSessionAttempts(attempts: PracticeAttempt[]): void {
   if (!SUPABASE_CONFIGURED || !_authUserId) return;
   fire('pushSessionAttempts', _pushSessionAttempts(attempts));
+}
+
+/** Every abstract first attempt the cloud holds — enough to rebuild the
+ *  mastery window on any device. Null when offline or on error. */
+export async function pullAttemptRows(profileId: string): Promise<AttemptRow[] | null> {
+  if (!SUPABASE_CONFIGURED) return null;
+  const { data, error } = await supabase
+    .from('session_attempts')
+    .select('skill_code, correct, cpa_layer, created_at')
+    .eq('profile_id', profileId)
+    .eq('first_attempt', true)
+    .eq('cpa_layer', 'abstract')
+    .order('created_at', { ascending: false })
+    .limit(3000);
+  if (error) { console.warn('[sync] pullAttemptRows error:', error.message); return null; }
+  return (data ?? []) as AttemptRow[];
 }
 
 // ─── Hard delete (parent reset) ──────────────────────────────────────────────

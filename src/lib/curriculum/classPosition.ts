@@ -59,8 +59,8 @@ const BREAKS: Array<[string, string]> = [
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** Teaching weeks elapsed since school start, holidays removed. */
-export function teachingWeek(nowIso: string): number {
+/** Teaching days elapsed since school start, holidays removed (fractional). */
+export function teachingDays(nowIso: string): number {
   const start = new Date(SCHOOL_START).getTime();
   const now   = new Date(nowIso).getTime();
   if (now <= start) return 0;
@@ -70,7 +70,12 @@ export function teachingWeek(nowIso: string): number {
     if (now <= s) continue;
     days -= (Math.min(now, e) - s) / DAY;
   }
-  return Math.max(0, Math.floor(days / 7));
+  return Math.max(0, days);
+}
+
+/** Teaching weeks elapsed since school start, holidays removed. */
+export function teachingWeek(nowIso: string): number {
+  return Math.floor(teachingDays(nowIso) / 7);
 }
 
 // ─── Position ─────────────────────────────────────────────────────────────────
@@ -82,6 +87,30 @@ export interface ClassPosition {
   source: Partial<Record<StrandId, 'parent' | 'estimate'>>;
   /** When the parent last confirmed, ISO. */
   setAt?: string;
+}
+
+/**
+ * Where the class is now, given where the parent said it was and when.
+ *
+ * A saved position used to stand still until someone updated it, so two weeks
+ * later the app still thought the class was on the same topic. Her school's
+ * lesson log (Sept–Oct 2026) shows the class moving through each book at about
+ * the publisher's page rate — numbers pages 8→44 and mult/div 9→38 in five
+ * teaching weeks — so from the saved topic the estimate advances at the
+ * publisher's pace, holidays removed. Deliberately not faster: a position too
+ * far ahead would label topics the class has not taught as "learned in class".
+ */
+export function extrapolateUnit(strand: StrandId, anchorId: string, anchorIso: string, nowIso: string): CurriculumUnit {
+  const anchor = unitById(anchorId)!;
+  const elapsedWeeks = (teachingDays(nowIso) - teachingDays(anchorIso)) / 7;
+  if (!(elapsedWeeks > 0)) return anchor;
+  const units = unitsOf(strand);
+  let current = anchor;
+  for (let i = indexInStrand(anchorId) + 1; i < units.length; i++) {
+    if (units[i].week - anchor.week > elapsedWeeks) break;
+    current = units[i];
+  }
+  return current;
 }
 
 /**
@@ -112,12 +141,15 @@ export interface StoredClassPosition {
   units:  Partial<Record<StrandId, string>>;
   source: Partial<Record<StrandId, 'parent' | 'estimate'>>;
   setAt?: string;
+  /** When each book's position was set. Without it, updating one book would
+   *  restart the extrapolation clock of the other two. Falls back to setAt. */
+  setAtBy?: Partial<Record<StrandId, string>>;
 }
 
-function readStored(profileId: string): ClassPosition | null {
+function readStored(profileId: string): StoredClassPosition | null {
   try {
     const raw = localStorage.getItem(KEY(profileId));
-    return raw ? (JSON.parse(raw) as ClassPosition) : null;
+    return raw ? (JSON.parse(raw) as StoredClassPosition) : null;
   } catch {
     return null;
   }
@@ -129,8 +161,13 @@ export function loadClassPosition(profileId: string, nowIso = new Date().toISOSt
   const out: ClassPosition = { units: {}, source: {}, setAt: stored?.setAt };
   for (const s of STRANDS) {
     const id = stored?.units[s];
-    if (id === NOT_STARTED || (id && unitById(id)?.strand === s)) {
+    const since = stored?.setAtBy?.[s] ?? stored?.setAt;
+    if (id === NOT_STARTED) {
       out.units[s] = id;  out.source[s] = 'parent';
+    } else if (id && unitById(id)?.strand === s) {
+      const now = since ? extrapolateUnit(s, id, since, nowIso).id : id;
+      out.units[s]  = now;
+      out.source[s] = now === id ? 'parent' : 'estimate';   // moved on by pace, not by the parent
     } else if (DORMANT_BY_DEFAULT.has(s)) {
       out.units[s] = NOT_STARTED;  out.source[s] = 'estimate';
     } else {
@@ -146,6 +183,7 @@ export function saveClassUnit(profileId: string, strand: StrandId, unitId: strin
   stored.units[strand]  = unitId;
   stored.source[strand] = 'parent';
   stored.setAt = new Date().toISOString();
+  stored.setAtBy = { ...(stored.setAtBy ?? {}), [strand]: stored.setAt };
   writeStored(profileId, stored);
   syncClassPosition(profileId, stored);   // fire-and-forget; no-op signed out
 }

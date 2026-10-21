@@ -82,8 +82,8 @@ export const HASHBACHA_4: CurriculumUnit[] = [
   // ── מספרים בתחום המיליון ─────────────────────────────────────────────────
   ...book('numbers', MIL, 192, [
     // פרק א' ייצוגים של מספרים בתחום המיליון
-    { id: 'numbers.represent_a',    topic: 1,  pages: [7, 23],    title: 'ייצוגים של מספרים טבעיים בתחום המיליון (א)', skills: ['PLACE_VALUE_TO_MILLION'] },
-    { id: 'numbers.represent_b',    topic: 2,  pages: [24, 32],   title: 'ייצוגים של מספרים טבעיים בתחום המיליון (ב)', skills: ['PLACE_VALUE_TO_MILLION'] },
+    { id: 'numbers.represent_a',    topic: 1,  pages: [7, 23],    title: 'ייצוגים של מספרים טבעיים בתחום המיליון (א)', skills: ['PLACE_VALUE_TO_MILLION', 'NUM_READ_WRITE', 'DATA_DIAGRAMS'] },
+    { id: 'numbers.represent_b',    topic: 2,  pages: [24, 32],   title: 'ייצוגים של מספרים טבעיים בתחום המיליון (ב)', skills: ['PLACE_VALUE_TO_MILLION', 'NUM_READ_WRITE'] },
     { id: 'numbers.digit_value',    topic: 3,  pages: [33, 42],   title: 'הערך שספרה מייצגת במספר',               skills: ['PLACE_VALUE_TO_MILLION', 'NUM_DIGIT_CARDS'] },
     { id: 'numbers.compare',        topic: 4,  pages: [43, 49],   title: 'השוואה בין מספרים',                      skills: ['NUM_COMPARE'] },
     { id: 'numbers.order_line',     topic: 5,  pages: [50, 57],   title: 'סדר בין מספרים',                         skills: ['NUM_ORDER_LINE'] },

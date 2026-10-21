@@ -111,6 +111,32 @@ function* digitCards(): Generator<PracticeItem> {
       });
     }
   }
+
+  // Changing one digit — by how much does the number change? (Class, 18/10:
+  // "שינוי ערך ספרה במספר".) Answering the difference of the digits, ignoring
+  // their place, is the digit-for-value slip.
+  for (let n = 104_352; n <= 987_654; n += 29_311) {
+    const s = String(n);
+    for (let pos = 0; pos < 5; pos++) {
+      const d = Number(s[pos]);
+      if (s.split(s[pos]).length !== 2) continue;          // the digit must appear once
+      const e = (d + 3 + pos * 2) % 10;
+      if (e === d || (pos === 0 && e === 0)) continue;
+      const pow = s.length - 1 - pos;
+      const delta = (e - d) * 10 ** pow;
+      const up = delta > 0;
+      yield buildItem({
+        itemId: `G_DC_CHANGE_${n}_${pos}`, skillCode: DC,
+        question: `במספר ${fmt(n)} כותבים ${e} במקום הספרה ${d}. בכמה ${up ? 'גדל' : 'קטן'} המספר?`,
+        correct: Math.abs(delta), signature: Math.abs(e - d), signatureCode: 'ERR_DIGIT_FOR_VALUE',
+        distractors: [], cpaLayer: 'abstract', difficulty: 3, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: `הספרה ${d} נמצאת במקום ששווה ${fmt(10 ** pow)}.` },
+          { text: `היא ${up ? 'גדלה' : 'קטנה'} ב-${Math.abs(e - d)}, אז המספר ${up ? 'גדל' : 'קטן'} ב-${Math.abs(e - d)} × ${fmt(10 ** pow)}:`, answer: Math.abs(delta) },
+        ],
+      });
+    }
+  }
 }
 
 // ─── NUM_COMPARE — topic 4 ──────────────────────────────────────────────────
