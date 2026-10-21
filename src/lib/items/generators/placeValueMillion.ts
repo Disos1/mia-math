@@ -57,6 +57,10 @@ function* enumerateDigitValue(): Generator<PracticeItem> {
       if (d === 0) continue;                 // zero-value probes are T3's job
       const correct = d * 10 ** place;
       if (correct === d) continue;           // ones place is not diagnostic
+      // "The 3 in 139,139" has two answers. Mia met exactly that (2026-10-21):
+      // the app wanted 30,000 and she could equally have meant 30. Ask only
+      // about a digit that appears once.
+      if (String(n).split('').filter(c => c === String(d)).length !== 1) continue;
       yield buildItem({
         itemId:        `G_PV_VAL_${n}_${place}`,
         skillCode:     SKILL,

@@ -92,6 +92,8 @@ function* digitCards(): Generator<PracticeItem> {
     const s = String(n).split('').map(Number);
     for (const [i, j] of [[4, 5], [0, 1], [2, 3]] as const) {
       if (s[i] === s[j]) continue;
+      // Each named digit must appear once, or "swap the 9 and the 3" is ambiguous.
+      if (s.filter(x => x === s[i]).length > 1 || s.filter(x => x === s[j]).length > 1) continue;
       const t = [...s]; [t[i], t[j]] = [t[j], t[i]];
       const m = Number(t.join(''));
       if (String(m).length !== 6) continue;

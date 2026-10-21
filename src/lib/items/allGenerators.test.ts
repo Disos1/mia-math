@@ -134,4 +134,20 @@ describe('two-way questions offer exactly the two things asked about', () => {
       }
     }
   });
+
+  it('names a digit only when it appears once in the number', () => {
+    // 2026-10-21: "מהו הערך של הספרה 3 במספר 139,139?" — two 3s, two right
+    // answers (30,000 and 30), and the app accepted only one of them.
+    for (const { skill, items } of pools) {
+      for (const it of items) {
+        const num = it.question.match(/במספר ([\d,]+)/)?.[1];
+        if (!num) continue;
+        const digits = num.replace(/,/g, '');
+        for (const m of it.question.matchAll(/(?:הספרה|לספרה) (\d)(?!\d)/g)) {
+          const count = digits.split('').filter(c => c === m[1]).length;
+          expect(count, `${skill} ${it.itemId}: "${it.question}"`).toBe(1);
+        }
+      }
+    }
+  });
 });
