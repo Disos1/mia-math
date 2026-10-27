@@ -59,6 +59,7 @@ import { loadRecentItemIds, appendRecentItemIds } from '../lib/items/recentItems
 import { updateProfile } from '../lib/profile';
 import { starsForSession, COMBO_BONUS_1, MIN_ITEMS_FOR_STARS } from '../lib/trophies';
 import { loadClassPosition } from '../lib/curriculum/classPosition';
+import { loadLiveSession, saveLiveSession, clearLiveSession, resumeIndex } from '../lib/liveSession';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -101,7 +102,11 @@ function tallyAttempts(attempts: PracticeAttempt[]): { attempted: number; correc
 
 type Screen = 'running' | 'end';
 
-export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
+export function Session({ profile, mode: requestedMode, onComplete, onTrophyRoom }: Props) {
+  // A session interrupted by a reload (Family Link time limit, a closed tab, a
+  // crash) is picked up where it stopped instead of starting over.
+  const [resumed] = useState(() => loadLiveSession(profile.profileId));
+
   // ── One-time init ──────────────────────────────────────────────────────────
   const initialMastery = useMemo<MasteryMap>(() => {
     const existing = loadMasteryMap(profile.profileId);
@@ -156,11 +161,11 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
 
   // Compose the plan once per session
   const plan = useMemo<SessionPlan>(
-    () => composeSession({
+    () => resumed?.plan ?? composeSession({
       profileId:         profile.profileId,
       gapProfile:        profile.gapProfileJson,
       masteryMap:        initialMastery,
-      mode,
+      mode:              requestedMode,
       sessionsCompleted: profile.sessionsCompleted,
       cpaMemory:         cpaMemoryRef.current,
       recentIds:         recentIdsRef.current,
@@ -176,17 +181,20 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     []   // intentionally empty: compose once, on mount
   );
 
+  /** The resumed session's mode wins over the button she tapped this time. */
+  const mode = plan.mode;
+
   // ── Session state ──────────────────────────────────────────────────────────
   const [screen, setScreen]     = useState<Screen>('running');
-  const [items, setItems]       = useState<SessionPlanItem[]>(plan.plannedItems);
-  const [index, setIndex]       = useState(0);
+  const [items, setItems]       = useState<SessionPlanItem[]>(resumed?.items ?? plan.plannedItems);
+  const [index, setIndex]       = useState(() => (resumed ? resumeIndex(resumed) : 0));
 
   // Refs are the source of truth for finish() — avoids stale-closure issues
   // when setTimeout fires after React has scheduled but not yet flushed updates.
   // Note: useRef is NOT lazy like useState, so loadLedger runs every render —
   // React ignores all but the first call, and loadLedger is a cheap localStorage
   // read, so the extra cost is negligible.
-  const attemptsRef   = useRef<PracticeAttempt[]>([]);
+  const attemptsRef   = useRef<PracticeAttempt[]>(resumed?.attempts ?? []);
   const masteryRef    = useRef<MasteryMap>(initialMastery);
   const ledgerRef     = useRef<AttemptLedger>(loadLedger(profile.profileId));
 
@@ -194,7 +202,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   // A parallel `cpaBySkill` React state exists in case future UI wants to
   // surface current layer per skill; the ref is the source of truth for the
   // layer-swap logic running inside setTimeout callbacks.
-  const cpaBySkillRef = useRef<Record<string, CPAState>>({});
+  const cpaBySkillRef = useRef<Record<string, CPAState>>((resumed?.cpaBySkill ?? {}) as Record<string, CPAState>);
 
   // Every itemId currently scheduled in the plan (or already seen) — used by
   // pickVariantAtLayer to avoid proposing a swap candidate the learner already
@@ -202,16 +210,16 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   const usedIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const s = new Set<string>();
-    for (const p of plan.plannedItems) s.add(p.item.itemId);
+    for (const p of resumed?.items ?? plan.plannedItems) s.add(p.item.itemId);
     usedIdsRef.current = s;
-  }, [plan]);
+  }, [plan, resumed]);
 
   // `setAttempts` keeps React informed of attempt-count changes for potential
   // future UI; the authoritative list lives on attemptsRef.
   const [, setAttempts] = useState<PracticeAttempt[]>([]);
 
-  const [cpaBySkill, setCpaBySkill] = useState<Record<string, CPAState>>({});
-  const [skillsSeenThisSession]  = useState<Set<string>>(() => new Set());
+  const [cpaBySkill, setCpaBySkill] = useState<Record<string, CPAState>>(() => cpaBySkillRef.current);
+  const [skillsSeenThisSession]  = useState<Set<string>>(() => new Set((resumed?.attempts ?? []).map(a => a.skillCode)));
   const [feedback, setFeedback] = useState<SessionFeedback>(null);
 
   // When the layer-swap logic replaces the upcoming item, we stash the
@@ -237,9 +245,9 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   // attempt) resets it to 0. comboRef is the live source of truth; maxComboRef
   // is the session high-water mark persisted into the record for star bonuses;
   // `combo` is the rendered value driving the on-screen 🔥 badge.
-  const comboRef    = useRef(0);
-  const maxComboRef = useRef(0);
-  const [combo, setCombo] = useState(0);
+  const comboRef    = useRef(resumed?.combo ?? 0);
+  const maxComboRef = useRef(resumed?.maxCombo ?? 0);
+  const [combo, setCombo] = useState(resumed?.combo ?? 0);
 
   const startedAtRef = useRef<string>(plan.startedAt);
   /** Set by finish(). Stops the visibility handler from re-drafting a session
@@ -249,6 +257,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   // Save a draft record immediately so the parent dashboard can see that a
   // session is in progress even if the app is closed before finish() runs.
   useEffect(() => {
+    if (resumed) return;           // the record already exists, with her answers in it
     upsertSessionRecord(profile.profileId, {
       sessionId:        plan.sessionId,
       profileId:        profile.profileId,
@@ -283,9 +292,25 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
   };
 
   /** Attempts already written to the store — so a flush appends only new ones. */
-  const flushedRef = useRef(0);
+  const flushedRef = useRef(resumed?.attempts.length ?? 0);
   /** True once this session has been counted in profile.sessionsCompleted. */
-  const countedRef = useRef(false);
+  const countedRef = useRef(resumed?.counted ?? false);
+
+  /** Where she is, saved so a reload resumes here. Refs hold the latest. */
+  const positionRef = useRef({ items, index });
+  positionRef.current = { items, index };
+  const saveLive = () => {
+    if (finishedRef.current) return;
+    saveLiveSession({
+      v: 1, profileId: profile.profileId, plan,
+      items: positionRef.current.items, index: positionRef.current.index,
+      attempts: attemptsRef.current, cpaBySkill: cpaBySkillRef.current,
+      combo: comboRef.current, maxCombo: maxComboRef.current,
+      counted: countedRef.current, savedAt: new Date().toISOString(),
+    });
+  };
+  // Every move to a new item (answered, worked example, layer swap) is saved.
+  useEffect(() => { saveLive(); });   // cheap: one localStorage write per render
 
   /**
    * Write everything this session has earned so far.
@@ -337,6 +362,8 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
         // Profile may have been cleared (parent reset mid-session) — ignore.
       }
     }
+    if (completed) clearLiveSession(profile.profileId);
+    else saveLive();
   };
 
   // Belt and braces for the moments a flush might still be pending: both events
@@ -356,6 +383,22 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // refs are stable, no deps needed
+
+  // "Continuing where you stopped" — a few seconds, so a resumed session does
+  // not feel like the app skipped her ahead without saying why.
+  const [showResumed, setShowResumed] = useState(!!resumed);
+  useEffect(() => {
+    if (!showResumed) return;
+    const id = setTimeout(() => setShowResumed(false), 4000);
+    return () => clearTimeout(id);
+  }, [showResumed]);
+  const resumedNote = showResumed ? (
+    <div className="fixed top-3 inset-x-0 z-50 flex justify-center pointer-events-none" dir="rtl">
+      <div className="bg-[#7C3AED] text-white text-sm font-semibold rounded-full px-4 py-2 shadow-lg">
+        {t('session.resumed', { gender: profile.gender })}
+      </div>
+    </div>
+  ) : null;
 
   const currentItem = items[index] ?? null;
   const total       = plan.targetItems ?? items.length;
@@ -634,30 +677,30 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
 
   // Teaching slot: worked example is walked through, never answered or scored.
   if (currentItem.isWorkedExample) {
-    return (
+    return (<>{resumedNote}
       <WorkedExampleView
         key={`we-${index}`}
         planItem={currentItem}
         gender={profile.gender}
         onDone={onWorkedExampleDone}
       />
-    );
+    </>);
   }
 
   // Second miss on an item with steps: solve it together — she types every
   // partial result herself, ending by producing the full answer.
   if (feedback?.kind === 'step_ladder') {
-    return (
+    return (<>{resumedNote}
       <StepLadder
         key={`ladder-${index}`}
         item={currentItem.item}
         gender={profile.gender}
         onDone={onLadderDone}
       />
-    );
+    </>);
   }
 
-  return (
+  return (<>{resumedNote}
     <PracticeItemView
       key={`${index}-${retryCount}`}  /* remount on new item OR retry */
       planItem={currentItem}
@@ -673,7 +716,7 @@ export function Session({ profile, mode, onComplete, onTrophyRoom }: Props) {
       onAnswer={handleAnswer}
       onOpenExit={mode === 'open' ? earlyExit : undefined}
     />
-  );
+  </>);
 }
 
 // ─── Layer-transition message mapping ─────────────────────────────────────────

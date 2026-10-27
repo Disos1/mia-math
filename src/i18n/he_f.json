@@ -48,6 +48,7 @@
   "session.phase.blocked_practice": "תרגול מרוכז",
   "session.phase.spaced_retrieval": "תרגול מושגים קודמים",
   "session.phase.interleaved": "תרגול מעורב",
+  "session.resumed": "ממשיכים מאיפה שעצרת 💪",
   "session.progress": "שלב {current} מתוך {total}",
   "session.open_exit": "סיימתי להיום",
   "session.open_nudge": "רוצה להמשיך או לסיים בשלב הבא?",

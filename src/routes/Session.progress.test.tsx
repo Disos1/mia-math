@@ -110,3 +110,31 @@ describe('an unfinished session still records what she did', () => {
     expect(attempts).toHaveLength(1);
   });
 });
+
+// Family Link time limits (Dima, 2026-10-27): when the limit hits mid-session
+// and the parent adds time, Android reloads the page. The session must come
+// back where she was — same questions, same session record — not from question 1.
+describe('a session interrupted by a reload', () => {
+  it('resumes with the same session, her answers counted once', async () => {
+    const first = render(<Session profile={profile} mode="quantity" onComplete={vi.fn()} onTrophyRoom={vi.fn()} onParent={vi.fn()} />);
+    answerFirstQuestion();
+    await waitFor(() => expect(read<PracticeAttempt[]>(`mia_attempts::${PROFILE_ID}`, []).length).toBe(1));
+    const live = read<{ plan: { sessionId: string }; items: unknown[] } | null>(`mia_live_session::${PROFILE_ID}`, null);
+    expect(live, 'the session itself is saved, not only the answer').not.toBeNull();
+
+    first.unmount();                                    // the reload
+    render(<Session profile={profile} mode="quantity" onComplete={vi.fn()} onTrophyRoom={vi.fn()} onParent={vi.fn()} />);
+
+    expect(screen.getByText(/ממשיכים מאיפה שעצרת/)).toBeTruthy();
+    const records = read<SessionRecord[]>(`mia_sessions::${PROFILE_ID}`, []);
+    expect(records, 'no second session started').toHaveLength(1);
+    expect(records[0].sessionId).toBe(live!.plan.sessionId);
+    expect(records[0].itemsAttempted, 'her answer still counts').toBe(1);
+
+    answerFirstQuestion();
+    await waitFor(() => expect(read<PracticeAttempt[]>(`mia_attempts::${PROFILE_ID}`, []).length).toBe(2));
+    const attempts = read<PracticeAttempt[]>(`mia_attempts::${PROFILE_ID}`, []);
+    expect(new Set(attempts.map(a => a.sessionId))).toEqual(new Set([live!.plan.sessionId]));
+  });
+});
+
