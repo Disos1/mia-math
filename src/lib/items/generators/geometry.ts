@@ -254,7 +254,11 @@ const SHAPES: Array<{ key: string; name: string; pts: Pt[] }> = [
   { key: 'trap',   name: 'טרפז',        pts: [[25, 20], [75, 20], [100, 80], [0, 80]] },
   { key: 'rtrap',  name: 'טרפז ישר זווית', pts: [[0, 20], [60, 20], [100, 80], [0, 80]] },
   { key: 'para',   name: 'מקבילית',     pts: [[25, 20], [100, 20], [75, 80], [0, 80]] },
-  { key: 'quad',   name: 'מרובע',       pts: [[10, 30], [70, 5], [100, 75], [20, 95]] },
+  // An irregular quadrilateral whose every pair of sides is at least 22° from
+  // parallel AND from perpendicular. The one before it had two sides 9° from
+  // parallel and two 0.6° from a right angle; drawn on a tablet it looked like
+  // a square, and "how many parallel pairs?" expected 0 (Mia, 2026-10-27).
+  { key: 'quad',   name: 'מרובע',       pts: [[15, 50], [25, 0], [100, 50], [25, 100]] },
   { key: 'rtri',   name: 'משולש ישר זווית', pts: [[0, 0], [0, 100], [80, 100]] },
   { key: 'hex',    name: 'משושה',       pts: regularPolygon(6) },
 ];
@@ -268,7 +272,8 @@ const ROTATIONS = [0, 25, 60, 115];
  *
  * It is also sometimes the right answer, or she learns to ignore it. Only where
  * the eye can see it (every other side at least CLEAR° from qualifying) and on
- * one rotation per shape: 23 of 127 side questions (18%), below the 25–33%
+ * one rotation per shape and half the sides (the share is pinned below 20% by
+ * a test), below the 25–33%
  * a random tap scores, so "always none" loses — never a strategy.
  */
 export const NO_SUCH_SIDE = 'אין צלע כזאת';
@@ -293,8 +298,11 @@ function* parallelPerp(): Generator<PracticeItem> {
         const clearlyNoPerp     = others.every(j => 90 - lineAngle(pts, ref, j) >= CLEAR);
         const visual = { type: 'polygon' as const, points: pts, labels, highlightSides: [ref] };
 
-        // "Which side is parallel to X?" — only when exactly one is.
-        if (par.length === 1) {
+        // "Which side is parallel to X?" — only when exactly one is, and every
+        // other side is visibly NOT parallel to it.
+        const othersClearOfParallel = others.filter(j => !par.includes(j)).every(j => lineAngle(pts, ref, j) >= CLEAR);
+        const othersClearOfPerp     = others.filter(j => !perp.includes(j)).every(j => 90 - lineAngle(pts, ref, j) >= CLEAR);
+        if (par.length === 1 && othersClearOfParallel) {
           const correct = sideName(labels, par[0]);
           const swap    = perp.length > 0 ? sideName(labels, perp[0]) : null;
           yield buildItem({
@@ -316,7 +324,7 @@ function* parallelPerp(): Generator<PracticeItem> {
         }
 
         // "Which side is parallel to X?" — none is, and visibly so.
-        if (par.length === 0 && clearlyNoParallel && deg === NONE_ROTATION) {
+        if (par.length === 0 && clearlyNoParallel && deg === NONE_ROTATION && ref % 2 === 0) {
           const swap = perp.length > 0 ? sideName(labels, perp[0]) : null;
           yield buildItem({
             itemId:        `G_PP_PAR_NONE_${shape.key}_${deg}_${ref}`,
@@ -336,8 +344,9 @@ function* parallelPerp(): Generator<PracticeItem> {
           });
         }
 
-        // "Which side is perpendicular to X?" — only when exactly one is.
-        if (perp.length === 1) {
+        // "Which side is perpendicular to X?" — only when exactly one is, and no
+        // other side is close enough to a right angle to fool the eye.
+        if (perp.length === 1 && othersClearOfPerp) {
           const correct = sideName(labels, perp[0]);
           const swap    = par.length > 0 ? sideName(labels, par[0]) : null;
           yield buildItem({
@@ -359,7 +368,7 @@ function* parallelPerp(): Generator<PracticeItem> {
         }
 
         // "Which side is perpendicular to X?" — none is, and visibly so.
-        if (perp.length === 0 && clearlyNoPerp && deg === NONE_ROTATION) {
+        if (perp.length === 0 && clearlyNoPerp && deg === NONE_ROTATION && ref % 2 === 1) {
           const swap = par.length > 0 ? sideName(labels, par[0]) : null;
           yield buildItem({
             itemId:        `G_PP_PERP_NONE_${shape.key}_${deg}_${ref}`,
@@ -380,10 +389,14 @@ function* parallelPerp(): Generator<PracticeItem> {
         }
       }
 
-      // "How many pairs of parallel sides?" — counted, not declared.
-      let pairs = 0;
-      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (isParallel(pts, i, j)) pairs++;
-      yield buildItem({
+      // "How many pairs of parallel sides?" — counted, not declared, and only
+      // when every pair that is NOT parallel is visibly so.
+      let pairs = 0, ambiguous = false;
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+        if (isParallel(pts, i, j)) pairs++;
+        else if (lineAngle(pts, i, j) < CLEAR) ambiguous = true;
+      }
+      if (!ambiguous) yield buildItem({
         itemId:        `G_PP_COUNT_${shape.key}_${deg}`,
         skillCode:     PP,
         question:      'כמה זוגות של צלעות מקבילות יש במצולע?',

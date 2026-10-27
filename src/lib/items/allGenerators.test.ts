@@ -150,4 +150,42 @@ describe('two-way questions offer exactly the two things asked about', () => {
       }
     }
   });
+
+  it('never asks about parallel or perpendicular sides the eye cannot tell apart', () => {
+    // 2026-10-27: a quadrilateral with sides 9° from parallel, asked "how many
+    // pairs of parallel sides?" (answer 0). On a tablet they looked parallel.
+    const CLEAR = 20;
+    for (const { skill, items } of pools) {
+      if (skill !== 'GEOM_PARALLEL_PERP') continue;
+      for (const it of items) {
+        const v = it.visual;
+        if (!v || v.type !== 'polygon') continue;
+        const P = v.points, n = P.length;
+        const dir = (i: number) => {
+          const a = P[i], b = P[(i + 1) % n];
+          return ((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI + 180) % 180;
+        };
+        const sideIdx = (name: string) => v.labels!.findIndex((l, i) => l + v.labels![(i + 1) % n] === name);
+        const between = (i: number, j: number) => { const d = Math.abs(dir(i) - dir(j)); return Math.min(d, 180 - d); };
+        const pairs: Array<[number, number]> = [];
+        if (it.itemId.startsWith('G_PP_COUNT')) {
+          for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairs.push([i, j]);
+        } else {
+          const ref = v.highlightSides![0];
+          for (let j = 0; j < n; j++) if (j !== ref) pairs.push([ref, j]);
+        }
+        const correctIdx = typeof it.correct === 'string' ? sideIdx(it.correct) : -1;
+        for (const [i, j] of pairs) {
+          const d = between(i, j);
+          if (d < 0.6 || Math.abs(90 - d) < 0.6) continue;              // exactly parallel / perpendicular
+          if (it.itemId.includes('_PERP')) {
+            if (j !== correctIdx) expect(Math.abs(90 - d), `${it.itemId} sides ${i},${j}`).toBeGreaterThanOrEqual(CLEAR);
+          } else {
+            expect(d, `${it.itemId} sides ${i},${j}`).toBeGreaterThanOrEqual(CLEAR);
+          }
+        }
+      }
+    }
+  });
 });
+
