@@ -159,13 +159,12 @@ describe('frontier for Mia on 2026-09-19', () => {
     expect(t).toMatchObject({ skill: 'NUM_DIGIT_CARDS', aheadBy: 2 });
   });
 
-  it('catches up on the mult/div book from its first topic, not as repair', () => {
-    // The class is on topic 3, which needs topics 1–2. Leaving those in the
-    // repair queue starved the whole book: four failing grade-3 skills always
-    // ranked first. The strand's new material is the earliest unmastered topic.
-    expect(target('multdiv')).toMatchObject({ skill: 'MULT_BY_10_100_1000' });
-    expect(target('multdiv')!.aheadBy).toBeLessThan(0);
-    expect(f.behind.map(b => b.skill)).not.toContain('MULT_BY_10_100_1000');
+  it('works with the class on mult/div topic 3 and repairs topics 1–2 alongside', () => {
+    // Dima, 2026-11-03: "the app must keep up with the progress or exceed it".
+    // The topic the class is teaching is open to her even though topics 1–2,
+    // which it builds on, are not hers yet — those are repaired alongside.
+    expect(target('multdiv')).toMatchObject({ skill: 'DIV_TENS_BY_DIGIT', aheadBy: 0 });
+    expect(f.behind.map(b => b.skill)).toEqual(expect.arrayContaining(['MULT_BY_10_100_1000', 'MULT_BY_TENS']));
   });
 
   it('gives nothing from the fractions book while the class has not started it', () => {
@@ -183,7 +182,7 @@ describe('frontier for Mia on 2026-09-19', () => {
   });
 
   it('treats units the class has passed as repair, not new material', () => {
-    expect(f.behind.map(b => b.skill).sort()).toEqual(['GEOM_POLYGONS', 'MULT_BY_TENS']);
+    expect(f.behind.map(b => b.skill).sort()).toEqual(['GEOM_POLYGONS', 'MULT_BY_10_100_1000', 'MULT_BY_TENS']);
     const targetSkills = f.targets.map(t => t.skill);
     for (const b of f.behind) expect(targetSkills).not.toContain(b.skill);
   });
@@ -296,7 +295,7 @@ describe('the book\'s order is the order', () => {
   it('still moves the strands she IS ready for', () => {
     const newMaterial = new Set(sessions.flatMap(s => s.plannedItems)
       .filter(p => p.sessionPhase === 'new_material').map(p => p.item.skillCode));
-    expect(newMaterial).toContain('MULT_BY_10_100_1000');
+    expect(newMaterial).toContain('DIV_TENS_BY_DIGIT');
     expect(newMaterial).toContain('GEOM_RECT_SQUARE');
   });
 
@@ -353,14 +352,14 @@ describe('composed sessions for Mia (book-aligned)', () => {
   });
 
   it('opens a never-practised skill with a worked example', () => {
-    for (const skill of ['GEOM_PARALLEL_PERP', 'MULT_BY_10_100_1000']) {
+    for (const skill of ['GEOM_PARALLEL_PERP', 'DIV_TENS_BY_DIGIT']) {
       const first = sessions.flatMap(s => s.plannedItems).find(p => p.item.skillCode === skill);
       expect(first?.isWorkedExample, skill).toBe(true);
     }
   });
 
   it('gives new material only from her frontier in each book', () => {
-    const allowed = new Set(['MULT_BY_10_100_1000', 'GEOM_PARALLEL_PERP', 'NUM_READ_WRITE']);
+    const allowed = new Set(['DIV_TENS_BY_DIGIT', 'GEOM_PARALLEL_PERP', 'NUM_READ_WRITE']);
     for (const s of sessions) {
       for (const p of s.plannedItems.filter(x => x.sessionPhase === 'new_material')) {
         expect(allowed, p.item.skillCode).toContain(p.item.skillCode);

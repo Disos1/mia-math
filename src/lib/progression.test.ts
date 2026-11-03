@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord, GapProfile } from '../types';
 import { composeSession } from './sessionComposer';
-import { curriculumFrontier, extrapolateUnit, type ClassPosition } from './curriculum/classPosition';
+import { curriculumFrontier, type ClassPosition } from './curriculum/classPosition';
 import { applyAttemptToMastery, type AttemptLedger } from './masteryTracker';
 import { SKILL_GRAPH } from './skillGraph';
 
@@ -24,11 +24,12 @@ const MIA: MasteryMap = Object.fromEntries(rows.map(([s, st, a, n, d]) => [s, {
   profileId: 'p', skillCode: s, status: st, firstAttemptAccuracy: a, itemCount: n, sessionCount: 10,
   lastPracticedAt: `${d}:00.000Z`, needsRetentionProbe: false, retentionProbeDueAt: null,
 } as MasteryRecord]));
-const NOW = '2026-11-03T15:00:00.000Z', SET = '2026-10-21T18:21:20.801Z';
+const NOW = '2026-11-03T15:00:00.000Z';
+// The class that day, from its lesson log: numbers pp. 50–57 (order and the
+// number line), mult/div pp. 29–38 (division by whole tens), geometry pp. 22–25.
 const POS: ClassPosition = { units: {
-  numbers: extrapolateUnit('numbers', 'numbers.compare', SET, NOW).id,
-  multdiv: extrapolateUnit('multdiv', 'multdiv.div_by_tens', SET, NOW).id,
-  geometry: extrapolateUnit('geometry', 'geometry.parallel', SET, NOW).id, fractions: 'not_started' }, source: {} };
+  numbers: 'numbers.order_line', multdiv: 'multdiv.div_by_tens',
+  geometry: 'geometry.parallel', fractions: 'not_started' }, source: {} };
 const GAP = { version: 1, computedAt: 'x', diagnosticSessionId: 'x', strands: {}, cpaStartLayer: {},
   sessionComposerNotes: { startWith: 'easy_known_skill', firstNewMaterial: 'ARITH_SUB_REGROUP_ZERO', blockedPracticePriority: [] } } as unknown as GapProfile;
 const sessions = [40, 41, 42].map(k => composeSession({ profileId: 'p', gapProfile: GAP, masteryMap: MIA, mode: 'quantity',
@@ -36,15 +37,35 @@ const sessions = [40, 41, 42].map(k => composeSession({ profileId: 'p', gapProfi
 const strandOf = (skill: string) => SKILL_GRAPH[skill]?.strand;
 
 describe('she keeps moving forward', () => {
+  it('keeps up with the class in every book, or runs ahead of it', () => {
+    // Dima, 2026-11-03: "the app must keep up with the progress or exceed it".
+    // The class is on division by whole tens; topics 2–3 are not hers yet, and
+    // that must not hold her two topics behind the lesson.
+    const f = curriculumFrontier(POS, MIA);
+    for (const t of f.targets) expect(t.aheadBy, t.strand).toBeGreaterThanOrEqual(0);
+    expect(f.targets.find(x => x.strand === 'multdiv')).toMatchObject({ skill: 'DIV_BY_TENS', aheadBy: 0 });
+    expect(f.targets.find(x => x.strand === 'numbers')).toMatchObject({ skill: 'NUM_ORDER_LINE', aheadBy: 0 });
+    expect(f.targets.find(x => x.strand === 'geometry')).toMatchObject({ skill: 'GEOM_RECT_SQUARE', aheadBy: 1 });
+  });
+
+  it('repairs the mult/div topics behind the class within the week', () => {
+    const week = [40, 41, 42, 43, 44, 45].map(k => composeSession({ profileId: 'p', gapProfile: GAP, masteryMap: MIA, mode: 'quantity',
+      sessionsCompleted: k, rng: () => 0.5, now: NOW, targetGrade: 4, classPosition: POS }));
+    const repaired = new Set(week.flatMap(s => s.plannedItems)
+      .filter(p => p.sessionPhase === 'blocked_practice').map(p => p.item.skillCode));
+    expect(repaired).toContain('MULT_BY_TENS');
+    expect(repaired).toContain('DIV_TENS_BY_DIGIT');
+  });
+
   it('keeps a topic she has started open when a prerequisite dips', () => {
-    // The 6–9 tables slipped to 70%; multiplication by whole tens (37 answers in)
-    // must not lock, or the whole mult/div book stops.
-    const t = curriculumFrontier(POS, MIA).targets.find(x => x.strand === 'multdiv');
-    expect(t?.skill).toBe('MULT_BY_TENS');
+    // The 6–9 tables slipped to 70%; past the class's unit, a topic she is
+    // 37 answers into must not lock because of it.
+    const early: ClassPosition = { ...POS, units: { ...POS.units, multdiv: 'multdiv.times_10' } };
+    expect(curriculumFrontier(early, MIA).targets.find(x => x.strand === 'multdiv')?.skill).toBe('MULT_BY_TENS');
   });
 
   it('moves every book forward across three sessions', () => {
-    const books = ['MULT_BY_TENS', 'NUM_ORDER_LINE', 'GEOM_RECT_SQUARE'];
+    const books = ['DIV_BY_TENS', 'NUM_ORDER_LINE', 'GEOM_RECT_SQUARE'];
     for (const b of books) {
       const n = sessions.filter(s => s.plannedItems.some(p => p.sessionPhase === 'new_material' && p.item.skillCode === b)).length;
       expect(n, b).toBe(2);

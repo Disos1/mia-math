@@ -36,7 +36,7 @@ import type {
 import { getItemPool, SKILLS_WITH_PRACTICE } from './items';
 import { masteredSkills, skillsInProgress, probesDue } from './masteryTracker';
 import { startLayerFor, isStruggling } from './cpaMemory';
-import { skillsAtGrade, isUnlocked, findBlocker, type Grade, SKILL_GRAPH } from './skillGraph';
+import { skillsAtGrade, isUnlocked, findBlocker, prerequisitesOf, type Grade, SKILL_GRAPH } from './skillGraph';
 import {
   curriculumFrontier, teachableHorizon, skillUnitIndex, type ClassPosition,
 } from './curriculum/classPosition';
@@ -556,7 +556,26 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       if (failing[i]) mixed.push(failing[i]);
       if (passed[i])  mixed.push(passed[i]);
     }
-    const window = [...mixed, ...others].slice(0, 6);
+    // What this week's lessons are built on comes first, alternating with the
+    // rest. Since the class's current topic is always open to her (2026-11-03),
+    // division by whole tens can be her new material while dividing tens by a
+    // digit and multiplying by whole tens, which it rests on, are still weak —
+    // those must come round within days, not wait behind every other gap.
+    const feeding: string[] = [];
+    const walk = (skill: string, depth: number) => {
+      for (const p of prerequisitesOf(skill)) {
+        if (candidates.includes(p.skill) && !feeding.includes(p.skill)) feeding.push(p.skill);
+        if (depth < 2) walk(p.skill, depth + 1);
+      }
+    };
+    for (const t of frontier?.targets ?? []) walk(t.skill, 1);
+    const rest = [...mixed, ...others].filter(s => !feeding.includes(s));
+    const ordered: string[] = [];
+    for (let i = 0; i < Math.max(feeding.length, rest.length); i++) {
+      if (feeding[i]) ordered.push(feeding[i]);
+      if (rest[i])    ordered.push(rest[i]);
+    }
+    const window = ordered.slice(0, 6);
     const dualTrackPick = targetGrade > 3
       ? (frontier ? rotate(window, args.sessionsCompleted)[0] : candidates[0])
       : undefined;

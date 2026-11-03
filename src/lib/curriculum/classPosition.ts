@@ -317,14 +317,21 @@ export function curriculumFrontier(
       if (teachable.length === 0) continue;                       // not built yet
       const open = teachable.filter(s => !isMastered(masteryMap, s));
       if (open.length === 0) continue;                            // she has this unit
-      const ready = open.filter(s => openToHer(s, masteryMap, slowSkills));
+      // The class's current unit is always open: it is being taught to her this
+      // week whatever the graph says, and she has homework on it. On 2026-11-03
+      // her class was on division by whole tens (mult/div topic 4) while the app,
+      // waiting for topic 2 to be mastered, kept her two topics behind (Dima:
+      // "the app must keep up with the progress or exceed it"). The unmastered
+      // topics behind it are repaired alongside, not instead.
+      const ready = i === classIdx ? open : open.filter(s => openToHer(s, masteryMap, slowSkills));
       if (ready.length > 0) {
         targets.push({ strand, unit: units[i], skill: ready[0], aheadBy: i - classIdx });
       }
       break search;                                               // stop either way
     }
 
-    // Catching up, in the book's order. If nothing from the class unit onward
+    // Catching up, in the book's order — now only reached when the app has no
+    // practice at all from the class unit onward. If nothing from the class unit onward
     // is open to her, the strand would get no new material at all, and its
     // passed units would wait in the repair queue behind her failing grade-3
     // skills — which is how the whole mult/div book (taught in parallel since

@@ -3,7 +3,8 @@
  *
  *   NUM_ORDER_LINE — סדר בין מספרים: reading a point on a number line from its
  *                    labelled ends, predecessor and successor across a 9/0
- *                    boundary, continuing a sequence with a constant step.
+ *                    boundary, continuing a sequence with a constant step,
+ *                    and naming the step (the jump) of a sequence.
  *   NUM_ROUNDING   — עיגול מספרים: to tens, hundreds, thousands and ten-thousands.
  *                    The book teaches it on a number line, so the pictorial layer
  *                    here is exactly that line: the two candidate round numbers,
@@ -70,10 +71,31 @@ function* sequences(): Generator<PracticeItem> {
       specs.push([start, step], [start, -step]);
     }
   }
-  for (const [start, step] of specs) {
+  for (const [i, [start, step]] of specs.entries()) {
     const terms = [start, start + step, start + 2 * step];
     const next  = start + 3 * step;
     if (next < 0 || next > 1_000_000) continue;
+
+    // Every other sequence asks for the jump itself. Her class's lessons on
+    // pp. 50–57 (lesson log, Nov 2026) focus on "זיהוי גודל קפיצה בסדרות
+    // חשבוניות", and her wrong answers are wrong jumps, not wrong sums: on
+    // 238,670 / 228,670 / 218,670 she answered 248,670 — the right step, the
+    // wrong direction.
+    if (i % 2 === 1) {
+      yield buildItem({
+        itemId: `G_OL_JUMP_${start}_${step}`, skillCode: OL,
+        question:   `בכמה ${step > 0 ? 'גדל' : 'קטן'} כל מספר בסדרה?`,
+        correct:    Math.abs(step), signature: null, signatureCode: null, distractors: [],
+        visual:     { type: 'sequence', terms: [...terms, next], blankLabel: '…' },
+        cpaLayer:   'abstract', difficulty: 2, answerMode: 'keypad', rng: () => 0.5,
+        steps: [
+          { text: `מחשבים את ההפרש בין שני מספרים צמודים: ${fmt(Math.max(terms[0], terms[1]))} − ${fmt(Math.min(terms[0], terms[1]))}`, answer: Math.abs(step) },
+          { text: 'בודקים שזו אותה קפיצה גם בין הזוג הבא. בכמה?', answer: Math.abs(step) },
+        ],
+      });
+      continue;
+    }
+
     yield buildItem({
       itemId: `G_OL_SEQ_${start}_${step}`, skillCode: OL,
       // The terms live in the strip, not in the sentence: printed as text, the
