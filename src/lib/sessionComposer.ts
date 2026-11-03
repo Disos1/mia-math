@@ -184,6 +184,10 @@ function selectTracks(args: {
   return { currentGrade, blockers };
 }
 
+/** A mastered skill becomes due for spaced review after this many days unseen. */
+const SPACING_MIN_DAYS = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /** Below this accuracy, a skill she has really practised counts as failing. */
 const REPAIR_WEAK_ACCURACY = 0.8;
 /** Enough attempts that the accuracy means something. */
@@ -365,17 +369,20 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // New material is current-grade work when any is unlocked; otherwise the
   // session is honestly all repair, which is the right answer when she is not
   // ready for her grade's content yet.
-  const firstGap       = currentGrade[0]
+  // Book-aligned: the two new-material slots walk round the books in pairs —
+  // (numbers, mult/div), (mult/div, geometry), (geometry, numbers) — so each
+  // book moves forward in two sessions of every three. Taking the first slot
+  // from the with-the-class tier every time put one book in EVERY session (in
+  // late October, ordering numbers) while another waited.
+  // A fixed book order to rotate over (currentGrade is already rotated per tier;
+  // rotating that again cancelled out).
+  const bookOrder      = [...currentGrade].sort((a, b) =>
+    (strandOf.get(a) ?? '').localeCompare(strandOf.get(b) ?? ''));
+  const ring           = frontier ? rotate(bookOrder, args.sessionsCompleted) : currentGrade;
+  const firstGap       = ring[0]
     ?? (isActive(firstNew) ? firstNew : null) ?? focusPool[0] ?? null;
-  // A second new-material skill from a DIFFERENT strand, so one session moves
-  // two strands forward instead of one.
-  // The second slot rotates over the OTHER strands' targets — at-class or ahead
-  // alike — so with three strands and two slots none is permanently left out.
-  // (Taking the next at-class target instead always starved the strand she was
-  // furthest ahead in, which is exactly where pre-teaching pays.)
   const secondNew      = frontier
-    ? rotate(currentGrade.filter(s => s !== firstGap && strandOf.get(s) !== strandOf.get(firstGap ?? '')),
-        args.sessionsCompleted)[0] ?? null
+    ? ring.find(s => s !== firstGap && strandOf.get(s) !== strandOf.get(firstGap ?? '')) ?? null
     : null;
   const secondGap      = prereqPool.find(s => s !== firstGap) ?? null;
   const thirdGap       = prereqPool.find(s => s !== firstGap && s !== secondGap) ?? null;
@@ -410,6 +417,12 @@ export function composeSession(args: ComposeArgs): SessionPlan {
 
   const masteredPool = masteredSkills(args.masteryMap);
   const dueProbes    = probesDue(args.masteryMap, now);
+  // Spaced retrieval is for what has had time to fade. A mastered skill seen in
+  // the last few days is not due — reviewing it again is repetition, not
+  // spacing, and it was most of what Mia saw in late October: unit-fraction
+  // comparison (mastered in July) four or five times a session.
+  const dueSpaced = masteredPool.filter(s => !dueProbes.includes(s)
+    && Date.parse(now) - Date.parse(args.masteryMap[s]?.lastPracticedAt ?? '1970-01-01') >= SPACING_MIN_DAYS * DAY_MS);
 
   const sizes = computeBlockSizes(targetItems, {
     isFirstSession,
@@ -418,6 +431,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     hasMultFact:  hasMultFactGap,
     hasStrength:  strengthPool.length > 0,
     hasMastered:  masteredPool.length > 0 || dueProbes.length > 0,
+    hasDueRetrieval: dueProbes.length > 0 || dueSpaced.length > 0,
   });
 
   // Re-balance the two working blocks to hit the current-grade share. The
@@ -572,8 +586,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     }
 
     if (retrievalBudget > 0) {
-      const spacedSkill = [...masteredPool]
-        .filter(s => !dueProbes.includes(s))
+      const spacedSkill = [...dueSpaced]
         .sort((a, b) =>
           (args.masteryMap[a]?.lastPracticedAt ?? '').localeCompare(args.masteryMap[b]?.lastPracticedAt ?? ''))[0]
         ?? (hasMultFactGap ? 'ARITH_MULT_6_9' : (thirdGap ?? firstGap));
@@ -624,6 +637,8 @@ interface SizingContext {
   hasStrength:    boolean;
   /** Mastered skills (or due probes) exist — the only valid interleaved pool. */
   hasMastered:    boolean;
+  /** A retention probe or a mastered skill unseen for SPACING_MIN_DAYS. Omitted = assume yes. */
+  hasDueRetrieval?: boolean;
 }
 
 interface BlockSizes {
@@ -682,6 +697,13 @@ function computeBlockSizes(target: number, ctx: SizingContext): BlockSizes {
     if (!moved) break; // target already 0 — prevent infinite loop
   }
   ({ newMaterial, blocked, retrieval, interleaved } = bag);
+
+  // Nothing due for spaced review (and no fact drill): that time is better spent
+  // moving forward. The 6–9 drill keeps its slot — fluency is the exception.
+  if (ctx.hasDueRetrieval === false && !ctx.hasMultFact) {
+    newMaterial += retrieval;
+    retrieval = 0;
+  }
 
   // If neither gap nor strength exist (fresh profile with no diagnostic),
   // everything collapses into newMaterial using any available items.

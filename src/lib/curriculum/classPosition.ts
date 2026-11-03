@@ -236,6 +236,21 @@ export const WEAK_ACCURACY = 0.8;
 
 const buildable = (s: string) => SKILLS_WITH_PRACTICE.includes(s);
 
+/** Answers that show a topic was opened to her. */
+export const STARTED_MIN_ITEMS = 5;
+
+/**
+ * Open to her: the prerequisites are met, OR she has already started it.
+ * A topic once opened stays open when a prerequisite dips — on 2026-10-30 the
+ * 6–9 tables slipped to 70% and multiplication by whole tens, which she was
+ * mid-way through at 22/23, locked along with the rest of the mult/div book.
+ * The dip is repaired alongside; the topic is not taken away.
+ */
+function openToHer(skill: string, masteryMap: MasteryMap, slowSkills: ReadonlySet<string>): boolean {
+  return isUnlocked(skill, masteryMap, slowSkills)
+      || (masteryMap[skill]?.itemCount ?? 0) >= STARTED_MIN_ITEMS;
+}
+
 /**
  * Per strand: the one skill to teach next, starting at the class's current unit
  * and moving ahead only once that unit is mastered. Plus every unmastered skill
@@ -302,7 +317,7 @@ export function curriculumFrontier(
       if (teachable.length === 0) continue;                       // not built yet
       const open = teachable.filter(s => !isMastered(masteryMap, s));
       if (open.length === 0) continue;                            // she has this unit
-      const ready = open.filter(s => isUnlocked(s, masteryMap, slowSkills));
+      const ready = open.filter(s => openToHer(s, masteryMap, slowSkills));
       if (ready.length > 0) {
         targets.push({ strand, unit: units[i], skill: ready[0], aheadBy: i - classIdx });
       }
@@ -320,7 +335,7 @@ export function curriculumFrontier(
       for (let i = 0; i < classIdx; i++) {
         const open = units[i].skills.filter(buildable).filter(s => !isMastered(masteryMap, s));
         if (open.length === 0) continue;
-        const ready = open.filter(s => isUnlocked(s, masteryMap, slowSkills));
+        const ready = open.filter(s => openToHer(s, masteryMap, slowSkills));
         if (ready.length > 0) {
           targets.push({ strand, unit: units[i], skill: ready[0], aheadBy: i - classIdx });
           // It is new material now, so it must not also sit in the repair list.

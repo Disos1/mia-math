@@ -207,10 +207,14 @@ export function applyAttemptToMastery(args: {
     sessionCount >= MASTERY_SESSION_MINIMUM &&
     windowSpansDays(ledger, attempt.skillCode, 2);
 
+  // Mastery is earned at 80% and lost below 70% (PRD: "drops below 70%").
+  // Demoting at the 80% bar made a mastered skill flicker on one slip: the
+  // 6–9 tables went from 90% to a 7/10 window on 2026-10-30, lost mastery, and
+  // the whole mult/div book locked behind them.
   const demotes =
     prior.status === 'שליטה' &&
     size     >= MASTERY_ITEM_MINIMUM &&
-    accuracy <  MASTERY_ACCURACY_THRESHOLD;
+    accuracy <  RETENTION_DEMOTION_ACCURACY;
 
   const nextStatus: MasteryRecord['status'] =
     graduates ? 'שליטה' :
