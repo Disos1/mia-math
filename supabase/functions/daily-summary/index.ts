@@ -224,14 +224,25 @@ function buildDayStrip(sessions: any[]): string {
 
 // ─── Email builder ────────────────────────────────────────────────────────────
 
-function buildEmail(
+export function buildEmail(
   childName:      string,
   sessions7d:     any[],
   sessionsToday:  any[],
   masteryRecords: any[],
   gapProfile:     any | null,
   prevWeekPct:    number | null,
+  weekAttempts:   Array<{ skill_code: string; correct: boolean }> = [],
 ): { subject: string; html: string } {
+
+  // This week's first answers per topic — what she actually did, not the
+  // long-run window alone.
+  const week = new Map<string, { n: number; ok: number }>();
+  for (const a of weekAttempts) {
+    const w = week.get(a.skill_code) ?? { n: 0, ok: 0 };
+    w.n++; if (a.correct) w.ok++;
+    week.set(a.skill_code, w);
+  }
+  const statusOf = new Map(masteryRecords.map(r => [r.skill_code, r.status]));
 
   const total7d    = sessions7d.reduce((s, r) => s + (r.items_answered ?? 0), 0);
   const correct7d  = sessions7d.reduce((s, r) => s + (r.items_correct  ?? 0), 0);
@@ -249,15 +260,21 @@ function buildEmail(
     prevWeekPct - accuracy7d >= 3 ? `<span style="color:#DC2626;font-weight:bold;">↓ ירידה לעומת שבוע שעבר (${prevWeekPct}%)</span>` :
                                     `<span style="color:#6B7280;font-weight:bold;">→ יציב לעומת שבוע שעבר (${prevWeekPct}%)</span>`;
 
-  // Stuck skills: in active practice, enough evidence, window accuracy < 55%
-  const stuckSkills = masteryRecords.filter(
-    r => r.status === 'בתהליך' && (r.item_count ?? 0) >= 10 && (r.first_attempt_accuracy ?? 1) < 0.55,
-  );
+  // Stuck skills: low long-run accuracy AND still struggling this week.
+  // Dima, 2026-11-05: "I still get the same warnings". The alert used the
+  // long-run window alone, so a topic she was getting right this week (fraction
+  // of a quantity: 5/5 on 11-02) stayed red for weeks, and the email said
+  // nothing about the topics she had just mastered.
+  const stuckSkills = masteryRecords.filter(r => {
+    const w = week.get(r.skill_code);
+    return r.status === 'בתהליך' && (r.item_count ?? 0) >= 10 && (r.first_attempt_accuracy ?? 1) < 0.55
+        && w !== undefined && w.n >= 5 && w.ok / w.n < 0.6;
+  });
 
-  const activeSkills = masteryRecords
-    .filter(r => r.status === 'בתהליך')
-    .sort((a, b) => (b.last_practiced_at ?? '').localeCompare(a.last_practiced_at ?? ''))
-    .slice(0, 5);
+  const weekSkills = [...week.entries()]
+    .filter(([, w]) => w.n >= 3)
+    .sort(([, a], [, b]) => b.n - a.n)
+    .slice(0, 8);
 
   const subject = todayCount > 0
     ? `✅ ${childName} תרגלה היום — סיכום יומי`
@@ -291,17 +308,15 @@ function buildEmail(
         </div>`).join('')}
     </div>` : '';
 
-  // ── Active skills section ──────────────────────────────────────────────────
-  const activeSkillsHtml = activeSkills.length > 0 ? `
+  // ── This week, per topic ───────────────────────────────────────────────────
+  const activeSkillsHtml = weekSkills.length > 0 ? `
     <div style="margin-bottom:16px;">
-      <div style="font-size:13px;color:#6B7280;margin-bottom:8px;font-weight:600;">מיומנויות בתרגול פעיל</div>
-      ${activeSkills.map(r => {
-        const acc = r.first_attempt_accuracy > 0
-          ? `${Math.round(r.first_attempt_accuracy * 100)}%`
-          : null;
+      <div style="font-size:13px;color:#6B7280;margin-bottom:8px;font-weight:600;">השבוע לפי נושא (תשובה ראשונה)</div>
+      ${weekSkills.map(([code, w]) => {
+        const mastered = statusOf.get(code) === 'שליטה';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #F3F4F6;">
-          <span style="font-size:14px;color:#2D3047;">🌱 ${skillName(r.skill_code)}</span>
-          ${acc ? `<span style="font-size:12px;color:#9CA3AF;">${acc}</span>` : ''}
+          <span style="font-size:14px;color:#2D3047;">${mastered ? '✅' : '🌱'} ${skillName(code)}</span>
+          <span style="font-size:12px;color:${mastered ? '#16A34A' : '#9CA3AF'};">${w.ok} מתוך ${w.n}${mastered ? ' · שולטת' : ''}</span>
         </div>`;
       }).join('')}
     </div>` : '';
@@ -519,6 +534,14 @@ Deno.serve(async (_req) => {
       .select('skill_code, status, first_attempt_accuracy, item_count, last_practiced_at')
       .eq('profile_id', profile.profile_id);
 
+    const { data: weekAttempts } = await db
+      .from('session_attempts')
+      .select('skill_code, correct')
+      .eq('profile_id', profile.profile_id)
+      .eq('first_attempt', true)
+      .gte('created_at', sevenAgo + 'T00:00:00Z')
+      .limit(2000);
+
     const { subject, html } = buildEmail(
       profile.display_name,
       countable,
@@ -526,6 +549,7 @@ Deno.serve(async (_req) => {
       masteryRecords ?? [],
       profile.gap_profile_json,
       prevWeekPct,
+      weekAttempts ?? [],
     );
 
     const res = await fetch('https://api.resend.com/emails', {
