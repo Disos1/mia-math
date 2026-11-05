@@ -87,6 +87,8 @@ export interface ClassPosition {
   source: Partial<Record<StrandId, 'parent' | 'estimate'>>;
   /** When the parent last confirmed, ISO. */
   setAt?: string;
+  /** The unit the parent last confirmed per strand, before any extrapolation. */
+  confirmed?: Partial<Record<StrandId, string>>;
 }
 
 /**
@@ -158,7 +160,7 @@ function readStored(profileId: string): StoredClassPosition | null {
 /** Parent setting where present, pacing estimate everywhere else. */
 export function loadClassPosition(profileId: string, nowIso = new Date().toISOString()): ClassPosition {
   const stored = readStored(profileId);
-  const out: ClassPosition = { units: {}, source: {}, setAt: stored?.setAt };
+  const out: ClassPosition = { units: {}, source: {}, setAt: stored?.setAt, confirmed: {} };
   for (const s of STRANDS) {
     const id = stored?.units[s];
     const since = stored?.setAtBy?.[s] ?? stored?.setAt;
@@ -167,6 +169,7 @@ export function loadClassPosition(profileId: string, nowIso = new Date().toISOSt
     } else if (id && unitById(id)?.strand === s) {
       const now = since ? extrapolateUnit(s, id, since, nowIso).id : id;
       out.units[s]  = now;
+      out.confirmed![s] = id;
       out.source[s] = now === id ? 'parent' : 'estimate';   // moved on by pace, not by the parent
     } else if (DORMANT_BY_DEFAULT.has(s)) {
       out.units[s] = NOT_STARTED;  out.source[s] = 'estimate';
@@ -236,6 +239,25 @@ export const WEAK_ACCURACY = 0.8;
 
 const buildable = (s: string) => SKILLS_WITH_PRACTICE.includes(s);
 
+/**
+ * Where her new material starts in a book: the unit the parent last CONFIRMED,
+ * or the class unit if that is earlier (or nothing was confirmed).
+ *
+ * The extrapolated position is a guess at the publisher's pace, good for
+ * labels, not for moving her on. On 2026-11-05 it put the mult/div class on
+ * topic 5 while the lesson log two days earlier still had it on division by
+ * whole tens — and she left that topic at 70% for the next one. She now leaves
+ * a confirmed topic only by mastering it, or when the parent confirms the class
+ * has moved on.
+ */
+function startIndex(position: ClassPosition, strand: StrandId): { classIdx: number; startIdx: number } {
+  const units    = unitsOf(strand);
+  const classIdx = Math.max(0, indexInStrand(position.units[strand] ?? units[0].id));
+  const conf     = position.confirmed?.[strand];
+  const confIdx  = conf && unitById(conf)?.strand === strand ? indexInStrand(conf) : -1;
+  return { classIdx, startIdx: confIdx >= 0 ? Math.min(confIdx, classIdx) : classIdx };
+}
+
 /** Answers that show a topic was opened to her. */
 export const STARTED_MIN_ITEMS = 5;
 
@@ -271,11 +293,11 @@ export function curriculumFrontier(
   for (const strand of STRANDS) {
     if (!isStarted(position, strand)) continue;     // the class has not begun this book
     const units    = unitsOf(strand);
-    const classIdx = Math.max(0, indexInStrand(position.units[strand] ?? units[0].id));
+    const { classIdx, startIdx } = startIndex(position, strand);
 
     // Behind: passed units with unmastered, buildable skills.
     const seenBehind = new Set<string>();
-    for (let i = 0; i < classIdx; i++) {
+    for (let i = 0; i < startIdx; i++) {
       for (const skill of units[i].skills) {
         if (!buildable(skill) || isMastered(masteryMap, skill) || seenBehind.has(skill)) continue;
         seenBehind.add(skill);
@@ -312,7 +334,7 @@ export function curriculumFrontier(
     // A unit the app cannot teach AT ALL (no generator yet) is the one thing
     // that may be stepped over: that is our gap, not hers.
     search:
-    for (let i = classIdx; i < units.length; i++) {
+    for (let i = startIdx; i < units.length; i++) {
       const teachable = units[i].skills.filter(buildable);
       if (teachable.length === 0) continue;                       // not built yet
       const open = teachable.filter(s => !isMastered(masteryMap, s));
@@ -323,7 +345,7 @@ export function curriculumFrontier(
       // waiting for topic 2 to be mastered, kept her two topics behind (Dima:
       // "the app must keep up with the progress or exceed it"). The unmastered
       // topics behind it are repaired alongside, not instead.
-      const ready = i === classIdx ? open : open.filter(s => openToHer(s, masteryMap, slowSkills));
+      const ready = i === startIdx ? open : open.filter(s => openToHer(s, masteryMap, slowSkills));
       if (ready.length > 0) {
         targets.push({ strand, unit: units[i], skill: ready[0], aheadBy: i - classIdx });
       }
@@ -339,7 +361,7 @@ export function curriculumFrontier(
     // thing to learn is then the EARLIEST passed unit she has not mastered.
     // Same stop rule: if that unit is locked, the strand waits on its blocker.
     if (!targets.some(t => t.strand === strand)) {
-      for (let i = 0; i < classIdx; i++) {
+      for (let i = 0; i < startIdx; i++) {
         const open = units[i].skills.filter(buildable).filter(s => !isMastered(masteryMap, s));
         if (open.length === 0) continue;
         const ready = open.filter(s => openToHer(s, masteryMap, slowSkills));
@@ -390,11 +412,10 @@ export function teachableHorizon(
   const out = {} as Record<StrandId, number>;
   for (const strand of STRANDS) {
     if (!isStarted(position, strand)) { out[strand] = -1; continue; }
-    const units    = unitsOf(strand);
-    const classIdx = Math.max(0, indexInStrand(position.units[strand] ?? units[0].id));
+    const { startIdx } = startIndex(position, strand);
     const target   = frontier.targets.find(t => t.strand === strand);
-    const targetIdx = target ? indexInStrand(target.unit.id) : classIdx;
-    out[strand] = Math.max(classIdx, targetIdx);
+    const targetIdx = target ? indexInStrand(target.unit.id) : startIdx;
+    out[strand] = Math.max(startIdx, targetIdx);
   }
   return out;
 }

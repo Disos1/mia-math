@@ -103,3 +103,28 @@ describe('mastery is lost below 70%, not at 79%', () => {
   it('keeps mastery at 7 of 10', () => expect(answer(false, ledgerOf(8))).toBe('שליטה'));
   it('drops it at 6 of 10', () => expect(answer(false, ledgerOf(7))).toBe('בתהליך'));
 });
+
+describe('the estimate does not move her on — mastery or the parent does (2026-11-05)', () => {
+  // Her state that evening: ordering numbers, rectangles/squares and multiplying
+  // by whole tens mastered; division by whole tens at 7/10.
+  const done = (s: string, a = 0.9) => ({ ...MIA[s], skillCode: s, status: 'שליטה', firstAttemptAccuracy: a, itemCount: 30 } as MasteryRecord);
+  const NOV5: MasteryMap = { ...MIA,
+    NUM_ORDER_LINE: done('NUM_ORDER_LINE'), GEOM_RECT_SQUARE: done('GEOM_RECT_SQUARE'),
+    MULT_BY_TENS: done('MULT_BY_TENS', 0.8), ARITH_MULT_6_9: done('ARITH_MULT_6_9', 0.8),
+    DIV_BY_TENS: { ...MIA.MULT_BY_TENS, skillCode: 'DIV_BY_TENS', firstAttemptAccuracy: 0.7, itemCount: 13 } as MasteryRecord,
+  };
+  // Extrapolated from the parent's 11-03 answers, the estimate has the class a topic further on.
+  const est: ClassPosition = {
+    units:     { numbers: 'numbers.rounding', multdiv: 'multdiv.mult_div_link', geometry: 'geometry.rect_square', fractions: 'not_started' },
+    source:    { numbers: 'estimate', multdiv: 'estimate', geometry: 'estimate' },
+    confirmed: { numbers: 'numbers.order_line', multdiv: 'multdiv.div_by_tens', geometry: 'geometry.parallel' },
+  };
+  const f = curriculumFrontier(est, NOV5);
+  const at = (s: string) => f.targets.find(t => t.strand === s)?.skill;
+
+  it('stays on division by whole tens until she has it', () => expect(at('multdiv')).toBe('DIV_BY_TENS'));
+  it('moves on in the books where she has mastered the topic', () => {
+    expect(at('numbers')).toBe('NUM_ROUNDING');
+    expect(at('geometry')).toBe('GEOM_TRIANGLES');
+  });
+});
