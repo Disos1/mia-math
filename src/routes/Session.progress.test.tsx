@@ -1,40 +1,29 @@
 // @vitest-environment jsdom
-/**
- * Progress must survive a session she never finishes.
- *
- * Mia's own records showed the failure: whole days (27 Jul, 1 Aug, 28 Aug) where
- * every session stored 0 questions answered, and 7 Sept with 20 answered but no
- * attempts at all. She practised; the dashboard and the daily email said she had
- * not. Everything was held in memory until finish(), and the only safety net was
- * `visibilitychange`, which iOS Safari does not reliably fire on tab close.
- *
- * So this test answers ONE question in a real session and demands that the
- * answer is already stored — no finish, no visibility event, no unmount.
- */
+/** Answers must persist immediately, even when a session is interrupted. */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import type { Profile, MasteryMap, MasteryRecord, SessionRecord, PracticeAttempt } from '../types';
 import { Session } from './Session';
 
-const PROFILE_ID = 'test-mia';
+const PROFILE_ID = 'synthetic-profile';
 
 const profile: Profile = {
-  profileId: PROFILE_ID, avatarId: 'fox', gender: 'f', displayName: 'מיה',
-  onboardingComplete: true, diagnosticCompletedAt: '2026-09-01T00:00:00.000Z',
-  diagnosticVersion: 1, sessionsCompleted: 12, createdAt: '2026-04-20T00:00:00.000Z',
+  profileId: PROFILE_ID, avatarId: 'fox', gender: 'f', displayName: 'דמות לדוגמה',
+  onboardingComplete: true, diagnosticCompletedAt: '2024-09-01T00:00:00.000Z',
+  diagnosticVersion: 1, sessionsCompleted: 12, createdAt: '2024-04-20T00:00:00.000Z',
 } as Profile;
 
 const rec = (s: string, a: number, n: number): MasteryRecord => ({
   profileId: PROFILE_ID, skillCode: s, status: 'בתהליך', firstAttemptAccuracy: a, itemCount: n,
-  sessionCount: 4, lastPracticedAt: '2026-09-07T00:00:00.000Z',
+  sessionCount: 4, lastPracticedAt: '2024-09-07T00:00:00.000Z',
   needsRetentionProbe: false, retentionProbeDueAt: null,
 });
 
 const mastery: MasteryMap = {
-  ARITH_MULT_6_9:         { ...rec('ARITH_MULT_6_9', 0.9, 120), status: 'שליטה' },
-  ARITH_SUB_REGROUP_ZERO: rec('ARITH_SUB_REGROUP_ZERO', 0.7, 80),
-  PLACE_VALUE_TO_MILLION: { ...rec('PLACE_VALUE_TO_MILLION', 0.9, 40), status: 'שליטה' },
+  ARITH_MULT_6_9:         { ...rec('ARITH_MULT_6_9', 0.92, 28), status: 'שליטה' },
+  ARITH_SUB_REGROUP_ZERO: rec('ARITH_SUB_REGROUP_ZERO', 0.72, 24),
+  PLACE_VALUE_TO_MILLION: { ...rec('PLACE_VALUE_TO_MILLION', 0.92, 32), status: 'שליטה' },
 };
 
 const read = <T,>(key: string, fallback: T): T => {
@@ -111,7 +100,7 @@ describe('an unfinished session still records what she did', () => {
   });
 });
 
-// Family Link time limits (Dima, 2026-10-27): when the limit hits mid-session
+// A device time limit can interrupt a session without a finish event.
 // and the parent adds time, Android reloads the page. The session must come
 // back where she was — same questions, same session record — not from question 1.
 describe('a session interrupted by a reload', () => {

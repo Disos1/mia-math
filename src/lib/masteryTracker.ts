@@ -2,7 +2,7 @@
  * Mastery tracker — Opus task.
  *
  * Updates a MasteryMap after each first-attempt answer in a practice session.
- * Graduation rule (hardened 2026-07-12 after the false-mastery audit):
+ * Graduation rule:
  *
  *   status = 'שליטה' iff
  *     window accuracy ≥ 0.80 over the last 10 ABSTRACT-layer first attempts
@@ -11,9 +11,8 @@
  *     AND session_count ≥ 2
  *
  * Why abstract-only + 2 days: the previous window mixed pictorial successes
- * into "abstract mastery" and, at hundreds of items/day, a same-day lucky
- * streak of 10 was statistically guaranteed. Both were confirmed live
- * (mult-facts labelled שליטה at "100%" against 68% true accuracy).
+ * into "abstract mastery". Requiring practice across days helps distinguish
+ * sustained recall from a short lucky streak.
  *
  * Retention probes (previously specced, never implemented — now live):
  *   graduation schedules a probe at +7 days; passing it schedules +30 days;
@@ -289,8 +288,8 @@ export function applyProbeResult(
     // below 70%" — RETENTION_DEMOTION_ACCURACY, a constant that existed in
     // config and was never referenced. The implementation demoted on one wrong
     // item instead, so MEAS_UNIT_CONVERT_CM fell from שליטה to בתהליך on
-    // 2026-07-24 while its window still read 90% and Mia demonstrably knew the
-    // material (confirmed by Dima, 2026-07-31).
+    // 2026-07-24 while its window still read 90% and the learner demonstrably knew the
+    // material (confirmed by the parent, 2026-07-31).
     //
     // Missing one spaced-retrieval item after two weeks is normal — effortful
     // retrieval is the mechanism we WANT. Demoting on it punishes the thing
@@ -413,7 +412,7 @@ export function seedMasteryFromDiagnostic(
 
 // ─── Query helpers ────────────────────────────────────────────────────────────
 
-/** Is this skill unknown (never probed) in Mia's mastery record? */
+/** Is this skill unknown (never probed) in the learner's mastery record? */
 export function isUnprobed(masteryMap: MasteryMap, skillCode: string): boolean {
   return !(skillCode in masteryMap);
 }

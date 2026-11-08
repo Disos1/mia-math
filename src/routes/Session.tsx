@@ -169,7 +169,7 @@ export function Session({ profile, mode: requestedMode, onComplete, onTrophyRoom
       sessionsCompleted: profile.sessionsCompleted,
       cpaMemory:         cpaMemoryRef.current,
       recentIds:         recentIdsRef.current,
-      // Mia enters כיתה ד' in September 2026. Grade-4 skills only surface once
+      // the learner enters כיתה ד' in September 2026. Grade-4 skills only surface once
       // their prerequisites are met, so this is safe before she is ready: the
       // composer simply finds nothing unlocked and runs an all-repair session.
       targetGrade:       4,
@@ -230,7 +230,7 @@ export function Session({ profile, mode: requestedMode, onComplete, onTrophyRoom
     useState<{ from: CPALayer; to: CPALayer } | null>(null);
 
   // retryCount drives the PracticeItemView key — incrementing it remounts the
-  // item with fresh selected/locked state so Mia can retry the same question.
+  // item with fresh selected/locked state so the learner can retry the same question.
   const [retryCount, setRetryCount] = useState(0);
   // isRetry tells PracticeItemView to show the skill hint panel.
   const [isRetry, setIsRetry] = useState(false);
@@ -315,7 +315,7 @@ export function Session({ profile, mode: requestedMode, onComplete, onTrophyRoom
   /**
    * Write everything this session has earned so far.
    *
-   * Called after EVERY answer, not only at the end. Mia often runs out of time
+   * Called after EVERY answer, not only at the end. the learner often runs out of time
    * mid-session, and progress used to live in memory until finish() ran: her
    * records showed sessions with 20 questions answered and zero attempts
    * stored, and whole days (27 Jul, 1 Aug, 28 Aug) where every session recorded
@@ -1111,12 +1111,22 @@ function fmtNum(n: number | string | undefined): string {
   return Number.isFinite(v) && Math.abs(v) >= 1000 ? v.toLocaleString('en-US') : String(n);
 }
 
-/** Teach-mode rendering of a step: "כמה זה 13 − 8?" → "13 − 8 = 5". */
-function teachLine(text: string, answer?: number): string {
+/** Teach-mode rendering of a step: "כמה זה 13 − 8?" → "13 − 8 = 5", and
+ *  "36 ÷ 9 = ?" → "36 ÷ 9 = 4". The answer must REPLACE the "?" placeholder:
+ *  appended after it, RTL put the number on the far side of the exercise and
+ *  the worked example read "4 36 ÷ 9 = ?" (seen 2026-11-09). */
+export function teachLine(text: string, answer?: number): string {
   if (answer === undefined) return text;
   const a = fmtNum(answer);
   const m = text.match(/כמה זה (.+)\?/);
-  return m ? `${m[1]} = ${a}` : `${text} ${a}`;
+  if (m) return text.replace(m[0], `${m[1]} = ${a}`);
+  // "?" standing as an operand — next to =, +, −, ×, ÷ — is the blank to fill.
+  // (No lookbehind: older iPad Safari cannot parse it.)
+  const after  = /([=+\-−×÷]\s*)\?/;
+  const before = /\?(\s*[=+\-−×÷])/;
+  if (after.test(text))  return text.replace(after,  `$1${a}`);
+  if (before.test(text)) return text.replace(before, `${a}$1`);
+  return `${text} ${a}`;
 }
 
 /** Exported for its render test — the ladder is what she reads after a miss. */
@@ -1286,7 +1296,7 @@ export function WorkedExampleView({ planItem, gender, onDone }: {
 
 // ─── Skill hint (shown on retry after first wrong answer) ─────────────────────
 //
-// Provides a visual/conceptual scaffold for each skill so Mia has a way to
+// Provides a visual/conceptual scaffold for each skill so the learner has a way to
 // think about the problem before her second attempt. The hint is specific to
 // the skill's target misconception, not a generic "try again" prompt.
 

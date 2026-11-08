@@ -36,7 +36,7 @@ export const MAX_STARS_PER_SESSION   = 4;
  *  just don't mint reward. Closes the 66-tiny-sessions farming pattern. */
 export const MIN_ITEMS_FOR_STARS = 8;
 /** The item floor applies only to sessions started on/after this date, so
- *  stars Mia already earned are never taken away (fairness test: a rule
+ *  stars the learner already earned are never taken away (fairness test: a rule
  *  change must not read as punishment). */
 export const STAR_RULE_V2_FROM = '2026-07-12';
 
@@ -448,7 +448,7 @@ export function computeTrophyState(records: SessionRecord[], masteredCount = 0):
 
   const earnedCount = trophies.filter(tr => tr.earned).length;
 
-  // Display order = the order Mia actually earned them, so the badge wall reads
+  // Display order = the order the learner actually earned them, so the badge wall reads
   // as a timeline of her achievements:
   //   1. Earned badges, oldest earnedAt first (null dates — e.g. mastery — last
   //      within the earned group, keeping their relative definition order).

@@ -83,14 +83,16 @@ export function TrophyRoom({ profile, onBack }: Props) {
               </span>
               <div>
                 <div className="text-2xl font-bold" style={{ color: '#D96000' }}>
-                  {state.currentStreak > 0
+                  {state.currentStreak > 1
                     ? t('trophy_room.streak_active', { ...g, count: state.currentStreak })
-                    : t('trophy_room.streak_zero', g)
+                    : state.currentStreak === 1
+                      ? t('trophy_room.streak_one', g)
+                      : t('trophy_room.streak_zero', g)
                   }
                 </div>
                 {state.currentStreak > 0 && (
                   <div className="text-sm text-gray-500 mt-0.5">
-                    {state.currentStreak === 1 ? 'יום אחד — המשיכי כך!' : 'כל הכבוד על ההמשכיות!'}
+                    {t(state.currentStreak === 1 ? 'trophy_room.streak_sub_one' : 'trophy_room.streak_sub_many', g)}
                   </div>
                 )}
               </div>

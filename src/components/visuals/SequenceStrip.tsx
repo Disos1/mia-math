@@ -1,7 +1,7 @@
 /**
  * A number sequence as boxes, with the missing term as an empty box.
  *
- * Written after Dima photographed the screen on 2026-10-02: the sequence was
+ * Written after the parent photographed the screen on 2026-10-02: the sequence was
  * printed as text, "747,244, 757,244, 767,244, ___", and the comma separating
  * the terms is the same character as the comma inside each number. He read it
  * as six numbers, and so would a nine-year-old. No amount of spacing fixes

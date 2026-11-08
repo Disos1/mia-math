@@ -320,7 +320,7 @@ export interface SessionPlanItem {
   track?:            SkillTrack;
   /**
    * For prerequisite items: the graph edge's reason, in Hebrew, e.g.
-   * "כדי לכתוב מספרים גדולים צריך להבין ערך מקום". Shown to Mia so the easier
+   * "כדי לכתוב מספרים גדולים צריך להבין ערך מקום". Shown to the learner so the easier
    * work reads as equipment for today's goal.
    */
   prereqWhy?:        string;
@@ -384,7 +384,7 @@ export interface SessionRecord {
 
 // ─── Mastery map ──────────────────────────────────────────────────────────────
 //
-// Keyed by skillCode. Represents Mia's current mastery state across all skills
+// Keyed by skillCode. Represents the learner's current mastery state across all skills
 // she's been exposed to (diagnostic seeds this; each session updates it).
 
 export type MasteryMap = Record<string, MasteryRecord>;

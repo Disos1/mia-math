@@ -1,7 +1,4 @@
-/**
- * Family Link time limits reload the page mid-session (Dima, 2026-10-27).
- * The session must come back where she was, not restart.
- */
+/** Synthetic regression scenarios only. Never copy learner records into tests. */
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { SessionPlan, SessionPlanItem, PracticeAttempt } from '../types';

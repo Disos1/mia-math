@@ -261,7 +261,7 @@ export function buildEmail(
                                     `<span style="color:#6B7280;font-weight:bold;">→ יציב לעומת שבוע שעבר (${prevWeekPct}%)</span>`;
 
   // Stuck skills: low long-run accuracy AND still struggling this week.
-  // Dima, 2026-11-05: "I still get the same warnings". The alert used the
+  // the parent, 2026-11-05: "I still get the same warnings". The alert used the
   // long-run window alone, so a topic she was getting right this week (fraction
   // of a quantity: 5/5 on 11-02) stayed red for weeks, and the email said
   // nothing about the topics she had just mastered.
@@ -496,9 +496,9 @@ Deno.serve(async (_req) => {
     const prevWeekPct = prevTotal > 0 ? Math.round(prevOk / prevTotal * 100) : null;
     if (countable.length === 0) {
       // No practice for 7+ days. This used to `continue` — so the email went
-      // silent exactly when the parent most needed to hear something: Mia
+      // silent exactly when the parent most needed to hear something: the learner
       // stopped practising when school started in Sept 2026 and the only signal
-      // Dima got was an absence of email. Nudge on day 8, then weekly — never
+      // the parent got was an absence of email. Nudge on day 8, then weekly — never
       // daily, which would be spam.
       const { data: lastRow } = await db
         .from('session_records')

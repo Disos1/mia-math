@@ -16,7 +16,7 @@
  *
  * Ordering items never put a LIST of large numbers on a button. The comma that
  * groups digits and the comma that separates numbers are the same character, so
- * "345,210, 354,120" reads as four numbers (the bug Dima photographed). They ask
+ * "345,210, 354,120" reads as four numbers (the bug the parent photographed). They ask
  * for one number instead — the smallest, the second largest.
  */
 

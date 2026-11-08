@@ -1,14 +1,4 @@
-/**
- * Semantic safety of generated word problems.
- *
- * Mia read these sentences. Two live bugs on 2026-07-31:
- *   "לאורי היו 70 ספרים. הוא אכל 32 ספרים"      — ate 32 books
- *   "בכיתה יש 40 ילדים. נמכרו 12, נקנו 5"        — children sold and bought
- *
- * Both came from pairing verbs with objects by index arithmetic. These tests
- * scan every generated item, so a future template cannot reintroduce the class.
- */
-
+/** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import { generate as gen2 } from './generators/word2step';
 import { generate as gen3 } from './generators/word3step';
@@ -18,21 +8,15 @@ import { OBJECTS, NEUTRAL_SCENARIOS, subVerbsFor, addVerbsFor } from './wordBank
 const opts = { count: 10_000, rng: makeRng(hashString('semantics')), recentIds: new Set<string>() };
 const ALL  = [...gen2(opts), ...gen3(opts)];
 
-/**
- * Whole-word match. Hebrew verbs nest as substrings (נמכרו contains מכר, and
- * נתנה contains נתן), so naive `includes` produces false alarms.
- */
 function hasWord(text: string, word: string): boolean {
   return new RegExp(`(^|\\s)${word}(\\s|,|\\.|$)`).test(text);
 }
 
-/** Verbs that may never be applied to people. */
 const NEVER_FOR_PEOPLE = [
   'נמכרו', 'נקנו', 'מכר', 'מכרה', 'קנה', 'קנתה',
   'נאכלו', 'אכל', 'אכלה', 'אבדו', 'איבד', 'איבדה', 'נמצאו', 'מצא', 'מצאה',
 ];
 
-/** Verbs that may only act on food. */
 const EDIBLE_ONLY = ['אכל', 'אכלה', 'נאכלו'];
 
 describe('generated word problems are semantically sane', () => {
@@ -76,7 +60,7 @@ describe('generated word problems are semantically sane', () => {
       const items = ALL.filter(i =>
         i.question.startsWith(sc.subjectStart) && i.question.includes(sc.object));
       for (const it of items) {
-        // Every scenario verb appearing in the sentence must be one of its own.
+
         const foreign = [...NEVER_FOR_PEOPLE, 'ניתנו', 'התקבלו']
           .filter(v => hasWord(it.question, v) && !own.has(v));
         expect(foreign, `foreign verbs in: ${it.question}`).toEqual([]);
@@ -85,7 +69,7 @@ describe('generated word problems are semantically sane', () => {
   });
 
   it('conjugates named-actor verbs to the actor gender', () => {
-    // A feminine name with a masculine verb reads as broken Hebrew to a child.
+
     const femaleOnlyVerbs = ['נתנה', 'איבדה', 'מכרה', 'חילקה', 'אכלה', 'קנתה', 'קיבלה', 'מצאה'];
     const maleOnlyVerbs   = ['נתן', 'איבד', 'מכר', 'חילק', 'אכל', 'קנה', 'קיבל', 'מצא'];
 
@@ -93,8 +77,7 @@ describe('generated word problems are semantically sane', () => {
       if (!it.question.includes('היא ') && !it.question.includes('הוא ')) continue;
       const isFemale = it.question.includes('היא ');
       const wrong = (isFemale ? maleOnlyVerbs : femaleOnlyVerbs)
-        // masculine forms are prefixes of feminine ones (נתן ⊂ נתנה), so only
-        // flag a masculine verb when it is not part of its feminine form
+
         .filter(v => hasWord(it.question, v));
       expect(wrong, `gender mismatch in: ${it.question}`).toEqual([]);
     }
@@ -117,7 +100,7 @@ describe('word bank invariants', () => {
   });
 
   it('keeps people out of the possessions list entirely', () => {
-    // "לאורי היו 70 ילדים" is never a sentence we want to generate.
+
     for (const o of OBJECTS) {
       expect(['ילדים', 'תלמידים', 'אנשים']).not.toContain(o.noun);
     }

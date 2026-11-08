@@ -61,11 +61,11 @@ export function saveMasteryMap(profileId: string, map: MasteryMap): void {
  * Badges are all-time milestones ("once earned they stay earned" — see
  * trophies.ts), but the mastery badges were computed from the *current*
  * mastered count. Under honest mastery + retention probes a demotion is a
- * normal, expected event — and it must never un-earn a badge Mia already
+ * normal, expected event — and it must never un-earn a badge the learner already
  * celebrated. Callers pass the current count; this returns (and persists)
  * the historical maximum, which is what badge logic should consume.
  *
- * Device-local by design: badges are recomputed per device, and Mia plays
+ * Device-local by design: badges are recomputed per device, and the learner plays
  * on one iPad. Worst case on a brand-new device the high-water restarts at
  * the current count — badges may briefly under-report, never over-report.
  */
@@ -101,7 +101,7 @@ export function saveLedger(profileId: string, ledger: AttemptLedger): void {
 
 /**
  * Answers needed before a session counts as practice in profile.sessionsCompleted.
- * Partial sessions count: Mia often runs out of time, and a child who never
+ * Partial sessions count: the learner often runs out of time, and a child who never
  * reaches the end card must still move through the app's rotation.
  */
 export const MIN_ITEMS_FOR_SESSION_COUNT = 5;

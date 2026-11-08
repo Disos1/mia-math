@@ -1,7 +1,7 @@
 /**
  * "Did she actually get the time?" — the week at a glance.
  *
- * Dima, 2026-09-20: she stopped practising on 7 September not because it was too
+ * the parent, 2026-09-20: she stopped practising on 7 September not because it was too
  * hard but because life got in the way, "we should verify that she allocates
  * enough time for the practice". Content cannot fix a week with no practice in
  * it, and a parent should not have to reconstruct that from a list of sessions.

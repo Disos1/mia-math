@@ -4,7 +4,7 @@
  * Recomputes what every skill's status *should* be from the stored evidence and
  * reports where the stored status disagrees.
  *
- * Why this exists: on 2026-07-31 Dima noticed Mia had been demoted on a skill she
+ * Why this exists: on 2026-07-31 the parent noticed the learner had been demoted on a skill she
  * plainly knew. The cause was a rule specified in the PRD, given a constant in
  * config, and never wired into the code. No unit test could catch it — the logic
  * was internally consistent; it simply implemented the wrong rule. What *would*

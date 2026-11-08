@@ -1,11 +1,4 @@
-/**
- * PLACE_VALUE_TO_MILLION generator invariants.
- *
- * A generator bug is Mia-visible: a wrong "correct" answer marks her right
- * answer wrong. These tests check the mathematics of every emitted item rather
- * than trusting the templates.
- */
-
+/** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import { generate } from './placeValueMillion';
 import { makeRng, hashString } from '../rng';
@@ -22,8 +15,7 @@ describe('place-value generator', () => {
   });
 
   it('never emits a signature equal to the correct answer', () => {
-    // A signature that equals the answer would mark a correct response as a
-    // misconception hit — the worst possible failure for a diagnostic engine.
+
     for (const it of ALL) {
       if (it.signature !== null) expect(it.signature).not.toBe(it.correct);
     }
@@ -58,8 +50,6 @@ describe('place-value generator', () => {
   });
 });
 
-// ─── Per-template mathematics ─────────────────────────────────────────────────
-
 describe('digit-value items', () => {
   const items = ALL.filter(i => i.itemId.startsWith('G_PV_VAL_'));
 
@@ -89,8 +79,7 @@ describe('comparison items', () => {
   const items = ALL.filter(i => i.itemId.startsWith('G_PV_CMP_'));
 
   it('always makes the longer number the answer and the leading-digit pick the trap', () => {
-    // The item is only diagnostic when the shorter number has the bigger first
-    // digit — otherwise the faulty rule accidentally gives the right answer.
+
     expect(items.length).toBeGreaterThan(0);
     for (const it of items) {
       const small = Number(it.itemId.split('_')[3]);
@@ -98,7 +87,7 @@ describe('comparison items', () => {
       expect(large).toBeGreaterThan(small);
       expect(String(large).length).toBeGreaterThan(String(small).length);
       expect(Number(String(small)[0])).toBeGreaterThan(Number(String(large)[0]));
-      // Written as in the question, and ONLY the two candidates are offered.
+
       expect(it.correct).toBe(large.toLocaleString('en-US'));
       expect(it.signature).toBe(small.toLocaleString('en-US'));
       expect(it.options).toHaveLength(2);
@@ -114,7 +103,7 @@ describe('word-to-numeral items', () => {
     for (const it of items) {
       const correct = Number(it.correct);
       const dropped = Number(it.signature);
-      // The misconception writes the same digits with internal zeros removed.
+
       expect(String(correct).replace(/0/g, '')).toBe(String(dropped).replace(/0/g, ''));
       expect(dropped).toBeLessThan(correct);
       expect(it.signatureCode).toBe('ERR_ZERO_PLACEHOLDER');
@@ -173,8 +162,7 @@ describe('carry-chain probe', () => {
   });
 
   it('carries no fabricated signature', () => {
-    // The research's 99,999+1 → 99,991 signature did not derive from its stated
-    // rule, so this template deliberately asserts no misconception.
+
     for (const it of items) {
       expect(it.signature).toBeNull();
       expect(it.signatureCode).toBeNull();
@@ -182,19 +170,14 @@ describe('carry-chain probe', () => {
   });
 });
 
-// ─── Step ladders ─────────────────────────────────────────────────────────────
-
 describe('step ladders', () => {
   it('ends every ladder on the correct answer', () => {
-    // The ladder exists so she exits a miss by producing the right answer
-    // herself. A ladder whose last numeric step disagrees with `correct` would
-    // teach the wrong thing.
+
     for (const it of ALL) {
       if (!it.steps?.length) continue;
       const numeric = it.steps.filter(s => s.answer !== undefined);
       if (numeric.length === 0) continue;
-      // Choice answers may be written with commas ("102,345"); the ladder's final
-      // step is typed on the keypad (102345). Same number either way.
+
       const asNumber = Number(String(it.correct).replace(/,/g, ''));
       expect(numeric[numeric.length - 1].answer).toBe(asNumber);
     }

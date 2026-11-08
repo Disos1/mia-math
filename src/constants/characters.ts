@@ -1,12 +1,12 @@
 /**
  * Pre-approved character name pool for word problems.
  * The item generator receives a randomly selected name as a parameter.
- * Mia's actual name never enters an LLM prompt.
+ * the learner's actual name never enters an LLM prompt.
  *
- * Family names (Dima's family) are included and marked for easy auditing.
+ * Family names (the parent's family) are included and marked for easy auditing.
  */
 export const GIRL_NAMES = [
-  // Family names — Dima's family
+  // Family names — the parent's family
   'מיה', 'מיכל', 'אליס', 'נטשה', 'סבטה', 'אולגה',
   // Common Israeli girls' names
   'דנה', 'שירה', 'נועה', 'רות', 'לימור', 'אורית',
@@ -14,7 +14,7 @@ export const GIRL_NAMES = [
 ] as const;
 
 export const BOY_NAMES = [
-  // Family names — Dima's family
+  // Family names — the parent's family
   'דימה', 'ליאו', 'סשה', 'סרגיי',
   // Common Israeli boys' names
   'אמיר', 'יוסי', 'אורי', 'גיל', 'דוד', 'עידן',

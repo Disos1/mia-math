@@ -94,7 +94,7 @@ export function BarModel({ rows }: Props) {
                   The page is dir="rtl", so the SVG text inherits RTL: with
                   textAnchor="start" the anchor is the text's RIGHT edge. At
                   x=2 the label therefore ran leftward off-canvas and only its
-                  final glyph stayed visible — the stray tick Mia saw beside
+                  final glyph stayed visible — the stray tick the learner saw beside
                   every bar on 2026-07-31.
                   Anchoring the right edge at the inner edge of the label
                   column makes the Hebrew read right-to-left inside its own

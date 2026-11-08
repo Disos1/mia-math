@@ -1,12 +1,4 @@
-/**
- * Book alignment — ה.ש.ב.ח.ה ד'.
- *
- * Pins the behaviour against Mia's REAL state on 2026-09-19 (Supabase
- * mastery_records), because every earlier failure of this app was code that was
- * internally consistent but wrong about the child: a skill built but unreachable,
- * a rule written but never applied, a statistic that was a lifetime average.
- */
-
+/** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord, GapProfile } from '../../types';
 import { HASHBACHA_4, STRANDS, DORMANT_BY_DEFAULT, unitsOf, unitById } from './hashbacha4';
@@ -18,27 +10,25 @@ import { SKILLS_WITH_PRACTICE, getItemPool } from '../items';
 import { SKILL_GRAPH } from '../skillGraph';
 import { composeSession } from '../sessionComposer';
 
-// ─── Mia on 2026-09-19 ───────────────────────────────────────────────────────
-
 const r = (s: string, st: MasteryRecord['status'], a: number, n: number): MasteryRecord => ({
   profileId: 'p', skillCode: s, status: st, firstAttemptAccuracy: a, itemCount: n,
-  sessionCount: 10, lastPracticedAt: '2026-09-07T00:00:00.000Z',
+  sessionCount: 4, lastPracticedAt: '2026-09-05T00:00:00.000Z',
   needsRetentionProbe: false, retentionProbeDueAt: null,
 });
 
-const MIA_SEP19: MasteryMap = {
-  ARITH_MULT_6_9:         r('ARITH_MULT_6_9',         'שליטה',  0.9, 943),
-  ARITH_SUB_REGROUP_ZERO: r('ARITH_SUB_REGROUP_ZERO', 'בתהליך', 0.7, 798),
-  ARITH_WORD_2STEP:       r('ARITH_WORD_2STEP',       'בתהליך', 0.7, 427),
-  ARITH_WORD_3STEP:       r('ARITH_WORD_3STEP',       'בתהליך', 0.6, 394),
-  FRAC_COMPARE_UNIT:      r('FRAC_COMPARE_UNIT',      'שליטה',  1.0,  42),
-  FRAC_OF_QUANTITY:       r('FRAC_OF_QUANTITY',       'בתהליך', 0.3, 323),
-  MEAS_UNIT_CONVERT_CM:   r('MEAS_UNIT_CONVERT_CM',   'בתהליך', 0.9, 133),
-  PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה',  0.9,  41),
+const SYNTHETIC_LEARNER: MasteryMap = {
+  ARITH_MULT_6_9:         r('ARITH_MULT_6_9',         'שליטה',  0.92, 28),
+  ARITH_SUB_REGROUP_ZERO: r('ARITH_SUB_REGROUP_ZERO', 'בתהליך', 0.72, 28),
+  ARITH_WORD_2STEP:       r('ARITH_WORD_2STEP',       'בתהליך', 0.72, 28),
+  ARITH_WORD_3STEP:       r('ARITH_WORD_3STEP',       'בתהליך', 0.62, 28),
+  FRAC_COMPARE_UNIT:      r('FRAC_COMPARE_UNIT',      'שליטה',  0.96, 28),
+  FRAC_OF_QUANTITY:       r('FRAC_OF_QUANTITY',       'בתהליך', 0.35, 28),
+  MEAS_UNIT_CONVERT_CM:   r('MEAS_UNIT_CONVERT_CM',   'בתהליך', 0.92, 28),
+  PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה',  0.92, 28),
 };
 
 const GAP = {
-  version: 1, computedAt: '2026-07-09T15:29:59.860Z', diagnosticSessionId: 'x',
+  version: 1, computedAt: '2024-01-01T08:00:00.000Z', diagnosticSessionId: 'x',
   strands: { ARITH: { status: 'בתהליך', priority: 1, activeErrors: [] } }, cpaStartLayer: {},
   sessionComposerNotes: {
     startWith: 'easy_known_skill', firstNewMaterial: 'ARITH_SUB_REGROUP_ZERO',
@@ -48,20 +38,15 @@ const GAP = {
 
 const NOW = '2026-09-19T12:00:00.000Z';
 
-/** The rest of numbers topic 1, for scenarios where she has it. */
 const TOPIC1: MasteryMap = {
   NUM_READ_WRITE: r('NUM_READ_WRITE', 'שליטה', 0.9, 30),
   DATA_DIAGRAMS:  r('DATA_DIAGRAMS',  'שליטה', 0.9, 30),
 };
 
-/** What loadClassPosition gives with nothing stored: the publisher's week for
- *  the three books she learns in parallel, fractions not started. */
 const positionAt = (iso: string): ClassPosition => ({
   units:  Object.fromEntries(STRANDS.map(s => [s, DORMANT_BY_DEFAULT.has(s) ? NOT_STARTED : estimateUnit(s, iso).id])),
   source: Object.fromEntries(STRANDS.map(s => [s, 'estimate' as const])),
 });
-
-// ─── The book itself ─────────────────────────────────────────────────────────
 
 describe('curriculum data', () => {
   it('lists units in teaching order within every strand', () => {
@@ -72,14 +57,12 @@ describe('curriculum data', () => {
   });
 
   it('starts every book in the first week — no "September review"', () => {
-    // The generic research said September was grade-3 review. The publisher's
-    // plan starts every booklet on 1 September.
+
     for (const s of STRANDS) expect(unitsOf(s)[0].week, s).toBe(0);
   });
 
   it('follows the contents pages of the three books she learns in parallel', () => {
-    // Dima's photos, 2026-10-18: מספרים בתחום המיליון (17 topics), כפל וחילוק
-    // (20), גאומטריה (22). Every topic, numbered as in the book, in order.
+
     const topics = (s: 'numbers' | 'multdiv' | 'geometry') => unitsOf(s).map(u => u.topic);
     const oneTo  = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
     expect(topics('numbers')).toEqual(oneTo(17));
@@ -94,8 +77,7 @@ describe('curriculum data', () => {
   });
 
   it('only claims coverage with skills that actually have a generator', () => {
-    // A unit listing an unbuilt skill would tell the parent it is covered when
-    // Mia can never be given a single item from it.
+
     for (const u of HASHBACHA_4) {
       for (const s of u.skills) {
         expect(SKILLS_WITH_PRACTICE, `${u.id} → ${s}`).toContain(s);
@@ -110,8 +92,6 @@ describe('curriculum data', () => {
     for (const u of HASHBACHA_4) expect(u.id.startsWith(`${u.strand}.`)).toBe(true);
   });
 });
-
-// ─── Where the class is ──────────────────────────────────────────────────────
 
 describe('class position estimate', () => {
   it('counts teaching weeks from 1 September', () => {
@@ -131,16 +111,13 @@ describe('class position estimate', () => {
   });
 
   it('leaves the fractions book alone until the parent says the class started it', () => {
-    // Not one of the three books on her desk. Without a stored answer the
-    // estimate must not invent a fractions lesson.
+
     expect(loadClassPosition('nobody', NOW).units.fractions).toBe(NOT_STARTED);
   });
 });
 
-// ─── What Mia should do next ─────────────────────────────────────────────────
-
-describe('frontier for Mia on 2026-09-19', () => {
-  const f = curriculumFrontier(positionAt(NOW), MIA_SEP19);
+describe('frontier for a synthetic mixed-mastery profile', () => {
+  const f = curriculumFrontier(positionAt(NOW), SYNTHETIC_LEARNER);
   const target = (s: string) => f.targets.find(t => t.strand === s);
 
   it('works with the class on geometry', () => {
@@ -148,21 +125,18 @@ describe('frontier for Mia on 2026-09-19', () => {
   });
 
   it('works with the class on numbers topic 1 — reading and writing numbers, which she has not shown', () => {
-    // Topic 1 is place value (mastered) plus reading/writing numbers and bar
-    // charts (added 2026-10-21 from the class's lesson log; never given to her).
+
     expect(target('numbers')).toMatchObject({ skill: 'NUM_READ_WRITE', aheadBy: 0 });
   });
 
   it('pre-teaches in numbers, in the book\'s order, once topics 1–2 are hers', () => {
-    const more = { ...MIA_SEP19, ...TOPIC1 };
+    const more = { ...SYNTHETIC_LEARNER, ...TOPIC1 };
     const t = curriculumFrontier(positionAt(NOW), more).targets.find(x => x.strand === 'numbers');
     expect(t).toMatchObject({ skill: 'NUM_DIGIT_CARDS', aheadBy: 2 });
   });
 
   it('works with the class on mult/div topic 3 and repairs topics 1–2 alongside', () => {
-    // Dima, 2026-11-03: "the app must keep up with the progress or exceed it".
-    // The topic the class is teaching is open to her even though topics 1–2,
-    // which it builds on, are not hers yet — those are repaired alongside.
+
     expect(target('multdiv')).toMatchObject({ skill: 'DIV_TENS_BY_DIGIT', aheadBy: 0 });
     expect(f.behind.map(b => b.skill)).toEqual(expect.arrayContaining(['MULT_BY_10_100_1000', 'MULT_BY_TENS']));
   });
@@ -173,7 +147,7 @@ describe('frontier for Mia on 2026-09-19', () => {
   });
 
   it('runs as far ahead as her mastery allows — the class is not a ceiling', () => {
-    const far = { ...MIA_SEP19, ...TOPIC1,
+    const far = { ...SYNTHETIC_LEARNER, ...TOPIC1,
       NUM_DIGIT_CARDS: r('NUM_DIGIT_CARDS', 'שליטה', 1, 20),
       NUM_COMPARE:     r('NUM_COMPARE', 'שליטה', 1, 20),
     };
@@ -188,53 +162,37 @@ describe('frontier for Mia on 2026-09-19', () => {
   });
 
   it('reports her standing honestly — ahead in numbers, unknown (not weak) elsewhere', () => {
-    const st = standingVsClass(positionAt(NOW), MIA_SEP19);
+    const st = standingVsClass(positionAt(NOW), SYNTHETIC_LEARNER);
     expect(st.numbers.ahead).toBe(0);                    // topic 1 is not all hers yet
-    expect(standingVsClass(positionAt(NOW), { ...MIA_SEP19, ...TOPIC1 }).numbers.ahead).toBeGreaterThan(0);
-    // Never given to her in the app: UNCHECKED, not a gap — she may know them
-    // perfectly from class.
+    expect(standingVsClass(positionAt(NOW), { ...SYNTHETIC_LEARNER, ...TOPIC1 }).numbers.ahead).toBeGreaterThan(0);
+
     expect(st.geometry).toMatchObject({ gaps: 0, unchecked: 1 });
     expect(st.multdiv).toMatchObject({ gaps: 0, unchecked: 2 });
     expect(st.fractions).toMatchObject({ ahead: 0, gaps: 0, unchecked: 0 });
   });
 
   it('does not call a half-mastered unit weak because of its never-seen half', () => {
-    // Fractions started by the parent and moved on past "compare": unit
-    // fractions (mastered) + same denominator (never given) is unchecked.
+
     const later = { ...positionAt(NOW), units: { ...positionAt(NOW).units, fractions: 'fractions.of_quantity' } };
-    const st = standingVsClass(later, MIA_SEP19).fractions;
+    const st = standingVsClass(later, SYNTHETIC_LEARNER).fractions;
     expect(st.gaps).toBe(0);
     expect(st.unchecked).toBeGreaterThanOrEqual(2);
   });
 
   it('calls it a real gap only once she has practised it', () => {
-    const tried = { ...MIA_SEP19, GEOM_POLYGONS: r('GEOM_POLYGONS', 'בתהליך', 0.5, 12) };
+    const tried = { ...SYNTHETIC_LEARNER, GEOM_POLYGONS: r('GEOM_POLYGONS', 'בתהליך', 0.5, 12) };
     expect(standingVsClass(positionAt(NOW), tried).geometry).toMatchObject({ gaps: 1, unchecked: 0 });
   });
 
   it('flags a weak skill the class is about to reach, once the parent starts that book', () => {
-    // Fraction-of-a-quantity fell to 30% over the summer; with the class on
-    // the fractions book it is a repair job with a deadline.
+
     const started = { ...positionAt(NOW), units: { ...positionAt(NOW).units, fractions: 'fractions.improper' } };
-    expect(curriculumFrontier(started, MIA_SEP19).upcoming.map(u => u.skill)).toContain('FRAC_OF_QUANTITY');
+    expect(curriculumFrontier(started, SYNTHETIC_LEARNER).upcoming.map(u => u.skill)).toContain('FRAC_OF_QUANTITY');
   });
 });
 
-// ─── Teaching order ──────────────────────────────────────────────────────────
-//
-// Dima, 2026-10-02: "you gave her questions with חילוק ארוך that she has not
-// studied yet… she also doesn't know yet חילוק עם שארית. Please align with the
-// order of the topics for the fourth grade in Israel."
-//
-// Two separate leaks caused it. The frontier walk stepped OVER a unit she could
-// not do yet and kept going (landing on negative numbers, nine units ahead),
-// and the blocker search ran over every grade-4 skill in the graph regardless
-// of the book, so spring units arrived dressed as repair.
-
 describe('the book\'s order is the order', () => {
-  // A child a few weeks in: strong facts and place value, early units mastered,
-  // still shaky on subtraction across zero — which is what gates the big
-  // addition unit, and so gates everything built on it.
+
   const MID_YEAR: MasteryMap = {
     ARITH_MULT_6_9:         r('ARITH_MULT_6_9', 'שליטה', 0.95, 950),
     PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה', 0.92, 120),
@@ -250,7 +208,7 @@ describe('the book\'s order is the order', () => {
     FRAC_OF_QUANTITY:       r('FRAC_OF_QUANTITY', 'בתהליך', 0.35, 330),
   };
 
-  /** Topics the books teach from December onwards. */
+
   const LATER_IN_THE_YEAR = [
     'ARITH_DIV_LONG', 'DIV_LONG_B', 'DIV_ONE_DIGIT', 'NUM_DIVISIBILITY', 'NUM_PRIMES',
     'NUM_FACTORISE', 'NUM_DIV_3_9', 'NUM_DIV_6', 'NUM_POWERS',
@@ -274,9 +232,7 @@ describe('the book\'s order is the order', () => {
   });
 
   it('stops at the first unit she has not mastered, even when it is locked', () => {
-    // Subtraction (topic 8) is locked behind subtraction across zero. With
-    // topics 1–7 hers, the numbers strand offers no new material — it does NOT
-    // skip ahead to the topics after it.
+
     const upTo7: MasteryMap = { ...MID_YEAR,
       NUM_DIGIT_CARDS: r('NUM_DIGIT_CARDS', 'שליטה', 0.9, 30),
       NUM_COMPARE:     r('NUM_COMPARE', 'שליטה', 0.9, 30),
@@ -300,8 +256,7 @@ describe('the book\'s order is the order', () => {
   });
 
   it('opens the later units once the earlier ones are genuinely hers', () => {
-    // The order is a sequence, not a calendar: master what comes before and the
-    // next unit opens, however far ahead of the class that is.
+
     const far: MasteryMap = { ...MID_YEAR,
       NUM_DIGIT_CARDS:        r('NUM_DIGIT_CARDS', 'שליטה', 0.9, 30),
       NUM_COMPARE:            r('NUM_COMPARE', 'שליטה', 0.9, 30),
@@ -315,11 +270,9 @@ describe('the book\'s order is the order', () => {
   });
 });
 
-// ─── What actually reaches her ───────────────────────────────────────────────
-
-describe('composed sessions for Mia (book-aligned)', () => {
+describe('composed sessions for a synthetic learner (book-aligned)', () => {
   const sessions = [60, 61, 62, 63].map(k => composeSession({
-    profileId: 'p', gapProfile: GAP, masteryMap: MIA_SEP19, mode: 'quantity',
+    profileId: 'p', gapProfile: GAP, masteryMap: SYNTHETIC_LEARNER, mode: 'quantity',
     sessionsCompleted: k, rng: () => 0.5, now: NOW, targetGrade: 4,
     classPosition: positionAt(NOW),
   }));
@@ -333,8 +286,7 @@ describe('composed sessions for Mia (book-aligned)', () => {
   });
 
   it('repairs her worst regression within a few sessions, though its book is not started', () => {
-    // Fraction-of-a-quantity is grade 3 (30% after 323 questions). The fractions
-    // book being dormant stops NEW fractions material, not grade-3 repair.
+
     expect(allSkills).toContain('FRAC_OF_QUANTITY');
   });
 
@@ -347,7 +299,7 @@ describe('composed sessions for Mia (book-aligned)', () => {
   });
 
   it('marks nothing as ahead while every book is with or behind the class', () => {
-    // The ahead banner itself is tested in BlockBanners.test.tsx.
+
     expect(sessions.flatMap(s => s.plannedItems).filter(p => p.ahead)).toEqual([]);
   });
 
@@ -377,15 +329,13 @@ describe('composed sessions for Mia (book-aligned)', () => {
   });
 });
 
-// ─── What she has not been taught must not leak into the wording ────────────
-
 describe('teaching-order guards', () => {
   const textOf = (skill: string): string[] =>
     getItemPool(skill, { count: 100_000, rng: () => 0.5 })
       .map(i => [i.question, ...(i.options ?? []).map(String), ...(i.steps ?? []).map(st => st.text)].join(' '));
 
   it('never mentions a remainder before the mult/div book teaches it (topic 14)', () => {
-    // Dima, 2026-10-02: "she also doesn't know yet חילוק עם שארית".
+
     const remainderWeek = unitById('multdiv.long_div_a')!.week;
     const early = new Set(HASHBACHA_4.filter(u => u.week < remainderWeek).flatMap(u => u.skills));
     for (const skill of early) {
@@ -397,12 +347,6 @@ describe('teaching-order guards', () => {
     for (const t of textOf('GEOM_TRIANGLES')) expect(t).not.toMatch(/180/);
   });
 });
-
-// ─── Between the parent's updates ────────────────────────────────────────────
-//
-// Set from her school's lesson log on 2026-10-21: numbers topic 4, mult/div
-// topic 4, geometry topic 2. The log showed the class moving at roughly the
-// publisher's page rate, so the estimate advances at that pace — not faster.
 
 describe('extrapolating a saved position', () => {
   const SET = '2026-10-21T18:00:00.000Z';

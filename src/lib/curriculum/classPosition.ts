@@ -1,14 +1,14 @@
 /**
- * Where is Mia's class in the book, and where should she be?
+ * Where is the learner's class in the book, and where should she be?
  *
  * Two inputs, in priority order:
- *   1. The parent's setting — Dima can see her booklets, so his word wins.
+ *   1. The parent's setting — the parent can see her booklets, so his word wins.
  *   2. An estimate from the publisher's pacing, used only until he sets it,
  *      and always labelled as an estimate in the UI.
  *
  * Storage is device-local for now (a dedicated localStorage key, NOT inside the
  * profile object — the profile is overwritten from Supabase on every sign-in and
- * would silently drop the setting). Syncing it across Dima's phone and Mia's
+ * would silently drop the setting). Syncing it across the parent's phone and the learner's
  * iPad needs a `class_position` column; that migration is proposed, not applied.
  *
  * "Exceeding the pace" is implemented as pre-teaching: the new-material target
@@ -47,7 +47,7 @@ const BREAKS: Array<[string, string]> = [
 ];
 
 /**
- * New material is NOT capped relative to the class (Dima, 2026-09-20: "if she
+ * New material is NOT capped relative to the class (the parent, 2026-09-20: "if she
  * masters a topic, move to the next one without waiting for the class").
  *
  * The only gates left are real ones: the skill must be unlocked in the
@@ -342,7 +342,7 @@ export function curriculumFrontier(
       // The class's current unit is always open: it is being taught to her this
       // week whatever the graph says, and she has homework on it. On 2026-11-03
       // her class was on division by whole tens (mult/div topic 4) while the app,
-      // waiting for topic 2 to be mastered, kept her two topics behind (Dima:
+      // waiting for topic 2 to be mastered, kept her two topics behind (the parent:
       // "the app must keep up with the progress or exceed it"). The unmastered
       // topics behind it are repaired alongside, not instead.
       const ready = i === startIdx ? open : open.filter(s => openToHer(s, masteryMap, slowSkills));
@@ -428,7 +428,7 @@ export function teachableHorizon(
  *   unchecked passed units the app has never given her
  *
  * `unchecked` exists because the obvious version lied: on 2026-09-19 it told the
- * parent Mia had "a topic to strengthen" in fractions and geometry, when those
+ * parent the learner had "a topic to strengthen" in fractions and geometry, when those
  * units had simply been built that morning. She may know them perfectly from
  * class. Never-practised is unknown, not weak.
  */

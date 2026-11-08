@@ -36,7 +36,7 @@ const KEYS: ReadonlyArray<ReadonlyArray<string>> = [
  *
  * Derived, never hardcoded: a fixed cap silently makes items unanswerable the
  * moment content grows. On 2026-07-31 the pad was pinned at 4 while a grade-4
- * item asked for 200,030 — Mia typed "2000" and could not continue.
+ * item asked for 200,030 — the learner typed "2000" and could not continue.
  *
  * One digit of headroom is deliberate. Some misconceptions produce a LONGER
  * numeral than the answer (writing 1,000,000 as more zeros than it needs), and

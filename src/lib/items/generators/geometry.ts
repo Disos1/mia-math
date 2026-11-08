@@ -257,7 +257,7 @@ const SHAPES: Array<{ key: string; name: string; pts: Pt[] }> = [
   // An irregular quadrilateral whose every pair of sides is at least 22° from
   // parallel AND from perpendicular. The one before it had two sides 9° from
   // parallel and two 0.6° from a right angle; drawn on a tablet it looked like
-  // a square, and "how many parallel pairs?" expected 0 (Mia, 2026-10-27).
+  // a square, and "how many parallel pairs?" expected 0 (the learner, 2026-10-27).
   { key: 'quad',   name: 'מרובע',       pts: [[15, 50], [25, 0], [100, 50], [25, 100]] },
   { key: 'rtri',   name: 'משולש ישר זווית', pts: [[0, 0], [0, 100], [80, 100]] },
   { key: 'hex',    name: 'משושה',       pts: regularPolygon(6) },

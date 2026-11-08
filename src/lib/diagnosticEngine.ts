@@ -58,7 +58,7 @@ export function computePhase1Signals(entryAttempts: DiagnosticAttempt[]): Phase1
 //   harder probe (V-B)       if the entry item was correct (and fast, for mult-fact)
 //
 // Selected items are interleaved: confirmation probes first, harder probes second,
-// alternating where possible so Mia doesn't hit five hard items in a row.
+// alternating where possible so the learner doesn't hit five hard items in a row.
 
 const ITEM_PAIRS: Array<{ status: keyof Phase1Signals; confirmId: string; harderId: string }> = [
   { status: 'REGROUP_ZERO_STATUS',  confirmId: 'DIAG_VA_REGROUP_703',      harderId: 'DIAG_VB_REGROUP_1000'      },

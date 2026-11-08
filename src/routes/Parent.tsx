@@ -170,7 +170,7 @@ export function Parent({ profile, onBack, onReset }: Props) {
             {/* ── Self-audit: stored state vs. the evidence ───────────────
                 Sits above the North Star deliberately. If the app's own
                 bookkeeping is wrong, every number below it is suspect, and
-                Dima should see that before he reads them. Silent when
+                the parent should see that before he reads them. Silent when
                 consistent — which is the normal case. */}
             {auditFindings.length > 0 && (
               <div

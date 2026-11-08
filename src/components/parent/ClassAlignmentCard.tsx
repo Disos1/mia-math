@@ -1,6 +1,6 @@
 /**
  * "Where is the class in the book?" — the parent's lever for keeping the app in
- * step with school, and his 5-second read on whether Mia is ahead of it.
+ * step with school, and his 5-second read on whether the learner is ahead of it.
  *
  * One dropdown per strand. Until the parent picks, the position is the
  * publisher's pacing estimate and is labelled as such — an estimate presented as

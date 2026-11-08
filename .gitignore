@@ -4,3 +4,6 @@ dist/
 *.local
 .env
 .env.*
+
+# Local Supabase CLI connection metadata is not source.
+supabase/.temp/

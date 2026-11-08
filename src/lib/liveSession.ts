@@ -1,7 +1,7 @@
 /**
  * The session in progress, saved after every answer so it can be resumed.
  *
- * Dima, 2026-10-27: Mia's tablet has Family Link time limits. When the limit
+ * the parent, 2026-10-27: the learner's tablet has Family Link time limits. When the limit
  * hits mid-session and he adds time, Android reloads the page — and the app
  * composed a brand-new session from question 1. Her answers were saved (they
  * are flushed per answer), but the session itself — which questions, where she

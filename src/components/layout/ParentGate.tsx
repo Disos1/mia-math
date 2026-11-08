@@ -10,7 +10,7 @@ interface Props {
  *
  * Visible on every non-item screen (welcome, avatar, intro, results, trophy room, etc.)
  * NOT rendered during active diagnostic or session items — it would distract and
- * could let Mia cheat the diagnostic by calling a parent for answers.
+ * could let the learner cheat the diagnostic by calling a parent for answers.
  *
  * In production: tapping will open a PIN gate before showing the parent dashboard.
  * For Phase 0: tapping calls onOpen directly (PIN gate is Phase 7).

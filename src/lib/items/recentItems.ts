@@ -7,7 +7,7 @@
  */
 
 const KEY = (profileId: string) => `mia_math::recent_items::${profileId}`;
-// Mia can do hundreds of items per day; a small buffer cycles back too fast and
+// the learner can do hundreds of items per day; a small buffer cycles back too fast and
 // she starts seeing repeats. 300 keeps roughly the last few sessions fresh.
 const MAX_RECENT = 300;
 

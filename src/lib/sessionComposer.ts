@@ -217,7 +217,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
 
   const gap            = args.gapProfile;
 
-  // The gap profile is a snapshot from the diagnostic and never updates as Mia
+  // The gap profile is a snapshot from the diagnostic and never updates as the learner
   // masters skills. The mastery map IS live, so we cross-check it here and drop
   // anything she's already mastered from the gap-driven blocks (new material,
   // blocked practice, dedicated retrieval). Mastered skills still resurface in
@@ -419,7 +419,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   const dueProbes    = probesDue(args.masteryMap, now);
   // Spaced retrieval is for what has had time to fade. A mastered skill seen in
   // the last few days is not due — reviewing it again is repetition, not
-  // spacing, and it was most of what Mia saw in late October: unit-fraction
+  // spacing, and it was most of what the learner saw in late October: unit-fraction
   // comparison (mastered in July) four or five times a session.
   const dueSpaced = masteredPool.filter(s => !dueProbes.includes(s)
     && Date.parse(now) - Date.parse(args.masteryMap[s]?.lastPracticedAt ?? '1970-01-01') >= SPACING_MIN_DAYS * DAY_MS);

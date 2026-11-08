@@ -8,7 +8,7 @@
  *
  * ItemIds are deterministic from parameters (`G_…` prefix), so:
  *   - The same item can recur across sessions naturally (good for spaced repetition).
- *   - The recent-items buffer can flag "Mia just saw this" and the generator
+ *   - The recent-items buffer can flag "the learner just saw this" and the generator
  *     prefers fresh combos when sampling.
  *   - Replay of a wrong answer is possible by the (skillCode, params) tuple.
  */

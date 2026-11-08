@@ -5,7 +5,7 @@
  * Verbs are listed in (feminine, masculine) pairs; the template selects by
  * the chosen name's gender.
  *
- * SEMANTIC SAFETY (added 2026-07-31 after live bugs Mia hit):
+ * SEMANTIC SAFETY (added 2026-07-31 after live bugs the learner hit):
  *   Verbs and objects used to be paired by index arithmetic, which produced
  *   sentences like "אורי אכל 32 ספרים" (ate 32 books) and — far worse — the
  *   neutral 3-step template applied a hardcoded נמכרו/נקנו list to every

@@ -1,11 +1,4 @@
-/**
- * Mastery rules — the invariants Dima reads on the dashboard.
- *
- * Every test here encodes a stated pedagogical rule. If a rule changes, a test
- * must change with it; if a rule has no test, it will silently rot — which is
- * precisely how MEAS_UNIT_CONVERT_CM ended up stuck at בתהליך with 90% accuracy.
- */
-
+/** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import type { PracticeAttempt, MasteryMap, MasteryRecord, CPALayer } from '../types';
 import {
@@ -14,8 +7,6 @@ import {
 } from './masteryTracker';
 import type { AttemptLedger } from './masteryTracker';
 import { RETENTION_DEMOTION_ACCURACY } from '../constants/config';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const SKILL = 'MEAS_UNIT_CONVERT_CM';
 
@@ -32,7 +23,6 @@ function attempt(
   };
 }
 
-/** Feed a sequence of attempts through the tracker, returning final state. */
 function run(
   seq: Array<{ correct: boolean; layer: CPALayer; day: string }>,
   startStatus?: 'שליטה' | 'בתהליך',
@@ -45,7 +35,7 @@ function run(
     masteryMap = { [SKILL]: {
       profileId: 'p', skillCode: SKILL, status: startStatus,
       firstAttemptAccuracy: 1, itemCount: 100, sessionCount: 40,
-      lastPracticedAt: '2026-07-01T00:00:00.000Z',
+      lastPracticedAt: '2024-07-01T00:00:00.000Z',
       needsRetentionProbe: false, retentionProbeDueAt: null,
     } };
   }
@@ -65,80 +55,69 @@ function run(
 const abstractDay = (day: string, n: number, correct = true) =>
   Array.from({ length: n }, () => ({ correct, layer: 'abstract' as CPALayer, day }));
 
-// ─── The regression that started this ─────────────────────────────────────────
+describe("unit-conversion retention regression", () => {
 
-describe("Mia's unit-conversion regression (2026-07-31)", () => {
-  /**
-   * Her real ledger: 5 correct abstract on 07-13, 5 correct abstract on 07-22,
-   * then one MISSED retention probe on 07-24. Window accuracy = 90%.
-   *
-   * The old code demoted on that single miss, so a skill she demonstrably knew
-   * dropped to בתהליך and started consuming her practice sessions again.
-   */
-  function miaLedger(): AttemptLedger {
+  function syntheticLedger(): AttemptLedger {
     let lg: AttemptLedger = {};
-    for (const d of ['2026-07-13', '2026-07-22']) {
+    for (const d of ['2024-07-13', '2024-07-22']) {
       for (let i = 0; i < 5; i++) lg = appendToLedger(lg, SKILL, { c: true, l: 'abstract', d });
     }
-    return appendToLedger(lg, SKILL, { c: false, l: 'abstract', d: '2026-07-24' });
+    return appendToLedger(lg, SKILL, { c: false, l: 'abstract', d: '2024-07-24' });
   }
 
   const mastered: MasteryMap = { [SKILL]: {
     profileId: 'p', skillCode: SKILL, status: 'שליטה',
-    firstAttemptAccuracy: 0.9, itemCount: 133, sessionCount: 53,
-    lastPracticedAt: '2026-07-24T10:00:00.000Z',
-    needsRetentionProbe: true, retentionProbeDueAt: '2026-07-24T00:00:00.000Z',
+    firstAttemptAccuracy: 0.9, itemCount: 24, sessionCount: 4,
+    lastPracticedAt: '2024-07-24T10:00:00.000Z',
+    needsRetentionProbe: true, retentionProbeDueAt: '2024-07-24T00:00:00.000Z',
   } };
 
   it('keeps mastery when one probe is missed but the window still supports it', () => {
-    const acc = windowAccuracy(miaLedger(), SKILL);
+    const acc = windowAccuracy(syntheticLedger(), SKILL);
     expect(acc).toBeGreaterThan(RETENTION_DEMOTION_ACCURACY);
 
-    const after = applyProbeResult(mastered, SKILL, false, '2026-07-24T10:00:00.000Z', acc);
+    const after = applyProbeResult(mastered, SKILL, false, '2024-07-24T10:00:00.000Z', acc);
     expect(after[SKILL].status).toBe('שליטה');
   });
 
   it('re-probes soon rather than waiting the full schedule', () => {
-    // Holding mastery must not mean ignoring the miss.
+
     const after = applyProbeResult(
-      mastered, SKILL, false, '2026-07-24T10:00:00.000Z',
-      windowAccuracy(miaLedger(), SKILL),
+      mastered, SKILL, false, '2024-07-24T10:00:00.000Z',
+      windowAccuracy(syntheticLedger(), SKILL),
     );
     expect(after[SKILL].retentionProbeDueAt).not.toBeNull();
     expect(new Date(after[SKILL].retentionProbeDueAt!).getTime())
-      .toBeGreaterThan(new Date('2026-07-24T10:00:00.000Z').getTime());
+      .toBeGreaterThan(new Date('2024-07-24T10:00:00.000Z').getTime());
   });
 
   it('still demotes when the evidence genuinely agrees the skill has decayed', () => {
-    // The rule must keep its teeth: a miss plus a weak window = real decay.
+
     let weak: AttemptLedger = {};
-    for (let i = 0; i < 6; i++) weak = appendToLedger(weak, SKILL, { c: false, l: 'abstract', d: '2026-07-22' });
-    for (let i = 0; i < 4; i++) weak = appendToLedger(weak, SKILL, { c: true,  l: 'abstract', d: '2026-07-24' });
+    for (let i = 0; i < 6; i++) weak = appendToLedger(weak, SKILL, { c: false, l: 'abstract', d: '2024-07-22' });
+    for (let i = 0; i < 4; i++) weak = appendToLedger(weak, SKILL, { c: true,  l: 'abstract', d: '2024-07-24' });
 
     const acc = windowAccuracy(weak, SKILL);           // 40%
     expect(acc).toBeLessThan(RETENTION_DEMOTION_ACCURACY);
 
-    const after = applyProbeResult(mastered, SKILL, false, '2026-07-24T10:00:00.000Z', acc);
+    const after = applyProbeResult(mastered, SKILL, false, '2024-07-24T10:00:00.000Z', acc);
     expect(after[SKILL].status).toBe('בתהליך');
   });
 
   it('advances the probe schedule on a pass', () => {
-    const after = applyProbeResult(mastered, SKILL, true, '2026-07-24T10:00:00.000Z', 0.9);
+    const after = applyProbeResult(mastered, SKILL, true, '2024-07-24T10:00:00.000Z', 0.9);
     expect(after[SKILL].status).toBe('שליטה');
     expect(after[SKILL].probesPassed).toBe(1);
   });
 });
 
-// ─── The rules themselves ─────────────────────────────────────────────────────
-
 describe('mastery rules', () => {
   it('never grants mastery from pictorial work alone', () => {
-    // "Mastery at pictorial-only is not mastery" — PRD §8.3. Enforced by
-    // appendToLedger, which keeps the evidence ledger abstract-only.
+
     const { masteryMap, ledger } = run(
       Array.from({ length: 12 }, (_, i) => ({
         correct: true, layer: 'pictorial' as CPALayer,
-        day: i < 6 ? '2026-07-13' : '2026-07-22',
+        day: i < 6 ? '2024-07-13' : '2024-07-22',
       })),
     );
     expect(ledger[SKILL]).toBeUndefined();
@@ -146,27 +125,26 @@ describe('mastery rules', () => {
   });
 
   it('does not let pictorial wins pad the evidence window', () => {
-    // 6 abstract + 8 pictorial must count as 6 items, not 14 — otherwise easy
-    // scaffolded answers would manufacture mastery.
+
     const { ledger } = run([
-      ...abstractDay('2026-07-13', 6),
+      ...abstractDay('2024-07-13', 6),
       ...Array.from({ length: 8 }, () => ({
-        correct: true, layer: 'pictorial' as CPALayer, day: '2026-07-22',
+        correct: true, layer: 'pictorial' as CPALayer, day: '2024-07-22',
       })),
     ]);
     expect(ledger[SKILL]).toHaveLength(6);
   });
 
   it('requires evidence across at least two distinct days', () => {
-    // A single lucky session cannot mint mastery.
-    const { masteryMap } = run(abstractDay('2026-07-13', 12));
+
+    const { masteryMap } = run(abstractDay('2024-07-13', 12));
     expect(masteryMap[SKILL].status).not.toBe('שליטה');
   });
 
   it('graduates on sustained abstract accuracy across days', () => {
     const { masteryMap } = run([
-      ...abstractDay('2026-07-13', 5),
-      ...abstractDay('2026-07-22', 5),
+      ...abstractDay('2024-07-13', 5),
+      ...abstractDay('2024-07-22', 5),
     ]);
     expect(masteryMap[SKILL].status).toBe('שליטה');
   });
@@ -174,8 +152,8 @@ describe('mastery rules', () => {
   it('demotes when the window falls below the accuracy threshold', () => {
     const { masteryMap } = run(
       [
-        ...abstractDay('2026-07-13', 5, false),
-        ...abstractDay('2026-07-22', 5, false),
+        ...abstractDay('2024-07-13', 5, false),
+        ...abstractDay('2024-07-22', 5, false),
       ],
       'שליטה',
     );
@@ -183,10 +161,10 @@ describe('mastery rules', () => {
   });
 
   it('ignores non-first attempts entirely', () => {
-    // Retries must never feed the ledger — that was the original inflation bug.
+
     let masteryMap: MasteryMap = {};
     let ledger: AttemptLedger = {};
-    const retry = { ...attempt(true, 'abstract', '2026-07-13'), firstAttempt: false };
+    const retry = { ...attempt(true, 'abstract', '2024-07-13'), firstAttempt: false };
     ({ masteryMap, ledger } = applyAttemptToMastery({
       profileId: 'p', attempt: retry, masteryMap, ledger, isNewSessionForSkill: true,
     }));
@@ -195,17 +173,13 @@ describe('mastery rules', () => {
   });
 });
 
-// ─── Helper semantics ─────────────────────────────────────────────────────────
-
 describe('ledger semantics', () => {
   it('keeps the window abstract-only, so accuracy IS abstract accuracy', () => {
-    // This is load-bearing: every other rule reads `windowAccuracy` and assumes
-    // it describes abstract work. If appendToLedger ever admits other layers,
-    // mastery silently becomes purchasable with scaffolded answers.
+
     let lg: AttemptLedger = {};
-    lg = appendToLedger(lg, SKILL, { c: true,  l: 'abstract',  d: '2026-07-13' });
-    lg = appendToLedger(lg, SKILL, { c: false, l: 'pictorial', d: '2026-07-13' });
-    lg = appendToLedger(lg, SKILL, { c: false, l: 'concrete',  d: '2026-07-13' });
+    lg = appendToLedger(lg, SKILL, { c: true,  l: 'abstract',  d: '2024-07-13' });
+    lg = appendToLedger(lg, SKILL, { c: false, l: 'pictorial', d: '2024-07-13' });
+    lg = appendToLedger(lg, SKILL, { c: false, l: 'concrete',  d: '2024-07-13' });
     expect(lg[SKILL]).toHaveLength(1);
     expect(windowAccuracy(lg, SKILL)).toBe(1);
   });
@@ -213,13 +187,11 @@ describe('ledger semantics', () => {
   it('caps the window at the declared item minimum', () => {
     let lg: AttemptLedger = {};
     for (let i = 0; i < 25; i++) {
-      lg = appendToLedger(lg, SKILL, { c: true, l: 'abstract', d: '2026-07-13' });
+      lg = appendToLedger(lg, SKILL, { c: true, l: 'abstract', d: '2024-07-13' });
     }
     expect(lg[SKILL]).toHaveLength(10);
   });
 });
-
-// ─── Two devices ─────────────────────────────────────────────────────────────
 
 describe('mergeMasteryMaps', () => {
   const rec = (skill: string, items: number, at: string): MasteryRecord => ({
@@ -229,22 +201,22 @@ describe('mergeMasteryMaps', () => {
   });
 
   it('keeps practice this device has that the cloud has not seen', () => {
-    // Phone, offline: 40 items. Cloud still shows the tablet's 20.
-    const local  = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 40, '2026-09-20T10:00:00.000Z') };
-    const remote = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 20, '2026-09-18T10:00:00.000Z') };
+
+    const local  = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 40, '2024-09-20T10:00:00.000Z') };
+    const remote = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 20, '2024-09-18T10:00:00.000Z') };
     expect(mergeMasteryMaps(local, remote).FRAC_PART_WHOLE.itemCount).toBe(40);
   });
 
   it('takes the cloud copy when the other device is further along', () => {
-    const local  = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 12, '2026-09-19T10:00:00.000Z') };
-    const remote = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 30, '2026-09-20T10:00:00.000Z') };
+    const local  = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 12, '2024-09-19T10:00:00.000Z') };
+    const remote = { FRAC_PART_WHOLE: rec('FRAC_PART_WHOLE', 30, '2024-09-20T10:00:00.000Z') };
     expect(mergeMasteryMaps(local, remote).FRAC_PART_WHOLE.itemCount).toBe(30);
   });
 
   it('keeps skills either side has alone', () => {
     const merged = mergeMasteryMaps(
-      { A: rec('A', 5, '2026-09-20T10:00:00.000Z') },
-      { B: rec('B', 5, '2026-09-20T10:00:00.000Z') },
+      { A: rec('A', 5, '2024-09-20T10:00:00.000Z') },
+      { B: rec('B', 5, '2024-09-20T10:00:00.000Z') },
     );
     expect(Object.keys(merged).sort()).toEqual(['A', 'B']);
   });

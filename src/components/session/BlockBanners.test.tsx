@@ -19,24 +19,24 @@ import { t } from '../../i18n/t';
 
 const r = (s: string, st: MasteryRecord['status'], a: number, n: number): MasteryRecord => ({
   profileId: 'p', skillCode: s, status: st, firstAttemptAccuracy: a, itemCount: n,
-  sessionCount: 10, lastPracticedAt: '2026-09-07T00:00:00.000Z',
+  sessionCount: 4, lastPracticedAt: '2026-09-05T00:00:00.000Z',
   needsRetentionProbe: false, retentionProbeDueAt: null,
 });
 
-const MIA: MasteryMap = {
-  ARITH_MULT_6_9:         r('ARITH_MULT_6_9',         'שליטה',  0.9, 943),
-  ARITH_SUB_REGROUP_ZERO: r('ARITH_SUB_REGROUP_ZERO', 'בתהליך', 0.7, 798),
-  FRAC_COMPARE_UNIT:      r('FRAC_COMPARE_UNIT',      'שליטה',  1.0,  42),
-  FRAC_OF_QUANTITY:       r('FRAC_OF_QUANTITY',       'בתהליך', 0.3, 323),
-  PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה',  0.9,  41),
+const SYNTHETIC_LEARNER: MasteryMap = {
+  ARITH_MULT_6_9:         r('ARITH_MULT_6_9',         'שליטה',  0.92, 28),
+  ARITH_SUB_REGROUP_ZERO: r('ARITH_SUB_REGROUP_ZERO', 'בתהליך', 0.72, 28),
+  FRAC_COMPARE_UNIT:      r('FRAC_COMPARE_UNIT',      'שליטה',  0.96, 28),
+  FRAC_OF_QUANTITY:       r('FRAC_OF_QUANTITY',       'בתהליך', 0.35, 28),
+  PLACE_VALUE_TO_MILLION: r('PLACE_VALUE_TO_MILLION', 'שליטה',  0.92, 28),
   // Numbers topic 1 also holds reading/writing numbers and bar charts; with
   // those hers too, the numbers strand runs ahead — the case under test.
-  NUM_READ_WRITE:         r('NUM_READ_WRITE',         'שליטה',  0.9,  30),
-  DATA_DIAGRAMS:          r('DATA_DIAGRAMS',          'שליטה',  0.9,  30),
+  NUM_READ_WRITE:         r('NUM_READ_WRITE',         'שליטה',  0.92, 28),
+  DATA_DIAGRAMS:          r('DATA_DIAGRAMS',          'שליטה',  0.92, 28),
 };
 
 const GAP = {
-  version: 1, computedAt: '2026-07-09T15:29:59.860Z', diagnosticSessionId: 'x',
+  version: 1, computedAt: '2024-01-01T08:00:00.000Z', diagnosticSessionId: 'x',
   strands: {}, cpaStartLayer: {},
   sessionComposerNotes: { startWith: 'easy_known_skill', firstNewMaterial: 'ARITH_SUB_REGROUP_ZERO', blockedPracticePriority: [] },
 } as unknown as GapProfile;
@@ -53,7 +53,7 @@ describe('ahead-of-class banner reaches the screen', () => {
   // Find a session that pre-teaches, and the first item of its ahead block.
   const firstAhead = [0, 1, 2, 3]
     .map(k => composeSession({
-      profileId: 'p', gapProfile: GAP, masteryMap: MIA, mode: 'quantity',
+      profileId: 'p', gapProfile: GAP, masteryMap: SYNTHETIC_LEARNER, mode: 'quantity',
       sessionsCompleted: k, rng: () => 0.5, now: NOW, targetGrade: 4, classPosition: position,
     }).plannedItems.find(p => p.ahead))
     .find(Boolean);

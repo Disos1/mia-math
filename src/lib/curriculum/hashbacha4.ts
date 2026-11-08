@@ -1,8 +1,8 @@
 /**
- * Mia's actual grade-4 books: ה.ש.ב.ח.ה ד' (הוצאת כ. בונוס).
+ * the learner's actual grade-4 books: ה.ש.ב.ח.ה ד' (הוצאת כ. בונוס).
  *
  * Sources, in order of authority:
- *   1. The books' own tables of contents, photographed by Dima on 2026-10-18 —
+ *   1. The books' own tables of contents, photographed by the parent on 2026-10-18 —
  *      unit titles, order and page numbers below are copied from them.
  *   2. The publisher's plan, "פריסת תכנית לימודים במתמטיקה על-פי סדרת ספרי
  *      הלימוד מסדרת ה.ש.ב.ח.ה כיתה ד" (hashbacha.org, 2025-08): for every

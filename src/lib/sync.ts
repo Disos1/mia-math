@@ -5,7 +5,7 @@
  *   • All writes go to localStorage first (fast, works offline).
  *   • Then fire-and-forget to Supabase (no await on the hot path).
  *   • On first load after auth, the app pulls from Supabase to hydrate
- *     localStorage (so a new device gets Mia's full state).
+ *     localStorage (so a new device gets the learner's full state).
  *
  * Critical state synced:
  *   - profiles        (identity, gap profile, onboarding flag)

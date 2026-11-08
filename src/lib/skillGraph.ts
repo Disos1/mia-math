@@ -2,7 +2,7 @@
  * Skill prerequisite graph — Opus task.
  *
  * Turns the flat skill registry into a dependency graph so the app can answer
- * the only question that matters when Mia fails an item: *why*.
+ * the only question that matters when the learner fails an item: *why*.
  *
  * When she misses long multiplication, re-drilling long multiplication is the
  * wrong move if the actual blocker is ×7 facts. `findBlocker()` walks down the
@@ -45,7 +45,7 @@ export type PrereqKind = 'accuracy' | 'fluency';
 export interface Prereq {
   skill: string;
   kind:  PrereqKind;
-  /** Why this edge exists — surfaced to Mia as the "tools for today" framing. */
+  /** Why this edge exists — surfaced to the learner as the "tools for today" framing. */
   why:   string;
 }
 
@@ -681,7 +681,7 @@ export interface BlockerResult {
  * taking the first unsatisfied prerequisite at each level; ties are resolved by
  * declaration order, which is authored deliberately (most-foundational first).
  *
- * `maxDepth` guards against over-eager demotion: sending Mia three layers down
+ * `maxDepth` guards against over-eager demotion: sending the learner three layers down
  * in one step reads as punishment, not help. The composer descends one layer at
  * a time across sessions (v1.1 finding C-4).
  *

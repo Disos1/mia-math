@@ -1,21 +1,9 @@
-/**
- * Keypad capacity.
- *
- * On 2026-07-31 Mia was asked to write 200,030 and the pad stopped accepting
- * digits after "2000" — it was pinned at 4, a value that was correct for
- * grade-3 answers and silently wrong the moment grade-4 content arrived.
- *
- * The pad width is now derived from the expected answer, and this file checks
- * that derivation against EVERY item every generator can produce. A future
- * skill with bigger numbers cannot reintroduce an unanswerable item.
- */
-
+/** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import { digitsNeededFor } from './NumPad';
 import { SKILLS_WITH_PRACTICE, getItemPool } from '../../lib/items';
 import { makeRng, hashString } from '../../lib/items/rng';
 
-/** How many digits a learner must be able to type to enter this value. */
 function digitsIn(v: string | number): number {
   return String(v).replace(/[^0-9]/g, '').length;
 }
@@ -32,8 +20,7 @@ describe('digitsNeededFor', () => {
   });
 
   it('leaves one digit of headroom so an over-long wrong answer is enterable', () => {
-    // Some misconceptions produce a LONGER numeral than the answer (too many
-    // zeros in a million). She must be able to type it in order to be diagnosed.
+
     expect(digitsNeededFor(200030)).toBe(7);
     expect(digitsNeededFor(1000000)).toBe(8);
   });
@@ -70,8 +57,7 @@ describe('every generated item is actually enterable', () => {
   });
 
   it('lets the learner type every step-ladder answer', () => {
-    // The ladder is the recovery path after a miss. A pad too small there traps
-    // her in the very flow designed to rescue her.
+
     for (const { skill, items } of pools) {
       for (const item of items) {
         for (const step of item.steps ?? []) {
@@ -87,8 +73,7 @@ describe('every generated item is actually enterable', () => {
   });
 
   it('lets the learner type the misconception answer, so it can be diagnosed', () => {
-    // If the signature is longer than the pad allows, the engine can never
-    // observe that misconception — the diagnosis silently becomes impossible.
+
     for (const { skill, items } of pools) {
       for (const item of items) {
         if (item.answerMode !== 'keypad' || item.signature === null) continue;
