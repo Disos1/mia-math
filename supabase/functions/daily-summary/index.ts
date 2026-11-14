@@ -15,6 +15,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { reportDay as toLocalDate, shiftDay, dayLabel, dayStartIso } from './reportDate.ts';
 
 // ─── Hebrew display maps ──────────────────────────────────────────────────────
 
@@ -159,19 +160,9 @@ function stuckSuggestion(code: string): string {
   return STUCK_SUGGESTIONS[code] ?? 'בקשו ממנה להסביר לכם איך פותרים — ללמד זו הדרך הכי טובה ללמוד.';
 }
 
-function toLocalDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function todayStr(): string {
-  return toLocalDate(new Date().toISOString());
-}
-
 // ─── 7-day strip (table-based for email-client compatibility) ─────────────────
 
-function buildDayStrip(sessions: any[]): string {
-  const today = new Date();
+function buildDayStrip(sessions: any[], reportDate: string): string {
 
   const byDate = new Map<string, { answered: number; correct: number; hasPartial: boolean; hasComplete: boolean }>();
   for (const s of sessions) {
@@ -187,10 +178,8 @@ function buildDayStrip(sessions: any[]): string {
   }
 
   const cells = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (6 - i));
-    const dateStr = toLocalDate(d.toISOString());
-    const dayName = d.toLocaleDateString('he-IL', { weekday: 'short' }).replace(/[׳']/g, '');
+    const dateStr = shiftDay(reportDate, -(6 - i));
+    const dayName = dayLabel(dateStr, true).replace(/[׳']/g, '');
     const data    = byDate.get(dateStr);
 
     if (!data || data.answered === 0) {
@@ -202,8 +191,8 @@ function buildDayStrip(sessions: any[]): string {
       </td>`;
     }
 
-    const acc      = data.correct > 0 ? Math.round(data.correct / data.answered * 100) : null;
-    const accColor = acc === null ? '#9CA3AF' : acc >= 80 ? '#16A34A' : acc >= 60 ? '#D97706' : '#DC2626';
+    const acc      = Math.round(data.correct / data.answered * 100);
+    const accColor = acc >= 80 ? '#16A34A' : acc >= 60 ? '#D97706' : '#DC2626';
     const bg       = data.hasComplete ? '#F3EEFF' : '#FFF9EF';
     const lblColor = data.hasComplete ? '#7C3AED'  : '#D97706';
 
@@ -211,7 +200,7 @@ function buildDayStrip(sessions: any[]): string {
       <div style="background:${bg};border-radius:8px;padding:8px 4px;">
         <div style="font-size:11px;font-weight:600;color:${lblColor};margin-bottom:4px;">${dayName}</div>
         <div style="font-size:16px;font-weight:bold;color:#2D3047;line-height:1;margin-bottom:2px;">${data.answered}</div>
-        ${acc !== null ? `<div style="font-size:11px;font-weight:600;color:${accColor};line-height:1;">${acc}%</div>` : ''}
+        <div style="font-size:11px;font-weight:600;color:${accColor};line-height:1;">${acc}%</div>
         ${data.hasPartial && !data.hasComplete ? '<div style="font-size:9px;color:#D97706;margin-top:2px;">(חלקי)</div>' : ''}
       </div>
     </td>`;
@@ -232,6 +221,7 @@ export function buildEmail(
   gapProfile:     any | null,
   prevWeekPct:    number | null,
   weekAttempts:   Array<{ skill_code: string; correct: boolean }> = [],
+  reportDate:     string = toLocalDate(new Date()),
 ): { subject: string; html: string } {
 
   // This week's first answers per topic — what she actually did, not the
@@ -242,11 +232,13 @@ export function buildEmail(
     w.n++; if (a.correct) w.ok++;
     week.set(a.skill_code, w);
   }
-  const statusOf = new Map(masteryRecords.map(r => [r.skill_code, r.status]));
+  const masteryOf = new Map(masteryRecords.map(r => [r.skill_code, r]));
+  // Preserve the existing aggregation interval, but name its exact dates.
+  const reportStart = shiftDay(reportDate, -7);
 
   const total7d    = sessions7d.reduce((s, r) => s + (r.items_answered ?? 0), 0);
   const correct7d  = sessions7d.reduce((s, r) => s + (r.items_correct  ?? 0), 0);
-  const accuracy7d = total7d > 0 && correct7d > 0 ? Math.round(correct7d / total7d * 100) : null;
+  const accuracy7d = total7d > 0 ? Math.round(correct7d / total7d * 100) : null;
   const todayCount = sessionsToday.length;
   const todayItems = sessionsToday.reduce((s, r) => s + (r.items_answered ?? 0), 0);
 
@@ -256,15 +248,13 @@ export function buildEmail(
   // Week-over-week trend on first-attempt accuracy
   const trendLine =
     accuracy7d === null || prevWeekPct === null ? '' :
-    accuracy7d - prevWeekPct >= 3 ? `<span style="color:#16A34A;font-weight:bold;">↑ שיפור לעומת שבוע שעבר (${prevWeekPct}%)</span>` :
-    prevWeekPct - accuracy7d >= 3 ? `<span style="color:#DC2626;font-weight:bold;">↓ ירידה לעומת שבוע שעבר (${prevWeekPct}%)</span>` :
-                                    `<span style="color:#6B7280;font-weight:bold;">→ יציב לעומת שבוע שעבר (${prevWeekPct}%)</span>`;
+    accuracy7d - prevWeekPct >= 3 ? `<span style="color:#16A34A;font-weight:bold;">↑ שיפור לעומת התקופה הקודמת (${prevWeekPct}%)</span>` :
+    prevWeekPct - accuracy7d >= 3 ? `<span style="color:#DC2626;font-weight:bold;">↓ ירידה לעומת התקופה הקודמת (${prevWeekPct}%)</span>` :
+                                    `<span style="color:#6B7280;font-weight:bold;">→ יציב לעומת התקופה הקודמת (${prevWeekPct}%)</span>`;
 
   // Stuck skills: low long-run accuracy AND still struggling this week.
-  // the parent, 2026-11-05: "I still get the same warnings". The alert used the
-  // long-run window alone, so a topic she was getting right this week (fraction
-  // of a quantity: 5/5 on 11-02) stayed red for weeks, and the email said
-  // nothing about the topics she had just mastered.
+  // A long-run window alone can keep an improving topic red for weeks.
+  // Require recent evidence of difficulty and report newly mastered topics.
   const stuckSkills = masteryRecords.filter(r => {
     const w = week.get(r.skill_code);
     return r.status === 'בתהליך' && (r.item_count ?? 0) >= 10 && (r.first_attempt_accuracy ?? 1) < 0.55
@@ -277,8 +267,8 @@ export function buildEmail(
     .slice(0, 8);
 
   const subject = todayCount > 0
-    ? `✅ ${childName} תרגלה היום — סיכום יומי`
-    : `📊 סיכום יומי — ${childName}`;
+    ? `✅ ${childName} תרגלה ב-${reportDate} — סיכום יומי`
+    : `📊 סיכום ל-${reportDate} — ${childName}`;
 
   const accColor7d = accuracy7d === null ? '#6B7280'
     : accuracy7d >= 80 ? '#16A34A'
@@ -288,11 +278,11 @@ export function buildEmail(
   // ── Today section ──────────────────────────────────────────────────────────
   const todaySection = todayCount > 0 ? `
     <div style="background:#F0FDF4;border-radius:12px;padding:14px;margin-bottom:14px;">
-      <strong style="color:#166534;">✅ היום:</strong>&nbsp;
+      <strong style="color:#166534;">✅ בתאריך ${reportDate}:</strong>&nbsp;
       ${todayCount} מפגש${todayCount > 1 ? 'ים' : ''},&nbsp;${todayItems} שאלות
     </div>` : `
     <div style="background:#FEF9C3;border-radius:12px;padding:14px;margin-bottom:14px;">
-      ☀️ לא תרגלה היום עדיין
+      לא נרשם תרגול בתאריך ${reportDate} עד הפקת הדוח
     </div>`;
 
   // ── Stuck-skill alert + kitchen-table suggestion ────────────────────────────
@@ -302,7 +292,10 @@ export function buildEmail(
       ${stuckSkills.map(r => `
         <div style="margin-bottom:10px;">
           <div style="font-size:14px;font-weight:600;color:#2D3047;">
-            ${skillName(r.skill_code)} — דיוק ${Math.round((r.first_attempt_accuracy ?? 0) * 100)}%
+            ${skillName(r.skill_code)} — בתקופת הדוח: ${week.get(r.skill_code)!.ok} מתוך ${week.get(r.skill_code)!.n} (${Math.round(week.get(r.skill_code)!.ok / week.get(r.skill_code)!.n * 100)}%)
+          </div>
+          <div style="font-size:12px;color:#6B7280;margin-top:3px;">
+            מדד השליטה השמור, בתרגול מספרי ללא המחשה: ${Math.round(r.first_attempt_accuracy * 100)}%
           </div>
           <div style="font-size:13px;color:#6B7280;margin-top:3px;">💡 ${stuckSuggestion(r.skill_code)}</div>
         </div>`).join('')}
@@ -311,12 +304,16 @@ export function buildEmail(
   // ── This week, per topic ───────────────────────────────────────────────────
   const activeSkillsHtml = weekSkills.length > 0 ? `
     <div style="margin-bottom:16px;">
-      <div style="font-size:13px;color:#6B7280;margin-bottom:8px;font-weight:600;">השבוע לפי נושא (תשובה ראשונה)</div>
+      <div style="font-size:13px;color:#6B7280;margin-bottom:8px;font-weight:600;">בתקופת הדוח לפי נושא (תשובה ראשונה)</div>
+      <p style="font-size:12px;color:#6B7280;line-height:1.5;">הספירה כוללת את כל סוגי התרגול: מוחשי, חזותי ומספרי ללא המחשה. מדד השליטה השמור מחושב בנפרד, מעד 10 התשובות הראשונות האחרונות בתרגול מספרי ללא המחשה, גם מתאריכים קודמים לתקופה. סטטוס השליטה אינו נקבע רק מהציון בתקופה זו.</p>
       ${weekSkills.map(([code, w]) => {
-        const mastered = statusOf.get(code) === 'שליטה';
+        const record = masteryOf.get(code);
+        const mastered = record?.status === 'שליטה';
+        const masteryPct = record?.first_attempt_accuracy != null && Number.isFinite(Number(record.first_attempt_accuracy))
+          ? Math.round(Number(record.first_attempt_accuracy) * 100) : null;
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #F3F4F6;">
           <span style="font-size:14px;color:#2D3047;">${mastered ? '✅' : '🌱'} ${skillName(code)}</span>
-          <span style="font-size:12px;color:${mastered ? '#16A34A' : '#9CA3AF'};">${w.ok} מתוך ${w.n}${mastered ? ' · שולטת' : ''}</span>
+          <span style="font-size:12px;color:${mastered ? '#16A34A' : '#9CA3AF'};">בתקופה: ${w.ok} מתוך ${w.n}${mastered ? ` · סטטוס שמור: שליטה${masteryPct !== null ? ` (מדד שליטה ${masteryPct}%)` : ''}` : ''}</span>
         </div>`;
       }).join('')}
     </div>` : '';
@@ -356,9 +353,11 @@ export function buildEmail(
 <div dir="rtl" style="max-width:480px;margin:0 auto;background:white;border-radius:20px;padding:28px;box-shadow:0 2px 8px rgba(0,0,0,0.08);direction:rtl;text-align:right;">
 
   <h2 style="margin:0 0 4px;color:#2D3047;">📚 סיכום — ${childName}</h2>
-  <p style="color:#9CA3AF;margin:0 0 20px;font-size:14px;">${new Date().toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'long' })}</p>
+  <p style="color:#9CA3AF;margin:0 0 20px;font-size:14px;">${dayLabel(reportDate)} · לפי שעון ישראל</p>
 
   ${todaySection}
+
+  <p style="font-size:12px;color:#6B7280;">נתוני התקופה: ${reportStart} עד ${reportDate}, כולל.</p>
 
   ${stuckHtml}
 
@@ -366,8 +365,8 @@ export function buildEmail(
 
   <!-- 7-day activity strip -->
   <div style="margin-bottom:16px;">
-    <div style="font-size:13px;color:#6B7280;margin-bottom:8px;font-weight:600;">7 הימים האחרונים</div>
-    ${buildDayStrip(sessions7d)}
+    <div style="font-size:13px;color:#6B7280;margin-bottom:8px;font-weight:600;">פעילות יומית: ${shiftDay(reportDate, -6)} עד ${reportDate}</div>
+    ${buildDayStrip(sessions7d, reportDate)}
     <div style="font-size:11px;color:#9CA3AF;margin-top:4px;text-align:right;">שאלות / דיוק</div>
   </div>
 
@@ -391,7 +390,7 @@ export function buildEmail(
   <div style="display:flex;gap:8px;margin-bottom:16px;">
     <div style="flex:1;background:#DCFCE7;border-radius:10px;padding:12px;text-align:center;">
       <div style="font-size:22px;font-weight:bold;color:#166534;">✅ ${masteredCount}</div>
-      <div style="font-size:11px;color:#15803D;">מיומנויות שנלמדו</div>
+      <div style="font-size:11px;color:#15803D;">מיומנויות עם סטטוס שליטה שמור</div>
     </div>
     <div style="flex:1;background:#FEF3C7;border-radius:10px;padding:12px;text-align:center;">
       <div style="font-size:22px;font-weight:bold;color:#92400E;">🌱 ${inProgressCount}</div>
@@ -420,7 +419,7 @@ export function buildEmail(
 // ─── No-practice nudge ────────────────────────────────────────────────────────
 
 function buildNudgeEmail(childName: string, daysSince: number, lastDay: string): { subject: string; html: string } {
-  const lastHe = new Date(lastDay).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' });
+  const lastHe = dayLabel(lastDay);
   const subject = `💤 ${childName} לא תרגלה ${daysSince} ימים`;
   const html = `<!DOCTYPE html>
 <html dir="rtl" lang="he"><head><meta charset="UTF-8"></head>
@@ -464,8 +463,9 @@ Deno.serve(async (_req) => {
   const { data: { users }, error: usersErr } = await db.auth.admin.listUsers();
   if (usersErr) return new Response(usersErr.message, { status: 500 });
 
-  const sevenAgo = toLocalDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-  const today    = todayStr();
+  // Freeze the report date once; no mixed dates if processing crosses midnight.
+  const today = toLocalDate(new Date());
+  const sevenAgo = shiftDay(today, -7);
   const sent: string[] = [];
 
   for (const user of users) {
@@ -481,12 +481,12 @@ Deno.serve(async (_req) => {
 
     // Use started_at for the 14-day window so partial sessions are included
     // and the previous week is available for the trend line.
-    const fourteenAgo = toLocalDate(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString());
+    const fourteenAgo = shiftDay(today, -14);
     const { data: sessions14d } = await db
       .from('session_records')
       .select('items_answered, items_correct, completed_at, started_at')
       .eq('profile_id', profile.profile_id)
-      .gte('started_at', fourteenAgo + 'T00:00:00Z');
+      .gte('started_at', dayStartIso(fourteenAgo));
 
     const all14      = (sessions14d ?? []).filter(s => (s.items_answered ?? 0) > 0);
     const countable  = all14.filter(s => toLocalDate(s.started_at) >= sevenAgo);
@@ -496,9 +496,8 @@ Deno.serve(async (_req) => {
     const prevWeekPct = prevTotal > 0 ? Math.round(prevOk / prevTotal * 100) : null;
     if (countable.length === 0) {
       // No practice for 7+ days. This used to `continue` — so the email went
-      // silent exactly when the parent most needed to hear something: the learner
-      // stopped practising when school started in Sept 2026 and the only signal
-      // the parent got was an absence of email. Nudge on day 8, then weekly — never
+      // silent exactly when an inactivity signal was needed.
+      // Nudge on day 8, then weekly — never
       // daily, which would be spam.
       const { data: lastRow } = await db
         .from('session_records')
@@ -539,7 +538,7 @@ Deno.serve(async (_req) => {
       .select('skill_code, correct')
       .eq('profile_id', profile.profile_id)
       .eq('first_attempt', true)
-      .gte('created_at', sevenAgo + 'T00:00:00Z')
+      .gte('created_at', dayStartIso(sevenAgo))
       .limit(2000);
 
     const { subject, html } = buildEmail(
@@ -550,6 +549,7 @@ Deno.serve(async (_req) => {
       profile.gap_profile_json,
       prevWeekPct,
       weekAttempts ?? [],
+      today,
     );
 
     const res = await fetch('https://api.resend.com/emails', {
