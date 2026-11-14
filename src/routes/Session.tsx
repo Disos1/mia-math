@@ -169,7 +169,7 @@ export function Session({ profile, mode: requestedMode, onComplete, onTrophyRoom
       sessionsCompleted: profile.sessionsCompleted,
       cpaMemory:         cpaMemoryRef.current,
       recentIds:         recentIdsRef.current,
-      // the learner enters כיתה ד' in September 2026. Grade-4 skills only surface once
+      // Grade-4 skills only surface once
       // their prerequisites are met, so this is safe before she is ready: the
       // composer simply finds nothing unlocked and runs an all-repair session.
       targetGrade:       4,
@@ -315,12 +315,9 @@ export function Session({ profile, mode: requestedMode, onComplete, onTrophyRoom
   /**
    * Write everything this session has earned so far.
    *
-   * Called after EVERY answer, not only at the end. the learner often runs out of time
-   * mid-session, and progress used to live in memory until finish() ran: her
-   * records showed sessions with 20 questions answered and zero attempts
-   * stored, and whole days (27 Jul, 1 Aug, 28 Aug) where every session recorded
-   * 0 answered. Those were real practice that the dashboard and the daily email
-   * both reported as "did not practise" — she said she had, and she was right.
+   * Called after EVERY answer, not only at the end. If progress lives only in
+   * memory until finish(), an interrupted session can appear as no practice in
+   * both the dashboard and the daily email despite completed answers.
    *
    * The old code hung everything on `visibilitychange`, which iOS Safari does
    * not reliably fire when a tab is closed. Nothing may depend on catching the

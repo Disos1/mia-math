@@ -3,9 +3,8 @@
  * a million, in words and in digits, the place-value "house" (בית המספרים),
  * and the decimal structure (מבנה עשרוני).
  *
- * Added 2026-10-21 from her class's lesson log: the class spent five weeks
- * here, and the app had five hand-written questions for it. Everything below
- * is swept; the words come from numberWords(), never typed by hand.
+ * Generate a broad pool instead of a small memorisable hand-written set.
+ * Everything below is swept; words come from numberWords(), never typed by hand.
  *
  * Signature ERR_ZERO_PLACEHOLDER: writing the groups as they are heard, without
  * the zeros that hold empty places — "ארבע מאות וחמישה אלף ושבעים" → 40,570.

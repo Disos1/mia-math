@@ -86,9 +86,8 @@ export interface ComposeArgs {
    * attempt and syncs to Supabase, but nothing aggregates it into a per-skill
    * latency verdict yet, so the fluency gate is presently inert in production
    * and exercised only by tests. Wiring it is the next step before vertical
-   * multiplication ships (January content) — measured 2026-07-31, her
-   * multiplication facts average 18.2s vs 3.1s on fraction comparison, so the
-   * signal is real and the gate will bite once connected.
+   * multiplication ships: fluent recall of prerequisite facts matters when
+   * composing multi-step written algorithms.
    */
   slowSkills?:        ReadonlySet<string>;
   /** Override the adaptive current-grade share (0..1). Test seam. */
@@ -372,8 +371,8 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   // Book-aligned: the two new-material slots walk round the books in pairs —
   // (numbers, mult/div), (mult/div, geometry), (geometry, numbers) — so each
   // book moves forward in two sessions of every three. Taking the first slot
-  // from the with-the-class tier every time put one book in EVERY session (in
-  // late October, ordering numbers) while another waited.
+  // from the with-the-class tier every time can monopolize sessions with one
+  // book while another waits.
   // A fixed book order to rotate over (currentGrade is already rotated per tier;
   // rotating that again cancelled out).
   const bookOrder      = [...currentGrade].sort((a, b) =>
@@ -419,8 +418,8 @@ export function composeSession(args: ComposeArgs): SessionPlan {
   const dueProbes    = probesDue(args.masteryMap, now);
   // Spaced retrieval is for what has had time to fade. A mastered skill seen in
   // the last few days is not due — reviewing it again is repetition, not
-  // spacing, and it was most of what the learner saw in late October: unit-fraction
-  // comparison (mastered in July) four or five times a session.
+  // spacing. Repeatedly selecting a recently mastered skill crowds out work
+  // that is genuinely due for spaced retrieval.
   const dueSpaced = masteredPool.filter(s => !dueProbes.includes(s)
     && Date.parse(now) - Date.parse(args.masteryMap[s]?.lastPracticedAt ?? '1970-01-01') >= SPACING_MIN_DAYS * DAY_MS);
 
@@ -545,8 +544,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
     // Book-aligned: alternate what she is failing with topics the class has
     // passed that she has not mastered. Rotating over the four most urgent
     // alone meant four weak grade-3 skills held every slot, and a passed topic
-    // she never practised in the app (reading numbers in words, 2026-10-21)
-    // could never come up.
+    // never practised in the app could never come up.
     const bookGaps = new Set(behindGaps.map(b => b.skill));
     const failing  = candidates.filter(s => urgency(s) <= 1);
     const passed   = candidates.filter(s => urgency(s) > 1 && bookGaps.has(s));
@@ -557,7 +555,7 @@ export function composeSession(args: ComposeArgs): SessionPlan {
       if (passed[i])  mixed.push(passed[i]);
     }
     // What this week's lessons are built on comes first, alternating with the
-    // rest. Since the class's current topic is always open to her (2026-11-03),
+    // rest. Since the class's current topic is always open,
     // division by whole tens can be her new material while dividing tens by a
     // digit and multiplying by whole tens, which it rests on, are still weak —
     // those must come round within days, not wait behind every other gap.

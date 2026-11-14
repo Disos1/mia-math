@@ -12,8 +12,8 @@
  *      (3 consecutive sessions below 55% first-attempt accuracy → escalate:
  *       drop the start layer one level and lead with a worked example)
  *
- * This closes the audited failure mode where a skill sat at ~45% accuracy for
- * 68 sessions with no reaction from the system.
+ * This prevents stalled performance across repeated sessions from receiving
+ * no adaptive response from the system.
  */
 
 import type { CPAMemory, CPALayer } from '../types';

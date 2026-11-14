@@ -1,3 +1,8 @@
+/** Curriculum regression rationale: book order takes precedence over generic
+ * pacing assumptions. Only generated skills count as coverage. Unpractised
+ * topics are unknown, not weaknesses. Keep class-current material available
+ * while repairing prerequisites alongside it; never skip a locked, unmastered
+ * unit to reach later content. The class pace is not a ceiling on mastery. */
 /** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord, GapProfile } from '../../types';

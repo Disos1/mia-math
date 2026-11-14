@@ -47,8 +47,8 @@ const BREAKS: Array<[string, string]> = [
 ];
 
 /**
- * New material is NOT capped relative to the class (the parent, 2026-09-20: "if she
- * masters a topic, move to the next one without waiting for the class").
+ * New material is NOT capped relative to the class: mastery can unlock the
+ * next topic without waiting for classroom pacing.
  *
  * The only gates left are real ones: the skill must be unlocked in the
  * prerequisite graph, and the app must have items for it. The class position
@@ -244,11 +244,9 @@ const buildable = (s: string) => SKILLS_WITH_PRACTICE.includes(s);
  * or the class unit if that is earlier (or nothing was confirmed).
  *
  * The extrapolated position is a guess at the publisher's pace, good for
- * labels, not for moving her on. On 2026-11-05 it put the mult/div class on
- * topic 5 while the lesson log two days earlier still had it on division by
- * whole tens — and she left that topic at 70% for the next one. She now leaves
- * a confirmed topic only by mastering it, or when the parent confirms the class
- * has moved on.
+ * labels, not for advancing a learner past unfinished material. Leave a
+ * confirmed topic only through mastery or explicit parent confirmation that
+ * the class has moved on.
  */
 function startIndex(position: ClassPosition, strand: StrandId): { classIdx: number; startIdx: number } {
   const units    = unitsOf(strand);
@@ -263,9 +261,8 @@ export const STARTED_MIN_ITEMS = 5;
 
 /**
  * Open to her: the prerequisites are met, OR she has already started it.
- * A topic once opened stays open when a prerequisite dips — on 2026-10-30 the
- * 6–9 tables slipped to 70% and multiplication by whole tens, which she was
- * mid-way through at 22/23, locked along with the rest of the mult/div book.
+ * A topic once opened stays open when a prerequisite dips; a temporary
+ * weakness must not lock material the learner has already started.
  * The dip is repaired alongside; the topic is not taken away.
  */
 function openToHer(skill: string, masteryMap: MasteryMap, slowSkills: ReadonlySet<string>): boolean {
@@ -340,11 +337,8 @@ export function curriculumFrontier(
       const open = teachable.filter(s => !isMastered(masteryMap, s));
       if (open.length === 0) continue;                            // she has this unit
       // The class's current unit is always open: it is being taught to her this
-      // week whatever the graph says, and she has homework on it. On 2026-11-03
-      // her class was on division by whole tens (mult/div topic 4) while the app,
-      // waiting for topic 2 to be mastered, kept her two topics behind (the parent:
-      // "the app must keep up with the progress or exceed it"). The unmastered
-      // topics behind it are repaired alongside, not instead.
+      // week regardless of prerequisite gaps. Repair earlier unmastered
+      // topics alongside current classroom material, not instead of it.
       const ready = i === startIdx ? open : open.filter(s => openToHer(s, masteryMap, slowSkills));
       if (ready.length > 0) {
         targets.push({ strand, unit: units[i], skill: ready[0], aheadBy: i - classIdx });
@@ -356,9 +350,8 @@ export function curriculumFrontier(
     // practice at all from the class unit onward. If nothing from the class unit onward
     // is open to her, the strand would get no new material at all, and its
     // passed units would wait in the repair queue behind her failing grade-3
-    // skills — which is how the whole mult/div book (taught in parallel since
-    // September, topic 3 locked behind topics 1–2) went unpractised. The next
-    // thing to learn is then the EARLIEST passed unit she has not mastered.
+    // skills. The next thing to learn is then the EARLIEST passed unit
+    // the learner has not mastered, avoiding starvation of an entire strand.
     // Same stop rule: if that unit is locked, the strand waits on its blocker.
     if (!targets.some(t => t.strand === strand)) {
       for (let i = 0; i < startIdx; i++) {
@@ -427,10 +420,9 @@ export function teachableHorizon(
  *   gaps      passed units she HAS practised and not yet mastered — real gaps
  *   unchecked passed units the app has never given her
  *
- * `unchecked` exists because the obvious version lied: on 2026-09-19 it told the
- * parent the learner had "a topic to strengthen" in fractions and geometry, when those
- * units had simply been built that morning. She may know them perfectly from
- * class. Never-practised is unknown, not weak.
+ * Newly available or never-practised topics are unchecked, not weaknesses:
+ * the learner may already know them from class. Absence of app evidence must
+ * not be presented as evidence of a learning gap.
  */
 export interface Standing { ahead: number; gaps: number; unchecked: number }
 

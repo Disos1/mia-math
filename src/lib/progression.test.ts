@@ -1,3 +1,7 @@
+/** Progression regressions: keep up with confirmed classroom topics while
+ * repairing earlier gaps. An already-started topic must not close solely
+ * because a prerequisite dips. A pacing estimate labels position; only
+ * mastery or explicit parent confirmation advances the active target. */
 /** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord, GapProfile } from '../types';

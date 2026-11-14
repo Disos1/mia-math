@@ -1,10 +1,9 @@
 /**
  * "Did she actually get the time?" — the week at a glance.
  *
- * the parent, 2026-09-20: she stopped practising on 7 September not because it was too
- * hard but because life got in the way, "we should verify that she allocates
- * enough time for the practice". Content cannot fix a week with no practice in
- * it, and a parent should not have to reconstruct that from a list of sessions.
+ * Lack of practice time and difficulty with the content are distinct problems.
+ * Content cannot fix a week with no practice; the parent needs a clear rhythm
+ * summary rather than reconstructing attendance from individual sessions.
  *
  * Counts DAYS, not sessions or questions: three short sittings on one day is
  * one day of practice, and the habit is what is being tracked. Any session with

@@ -1,3 +1,8 @@
+/** Graph regression rationale: a wrong edge silently routes practice to the
+ * wrong foundation. Repair the prerequisite only until it is mastered, descend
+ * one layer by default, and let retention demotion reopen dependent skills.
+ * Fluency and accuracy are distinct, but missing latency must not freeze
+ * progress. Guard malformed cycles and honor the textbook teaching order. */
 /** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord } from '../types';

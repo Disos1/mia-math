@@ -83,8 +83,7 @@ export function Parent({ profile, onBack, onReset }: Props) {
   );
 
   // Self-audit: does the stored mastery state actually agree with the evidence?
-  // This is the check that would have caught the July 2026 unit-conversion
-  // demotion in a day instead of three weeks.
+  // Detect inconsistent demotion promptly rather than trusting stored labels.
   const auditFindings = useMemo(
     () => (profile
       ? auditMastery(loadMasteryMap(profile.profileId), loadLedger(profile.profileId))

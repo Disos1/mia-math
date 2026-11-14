@@ -192,8 +192,8 @@ export function applyAttemptToMastery(args: {
   const size         = windowSize(ledger, attempt.skillCode);
   // No abstract evidence in the window (a pictorial answer, or a device that
   // has not seen this skill yet) says nothing about accuracy, so the record
-  // keeps what it had. Reporting 0 here wiped 30–90% histories to 0% on
-  // 2026-10-21 and turned them into "stuck" alerts in the parent's email.
+  // keeps what it had. Reporting zero here would create false regression and
+  // inappropriate difficulty alerts in the parent summary.
   const accuracy     = size > 0 ? windowAccuracy(ledger, attempt.skillCode) : prior.firstAttemptAccuracy;
 
   // Note: the ledger is abstract-only by construction (`appendToLedger` drops
@@ -207,9 +207,8 @@ export function applyAttemptToMastery(args: {
     windowSpansDays(ledger, attempt.skillCode, 2);
 
   // Mastery is earned at 80% and lost below 70% (PRD: "drops below 70%").
-  // Demoting at the 80% bar made a mastered skill flicker on one slip: the
-  // 6–9 tables went from 90% to a 7/10 window on 2026-10-30, lost mastery, and
-  // the whole mult/div book locked behind them.
+  // Separate graduation and demotion thresholds prevent status flicker on
+  // one slip and avoid unnecessarily locking dependent material.
   const demotes =
     prior.status === 'שליטה' &&
     size     >= MASTERY_ITEM_MINIMUM &&
@@ -286,10 +285,8 @@ export function applyProbeResult(
     //
     // The PRD rule is explicit: mastery is lost when retrieval accuracy "drops
     // below 70%" — RETENTION_DEMOTION_ACCURACY, a constant that existed in
-    // config and was never referenced. The implementation demoted on one wrong
-    // item instead, so MEAS_UNIT_CONVERT_CM fell from שליטה to בתהליך on
-    // 2026-07-24 while its window still read 90% and the learner demonstrably knew the
-    // material (confirmed by the parent, 2026-07-31).
+    // config and was never referenced. Demoting on one wrong item can contradict
+    // an evidence window that still satisfies the stated mastery rules.
     //
     // Missing one spaced-retrieval item after two weeks is normal — effortful
     // retrieval is the mechanism we WANT. Demoting on it punishes the thing

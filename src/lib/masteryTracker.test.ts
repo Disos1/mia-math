@@ -1,3 +1,6 @@
+/** Mastery must reflect sustained abstract recall across days, not a lucky
+ * same-day streak or pictorial success. A single missed retention probe is
+ * not enough to erase mastery when the accumulated evidence still qualifies. */
 /** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import type { PracticeAttempt, MasteryMap, MasteryRecord, CPALayer } from '../types';

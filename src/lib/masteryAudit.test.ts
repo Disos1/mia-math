@@ -1,3 +1,6 @@
+/** Independently compare stored status against the declared evidence rules.
+ * An internally consistent tracker can still implement the wrong rule; the
+ * audit must expose a demotion whose evidence clears every mastery bar. */
 /** Synthetic regression scenarios only. Never copy learner records into tests. */
 import { describe, it, expect } from 'vitest';
 import type { MasteryMap, MasteryRecord, MasteryStatus } from '../types';

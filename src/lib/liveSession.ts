@@ -1,11 +1,9 @@
 /**
  * The session in progress, saved after every answer so it can be resumed.
  *
- * the parent, 2026-10-27: the learner's tablet has Family Link time limits. When the limit
- * hits mid-session and he adds time, Android reloads the page — and the app
- * composed a brand-new session from question 1. Her answers were saved (they
- * are flushed per answer), but the session itself — which questions, where she
- * was, her combo — lived only in memory.
+ * A device time limit, reload or closed tab can interrupt a session. Persisting
+ * answers alone is insufficient: the question sequence, position and combo
+ * must also survive so resumption does not restart at question one.
  *
  * Now the whole session is stored locally and picked up again on the next
  * start, as long as it is recent. Same session id, so the record she was

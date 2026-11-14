@@ -3,10 +3,10 @@
  * The item generator receives a randomly selected name as a parameter.
  * the learner's actual name never enters an LLM prompt.
  *
- * Family names (the parent's family) are included and marked for easy auditing.
+ * Names are an approved, fixed word-problem vocabulary, not profile data.
  */
 export const GIRL_NAMES = [
-  // Family names — the parent's family
+  // Approved vocabulary
   'מיה', 'מיכל', 'אליס', 'נטשה', 'סבטה', 'אולגה',
   // Common Israeli girls' names
   'דנה', 'שירה', 'נועה', 'רות', 'לימור', 'אורית',
@@ -14,7 +14,7 @@ export const GIRL_NAMES = [
 ] as const;
 
 export const BOY_NAMES = [
-  // Family names — the parent's family
+  // Approved vocabulary
   'דימה', 'ליאו', 'סשה', 'סרגיי',
   // Common Israeli boys' names
   'אמיר', 'יוסי', 'אורי', 'גיל', 'דוד', 'עידן',
