@@ -16,5 +16,6 @@ jobs:
           curl --fail-with-body -X POST \
             "${{ secrets.VITE_SUPABASE_URL }}/functions/v1/daily-summary" \
             -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.MIA_EMAIL_CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             --show-error

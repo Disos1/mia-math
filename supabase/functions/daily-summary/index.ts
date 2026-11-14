@@ -10,12 +10,16 @@
  *   RESEND_API_KEY      — from resend.com
  *   SUMMARY_FROM_EMAIL  — e.g. "Mia Math <noreply@yourdomain.com>"
  *
+ * Trigger auth: requests must carry header x-cron-secret whose SHA-256 matches
+ * public.cron_secrets(name='daily-summary'); otherwise 401. GitHub secret: MIA_EMAIL_CRON_SECRET.
+ *
  * Built-in secrets available automatically in every Edge Function:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { reportDay as toLocalDate, shiftDay, dayLabel, dayStartIso } from './reportDate.ts';
+import { CRON_SECRET_HEADER, CRON_SECRET_NAME, isCronAuthorized } from './cronAuth.ts';
 
 // ─── Hebrew display maps ──────────────────────────────────────────────────────
 
@@ -446,19 +450,38 @@ function buildNudgeEmail(childName: string, daysSince: number, lastDay: string):
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const resendKey   = Deno.env.get('RESEND_API_KEY');
   const fromEmail   = Deno.env.get('SUMMARY_FROM_EMAIL') ?? 'onboarding@resend.dev';
 
-  if (!resendKey) {
-    return new Response('RESEND_API_KEY not set', { status: 500 });
-  }
-
   const db = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  // Only the scheduled job may trigger emails: require the shared secret
+  // (x-cron-secret) whose SHA-256 is stored in public.cron_secrets. Fail closed.
+  const { data: secretRow, error: secretErr } = await db
+    .from('cron_secrets')
+    .select('secret_sha256')
+    .eq('name', CRON_SECRET_NAME)
+    .maybeSingle();
+  if (secretErr) return new Response('Auth check unavailable', { status: 500 });
+  if (!(await isCronAuthorized(req.headers.get(CRON_SECRET_HEADER), secretRow?.secret_sha256))) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  // ?dry_run=1 confirms the secret end to end without sending any email.
+  if (new URL(req.url).searchParams.get('dry_run') === '1') {
+    return new Response(JSON.stringify({ authorized: true, dryRun: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!resendKey) {
+    return new Response('RESEND_API_KEY not set', { status: 500 });
+  }
 
   const { data: { users }, error: usersErr } = await db.auth.admin.listUsers();
   if (usersErr) return new Response(usersErr.message, { status: 500 });
