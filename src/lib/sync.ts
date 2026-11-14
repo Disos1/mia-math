@@ -353,3 +353,36 @@ export async function migrateSessionRecords(records: SessionRecord[]): Promise<v
     console.warn('[sync] migrateSessionRecords failed:', err);
   }
 }
+
+// ─── Device-local state (CPA memory, badge high-water) ───────────────────────
+//
+// Lives on the profile row (profiles.local_state, migration 005) so a new
+// device or a new origin can restore what used to exist only in one browser.
+// Tolerates a missing column: pull returns null, push fails quietly.
+
+export async function pullLocalState(profileId: string): Promise<unknown | null> {
+  if (!SUPABASE_CONFIGURED || !_authUserId) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('local_state')
+    .eq('profile_id', profileId)
+    .maybeSingle();
+  if (error) { console.warn('[sync] pullLocalState error:', error.message); return null; }
+  return (data as { local_state?: unknown } | null)?.local_state ?? null;
+}
+
+/** Await-able so callers can order a pull-merge-push; still never throws. */
+export async function pushLocalState(profileId: string, state: unknown): Promise<boolean> {
+  if (!SUPABASE_CONFIGURED || !_authUserId) return false;
+  const { error } = await supabase
+    .from('profiles')
+    .update({ local_state: state })
+    .eq('profile_id', profileId);
+  if (error) { console.warn('[sync] pushLocalState error:', error.message); return false; }
+  return true;
+}
+
+/** True once a sign-in has initialised sync on this page. */
+export function syncReady(): boolean {
+  return SUPABASE_CONFIGURED && _authUserId !== null;
+}

@@ -17,6 +17,7 @@
  */
 
 import type { CPAMemory, CPALayer } from '../types';
+import { CPA_AT_KEY, scheduleLocalStatePush } from './localStateSync';
 
 const KEY = (profileId: string) => `mia_cpa_memory::${profileId}`;
 
@@ -47,10 +48,16 @@ export function loadCpaMemory(profileId: string): CPAMemory {
 
 export function saveCpaMemory(profileId: string, memory: CPAMemory): void {
   try {
-    localStorage.setItem(KEY(profileId), JSON.stringify(memory));
+    const raw = JSON.stringify(memory);
+    if (localStorage.getItem(KEY(profileId)) === raw) return; // unchanged: keep its timestamp
+    localStorage.setItem(KEY(profileId), raw);
+    // Timestamp for cross-device merge (newer CPA memory wins), then cloud copy.
+    localStorage.setItem(CPA_AT_KEY(profileId), new Date().toISOString());
   } catch {
     // Storage quota exceeded or disabled — silent failure, no crash
+    return;
   }
+  scheduleLocalStatePush(profileId);
 }
 
 /** Start layer for a skill: memory first, diagnostic hint second, abstract last. */

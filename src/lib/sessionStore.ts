@@ -9,6 +9,7 @@
  * records stay local-only for now (analytics, not critical for continuity).
  */
 
+import { scheduleLocalStatePush } from './localStateSync';
 import type {
   MasteryMap,
   SessionRecord,
@@ -65,15 +66,17 @@ export function saveMasteryMap(profileId: string, map: MasteryMap): void {
  * celebrated. Callers pass the current count; this returns (and persists)
  * the historical maximum, which is what badge logic should consume.
  *
- * Device-local by design: badges are recomputed per device, and the learner plays
- * on one iPad. Worst case on a brand-new device the high-water restarts at
- * the current count — badges may briefly under-report, never over-report.
+ * Also copied to profiles.local_state (localStateSync.ts) so a new device or
+ * origin restores the maximum instead of restarting at the current count.
  */
 export function bumpMasteredHighWater(profileId: string, currentCount: number): number {
   const key   = KEY_MASTERED_HW(profileId);
   const prior = read<number>(key, 0);
   const next  = Math.max(prior, currentCount);
-  if (next !== prior) write(key, next);
+  if (next !== prior) {
+    write(key, next);
+    scheduleLocalStatePush(profileId);
+  }
   return next;
 }
 

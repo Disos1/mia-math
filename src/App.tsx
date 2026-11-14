@@ -8,6 +8,7 @@ import { buildGapProfile } from './lib/gapProfile';
 import { mergeMasteryMaps, ledgerFromAttempts, mergeLedgers, reconcileAccuracy } from './lib/masteryTracker';
 import { hydrateClassPosition } from './lib/curriculum/classPosition';
 import { supabase, SUPABASE_CONFIGURED } from './lib/supabase';
+import { reconcileLocalState } from './lib/localStateSync';
 import { initSync, clearSync, pullProfile, pullMasteryMap, pullSessionRecords, pullClassPosition, pullAttemptRows, syncMasteryMap, migrateLocalToRemote, migrateSessionRecords, deleteRemoteProfile } from './lib/sync';
 import type { Profile, Avatar, DiagnosticAttempt, SessionMode, DiagnosticItem as DiagnosticItemType } from './types';
 
@@ -137,6 +138,9 @@ export default function App() {
           .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
         hydrateSessionRecords(remote.profileId, merged);
       }
+      // CPA memory + badge high-water: restore on a new device/origin, upload
+      // from a device that only had them locally. Before any session starts.
+      await reconcileLocalState(remote.profileId);
       setScreen(remote.onboardingComplete ? 'modePicker' : 'diagIntro');
     } else {
       // No remote profile — only migrate local data if it belongs to THIS auth user
@@ -148,6 +152,7 @@ export default function App() {
         const localSessions = loadSessionRecords(local.profileId);
         await migrateLocalToRemote(local, localMastery, userId);
         await migrateSessionRecords(localSessions);
+        await reconcileLocalState(local.profileId);
         setProfile(local);
         setScreen(local.onboardingComplete ? 'modePicker' : 'diagIntro');
       } else {
