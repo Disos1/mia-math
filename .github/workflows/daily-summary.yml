@@ -1,11 +1,7 @@
 name: Daily Summary Email
 
 on:
-  schedule:
-    # 17:00 UTC = 20:00 Israel Standard Time (UTC+3)
-    # Change to "0 16 * * *" during daylight saving (Israel switches in March/October)
-    - cron: '0 17 * * *'
-  workflow_dispatch:   # allow manual trigger from GitHub Actions tab for testing
+  workflow_dispatch:   # manual backup; pg_cron now fires at 19:00 Asia/Jerusalem
 
 jobs:
   send:
