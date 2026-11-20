@@ -20,6 +20,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { reportDay as toLocalDate, shiftDay, dayLabel, dayStartIso } from './reportDate.ts';
 import { CRON_SECRET_HEADER, CRON_SECRET_NAME, isCronAuthorized } from './cronAuth.ts';
+import { englishSection, type EnglishRow } from './english.ts';
 
 // ─── Hebrew display maps ──────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ export function buildEmail(
   prevWeekPct:    number | null,
   weekAttempts:   Array<{ skill_code: string; correct: boolean }> = [],
   reportDate:     string = toLocalDate(new Date()),
+  englishRow:     EnglishRow | null = null,
 ): { subject: string; html: string } {
 
   // This week's first answers per topic — what she actually did, not the
@@ -360,6 +362,8 @@ export function buildEmail(
   <p style="color:#9CA3AF;margin:0 0 20px;font-size:14px;">${dayLabel(reportDate)} · לפי שעון ישראל</p>
 
   ${todaySection}
+
+  ${englishSection(englishRow, reportDate)}
 
   <p style="font-size:12px;color:#6B7280;">נתוני התקופה: ${reportStart} עד ${reportDate}, כולל.</p>
 
@@ -564,6 +568,17 @@ Deno.serve(async (req) => {
       .gte('created_at', dayStartIso(sevenAgo))
       .limit(2000);
 
+    // Latest English exam-prep summary (Mia English app), if one is recent.
+    const { data: englishRow } = await db
+      .from('english_reports')
+      .select('report_day, summary')
+      .eq('profile_id', profile.profile_id)
+      .gte('report_day', shiftDay(today, -3))
+      .lte('report_day', today)
+      .order('report_day', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
     const { subject, html } = buildEmail(
       profile.display_name,
       countable,
@@ -573,6 +588,7 @@ Deno.serve(async (req) => {
       prevWeekPct,
       weekAttempts ?? [],
       today,
+      englishRow ?? null,
     );
 
     const res = await fetch('https://api.resend.com/emails', {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import ts from 'typescript';
 import source from '../../supabase/functions/daily-summary/index.ts?raw';
 import * as dates from '../../supabase/functions/daily-summary/reportDate';
+import * as english from '../../supabase/functions/daily-summary/english';
 
 // Exercise the actual Deno email builder without starting its handler or sending email.
 const exports: Record<string, unknown> = {};
@@ -9,7 +10,7 @@ const js = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
 new Function('exports', 'require', 'Deno', js)(exports,
-  (name: string) => name === './reportDate.ts' ? dates : {
+  (name: string) => name === './reportDate.ts' ? dates : name === './english.ts' ? english : {
     createClient() { throw new Error('Network access is forbidden in render tests'); },
   }, { serve() { /* Register nothing: render-only test. */ } });
 const buildEmail = exports.buildEmail as (...args: unknown[]) => { subject: string; html: string };
@@ -74,5 +75,19 @@ describe('daily email distinguishes zero correct from no attempts', () => {
     const { html } = buildEmail('Test learner', [session(2)], [], [], null, null, [], '2024-01-10');
     expect(html.match(/>50%<\/div>/g)).toHaveLength(2);
     expect(html).not.toContain('לעומת התקופה הקודמת');
+  });
+});
+
+describe('daily email English exam-prep section', () => {
+  const row = { report_day: '2024-01-10', summary: {
+    day: '2024-01-10', words: { total: 64, sure: 30, once: 30, learning: 4, unseen: 0 }, hard: ['scissors'],
+    today: { minutes: 25, sessions: 1, scored: 50, correct: 45, stars: 3 }, mock: null,
+    banks: { sentences: [10, 48], rules: [5, 23], decode: [0, 64] }, build: 't' } };
+  it('appears in the real email only when a report row is passed', () => {
+    const withIt = buildEmail('Test learner', [], [], [], null, null, [], '2024-01-10', row).html;
+    const without = buildEmail('Test learner', [], [], [], null, null, [], '2024-01-10').html;
+    expect(withIt).toContain('אנגלית — הכנה למבחן');
+    expect(withIt).toContain('60/64');
+    expect(without).not.toContain('אנגלית');
   });
 });
